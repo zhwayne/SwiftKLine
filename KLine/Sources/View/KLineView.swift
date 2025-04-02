@@ -42,8 +42,9 @@ enum ChartSection: Sendable {
     // MARK: - Data
     private var mainIndicatorTypes: [IndicatorType] = []
     private var subIndicatorTypes: [IndicatorType] = []
-    private var kLineItems: [KLineItem] = []
+    private var klineItems: [KLineItem] = []
     private var indicatorDatas: [IndicatorData] = []
+    private var selectedData: IndicatorData?
     private var calculators: [any IndicatorCalculator] = []
     private var styleManager: StyleManager { .shared }
     private var longPressLocation: CGPoint = .zero
@@ -58,7 +59,7 @@ enum ChartSection: Sendable {
         
         /* 这个地方应该开放接口，让调用方决定启用哪些指标 */
         indicatorTypeView.mainIndicators = [.vol, .ma, .ema]
-        indicatorTypeView.subIndicators = [.vol, .rsi]
+        indicatorTypeView.subIndicators = [.vol, .rsi, .macd]
         
         scrollView.delegate = self
         candleView.layer.masksToBounds = true
@@ -190,8 +191,11 @@ enum ChartSection: Sendable {
         
         NotificationCenter.default.publisher(for: .didSelectKLineItem)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] item in
-                self?.drawVisibleContent()
+            .compactMap { $0.object as? Int }
+            .sink { [weak self] index in
+                guard let self else { return }
+                selectedData = indicatorDatas[index]
+                drawVisibleContent()
             }
             .store(in: &disposeBag)
     }
@@ -202,9 +206,9 @@ extension KLineView {
     
     public func draw(items: [KLineItem], scrollPosition: ScrollPosition) {
         Task {
-            kLineItems = items
+            klineItems = items
             scrollView.klineItemCount = items.count
-            indicatorDatas = await kLineItems.decorateWithIndicators(calculators: calculators)
+            indicatorDatas = await klineItems.decorateWithIndicators(calculators: calculators)
             redrawContent(scrollPosition: scrollPosition)
         }
     }
@@ -225,7 +229,7 @@ extension KLineView {
         }
         let calcs = type.keys.map(\.calculator)
         calculators.append(contentsOf: calcs)
-        let datas = await kLineItems.decorateWithIndicators(calculators: calcs)
+        let datas = await klineItems.decorateWithIndicators(calculators: calcs)
         indicatorDatas.merge(datas)
         redrawContent(scrollPosition: .current)
     }
@@ -243,7 +247,7 @@ extension KLineView {
         subRenderers.append(type.renderer)
         let calcs = type.keys.map(\.calculator)
         calculators.append(contentsOf: calcs)
-        let datas = await kLineItems.decorateWithIndicators(calculators: calcs)
+        let datas = await klineItems.decorateWithIndicators(calculators: calcs)
         indicatorDatas.merge(datas)
         redrawContent(scrollPosition: .current)
     }
@@ -261,8 +265,8 @@ extension KLineView {
 extension KLineView {
    
     private var visibleItems: ArraySlice<KLineItem> {
-        if kLineItems.isEmpty { return [] }
-        return kLineItems[scrollView.visibleRange]
+        if klineItems.isEmpty { return [] }
+        return klineItems[scrollView.visibleRange]
     }
     
     private var visibleDatas: ArraySlice<IndicatorData> {
@@ -271,7 +275,7 @@ extension KLineView {
     }
     
     private func drawVisibleContent() {
-        guard !kLineItems.isEmpty else { return }
+        guard !klineItems.isEmpty else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(false)
         CATransaction.setAnimationDuration(0)
@@ -343,15 +347,15 @@ extension KLineView {
         }
         
         let transformer = Transformer(
-            contentInset: candleInset,
+            axisInset: candleInset,
             dataBounds: dataBounds,
             viewPort: rect,
-            itemCount: kLineItems.count,
+            itemCount: klineItems.count,
             visibleRange: range,
             indices: indices
         )
         let itemRenderData = RenderData(
-            items: kLineItems,
+            items: klineItems,
             visibleRange: range
         )
         let indicatorRenderData = RenderData(
@@ -386,13 +390,13 @@ extension KLineView {
         let transformer = Transformer(
             dataBounds: .zero,
             viewPort: viewPort,
-            itemCount: kLineItems.count,
+            itemCount: klineItems.count,
             visibleRange: range,
             indices: indices
         )
         // 创建一个新的 RenderData
         let renderData = RenderData(
-            items: kLineItems,
+            items: klineItems,
             visibleRange: range
         )
         // 绘制时间轴
@@ -418,7 +422,7 @@ extension KLineView {
             )
             // 创建一个新的 transformer
             let transformer = Transformer(
-                contentInset: AxisInset(top: 26, bottom: 2),
+                axisInset: AxisInset(top: 26, bottom: 2),
                 dataBounds: dataBounds,
                 viewPort: viewPort,
                 itemCount: indicatorDatas.count,
@@ -428,7 +432,8 @@ extension KLineView {
             // 创建一个新的 RenderData
             let renderData: RenderData<Any> = RenderData(
                 items: indicatorDatas,
-                visibleRange: range
+                visibleRange: range,
+                selectedItem: selectedData
             )
             // 绘制指标
             renderer.transformer = transformer
@@ -436,24 +441,28 @@ extension KLineView {
         }
     }
     
-    private func legendText(for types: [IndicatorType]) -> NSAttributedString {
+    private func legendText(for types: [IndicatorType]) -> NSAttributedString? {
         let legendText = NSMutableAttributedString()
-        guard let indicatorData = visibleDatas.last else {
-            return legendText
+        
+        guard let indicatorData = selectedData ?? visibleDatas.last else {
+            return nil
         }
         
         types.enumerated().forEach { idx, type in
             let text = NSMutableAttributedString()
             for key in type.keys {
-                var number: Double = 0
-                if let value = indicatorData.indicator(forKey: key) {
-                    number = value.doubeValue
+                var string: String = ""
+                if let value = indicatorData.indicator(forKey: key) as? Double {
+                    string = "\(key):\(styleManager.format(value: value))  "
+                }
+                if let value = indicatorData.indicator(forKey: key) as? Int {
+                    string = "\(key):\(styleManager.format(value: value))  "
                 }
                 let indicatorStyle = styleManager.indicatorStyle(for: key)
                 let paragraphStyle = NSMutableParagraphStyle()
                 paragraphStyle.lineHeightMultiple = 1.1
                 let span = NSAttributedString(
-                    string: "\(key):\(styleManager.format(value: number))  ",
+                    string: string,
                     attributes: [
                         .foregroundColor: indicatorStyle.strokeColor,
                         .font: indicatorStyle.font,
@@ -546,12 +555,13 @@ extension KLineView: UIGestureRecognizerDelegate {
         crosshairRengerer.location = location
         crosshairRengerer.timelineHeight = timelineHeight
         crosshairRengerer.timelineY = timelineView.frame.minY
-        crosshairRengerer.klineItemY = candleRenderer.transformer!.contentInset.top - 4
+        crosshairRengerer.klineItemY = candleRenderer.transformer!.axisInset.top - 4
         crosshairRengerer.transformer = transformer
         crosshairRengerer.draw(in: chartView.canvas, data: data)
     }
     
     private func cleanLongPressContetent() {
+        selectedData = nil
         chartView.canvas.sublayers = nil
         for view in chartView.subviews where view !== scrollView {
             view.removeFromSuperview()

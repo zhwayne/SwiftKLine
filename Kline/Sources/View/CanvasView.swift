@@ -13,6 +13,7 @@ final class CanvasView: UIView {
     
     override init(frame: CGRect) {
         super.init(frame: frame)
+        canvas.drawsAsynchronously = true
         layer.addSublayer(canvas)
     }
     

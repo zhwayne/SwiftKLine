@@ -53,17 +53,17 @@ extension Collection where Element == IndicatorData {
     /// - Returns: 包含最大值和最小值的 `MetricBounds`，若无有效数据则返回 `nil`。
     func bounds(for key: IndicatorKey) -> MetricBounds? {
         // 提取特定指标的所有非 nil 值，并尝试转换为 Double
-        let indicatorValues: [Double] = self.compactMap { data in
+        let bounds: [MetricBounds] = self.compactMap { data in
             if let value = data.indicator(forKey: key) {
-                return value.doubeValue
+                return value.bounds
             }
             return nil
         }
         
         // 如果没有有效的数据，返回 nil
-        guard !indicatorValues.isEmpty,
-              let minVal = indicatorValues.min(),
-              let maxVal = indicatorValues.max() else {
+        guard !bounds.isEmpty,
+              let minVal = bounds.min(by: { $0.min < $1.min })?.min,
+              let maxVal = bounds.max(by: { $0.max < $1.max })?.max else {
             return nil
         }
         

@@ -32,7 +32,7 @@ public struct CandleStyle {
     public var upColor: UIColor = .systemPink
     public var downColor: UIColor = .systemTeal
     public var width: CGFloat = 12
-    public var gap: CGFloat = 3
+    public var gap: CGFloat = 2
         
     fileprivate init() { }
 }
@@ -67,7 +67,7 @@ public struct CandleStyle {
     }
     
     public func indicatorStyle(for key: IndicatorKey) -> IndicatorStyle {
-        var style = indicatorStyles[key] ?? IndicatorStyle(strokeColor: .black)
+        var style = indicatorStyles[key] ?? IndicatorStyle(strokeColor: .label)
         style.candleStyle = candleStyle
         return style
     }

@@ -28,21 +28,22 @@ struct EMACalculator: IndicatorCalculator {
         
         // 计算初始 EMA（简单移动平均线作为初始值）
         var sum = 0.0
-        for i in 0..<period {
+        
+        var previousEMA = 0.0
+        for i in 0..<items.count {
             sum += items[i].closing
-        }
-        
-        // 第一个 EMA 值（简单平均作为基础）
-        let initialEMA = sum / Double(period)
-        emaValues[period - 1] = initialEMA
-        
-        // 从第 `period` 个位置开始计算 EMA
-        var previousEMA = initialEMA
-        for i in period..<items.count {
-            let currentPrice = items[i].closing
-            let ema = (currentPrice - previousEMA) * alpha + previousEMA
-            emaValues[i] = ema
-            previousEMA = ema
+            if i >= period {
+                // 从第 `period` 个位置开始计算 EMA
+                let currentPrice = items[i].closing
+                let ema = (currentPrice - previousEMA) * alpha + previousEMA
+                emaValues[i] = ema
+                previousEMA = ema
+            } else {
+                // 前 i+1 个数据的平均
+                let ema = sum / Double(i + 1)
+                emaValues[i] = ema
+                previousEMA = ema
+            }
         }
         
         return emaValues

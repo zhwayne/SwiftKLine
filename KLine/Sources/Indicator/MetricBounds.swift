@@ -13,7 +13,7 @@ struct MetricBounds: Sendable {
     var min: Double      // 最小值
     
     static var zero: Self {
-        MetricBounds(max: 0, min: 0)
+        MetricBounds(max: -.infinity, min: .infinity)
     }
 }
 

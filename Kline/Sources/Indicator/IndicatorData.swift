@@ -8,15 +8,15 @@
 import Foundation
 
 protocol IndicatorValue: Sendable {
-    var doubeValue: Double { get }
+    var bounds: MetricBounds { get }
 }
 
 extension Double: IndicatorValue {
-    var doubeValue: Double { self }
+    var bounds: MetricBounds { MetricBounds(max: self, min: self) }
 }
 
 extension Int: IndicatorValue {
-    var doubeValue: Double { Double(self) }
+    var bounds: MetricBounds { MetricBounds(max: Double(self), min: Double(self)) }
 }
 
 /// 将 `KLineItem` 与其计算出的指标关联起来。

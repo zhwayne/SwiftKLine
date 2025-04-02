@@ -8,27 +8,19 @@
 import UIKit
 
 /// 渲染数据
-@dynamicMemberLookup
 struct RenderData<T> {
     let items: [T]
     let visibleRange: Range<Int>
+    let selectedItem: T?
     
-    init(items: [T], visibleRange: Range<Int>) {
+    init(items: [T], visibleRange: Range<Int>, selectedItem: T? = nil) {
         self.items = items
         self.visibleRange = visibleRange
+        self.selectedItem = selectedItem
     }
 
     var visibleItems: [T] { Array(items[visibleRange]) }
     var itemType: Any.Type { T.self } // 直接反射泛型类型
-    
-    // 动态属性存储
-    private var dynamicProperties: [String: Any] = [:]
-    
-    // 动态成员下标
-    subscript<U>(dynamicMember key: String) -> U? {
-        get { dynamicProperties[key] as? U }
-        set { dynamicProperties[key] = newValue }
-    }
 }
 
 
@@ -39,7 +31,7 @@ struct RenderData<T> {
     associatedtype Item
                 
     var transformer: Transformer? { get set }
-    
+        
     func draw(in layer: CALayer, data: RenderData<Item>)
 }
 

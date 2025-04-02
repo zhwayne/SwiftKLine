@@ -21,14 +21,15 @@ final class RSIRenderer: IndicatorRenderer {
     init() {
     }
     
-    func draw(in layer: CALayer, data: RenderData<IndicatorData>) {
+    func draw(in layer: CALayer, data: RenderData<Item>) {
         transformer?.dataBounds.combine(other: .init(max: 70, min: 30))
         guard let transformer = transformer else { return }
         
         let rect = transformer.viewPort
         let candleStyle = styleManager.candleStyle
         let visibleItems = data.visibleItems
-        guard let indicatorData = visibleItems.last else { return }
+        guard let last = visibleItems.last else { return }
+        let indicatorData = data.selectedItem ?? last
         
         let sublayer = CALayer()
         sublayer.contentsScale = UIScreen.main.scale
@@ -43,8 +44,8 @@ final class RSIRenderer: IndicatorRenderer {
         
         for key in type.keys {
             var number: Double = 0
-            if let value = indicatorData.indicator(forKey: key) {
-                number = value.doubeValue
+            if let value = indicatorData.indicator(forKey: key) as? Double {
+                number = value
             }
             let indicatorStyle = styleManager.indicatorStyle(for: key)
             let paragraphStyle = NSMutableParagraphStyle()
@@ -104,7 +105,7 @@ final class RSIRenderer: IndicatorRenderer {
             let path = UIBezierPath()
             var hasStartPoint = false
             for (idx, item) in visibleItems.enumerated() {
-                guard let value = item.indicator(forKey: key)?.doubeValue else {
+                guard let value = item.indicator(forKey: key) as? Double else {
                     continue
                 }
                 // 计算 x 坐标

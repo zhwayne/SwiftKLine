@@ -21,7 +21,7 @@ final class VOLRenderer: IndicatorRenderer {
     init() {
     }
 
-    func draw(in layer: CALayer, data: RenderData<IndicatorData>) {
+    func draw(in layer: CALayer, data: RenderData<Item>) {
         guard let transformer = transformer else { return }
         let rect = transformer.viewPort
         let candleStyle = styleManager.candleStyle
@@ -59,7 +59,7 @@ final class VOLRenderer: IndicatorRenderer {
         legendLayer.font = indicatorStyle.font as CTFont
         legendLayer.fontSize = indicatorStyle.font.pointSize
         legendLayer.foregroundColor = indicatorStyle.strokeColor.cgColor
-        let volume = items.last!.item.volume
+        let volume = data.selectedItem?.item.volume ?? items.last!.item.volume
         legendLayer.string = "VOL:\(styleManager.format(value: volume))"
         let size = legendLayer.preferredFrameSize()
         legendLayer.frame = CGRect(x: 12, y: rect.minY + 8, width: size.width, height: size.height)

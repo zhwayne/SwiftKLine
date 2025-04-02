@@ -27,22 +27,11 @@ struct MACalculator: IndicatorCalculator {
         for i in 0..<items.count {
             sum += items[i].closing
             
-//            if i >= period {
-//                sum -= items[i - period].closing
-//            }
-//            
-//            if i >= period - 1 {
-//                result[i] = sum / Double(period)
-//            }
+            if i >= period {
+                sum -= items[i - period].closing
+            }
             
-            // 前几个数据使用部分平均值
-            if i < period - 1 {
-                result[i] = sum / Double(i + 1)
-            } else {
-                // 正常计算 MA
-                if i >= period {
-                    sum -= items[i - period].closing
-                }
+            if i >= period - 1 {
                 result[i] = sum / Double(period)
             }
         }

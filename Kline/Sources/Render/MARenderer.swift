@@ -20,7 +20,7 @@ final class MARenderer: IndicatorRenderer {
     init() {
     }
 
-    func draw(in layer: CALayer, data: RenderData<IndicatorData>) {
+    func draw(in layer: CALayer, data: RenderData<Item>) {
         guard let transformer = transformer else { return }
         let candleStyle = styleManager.candleStyle
         let visibleItems = data.visibleItems
@@ -42,7 +42,7 @@ final class MARenderer: IndicatorRenderer {
             let path = UIBezierPath()
             var hasStartPoint = false
             for (idx, item) in visibleItems.enumerated() {
-                guard let value = item.indicator(forKey: key)?.doubeValue else {
+                guard let value = item.indicator(forKey: key) as? Double else {
                     continue
                 }
                 // 计算 x 坐标

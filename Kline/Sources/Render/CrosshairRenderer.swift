@@ -52,7 +52,7 @@ final class CrosshairRenderer: ChartRenderer {
         feedback.prepare()
     }
     
-    func draw(in layer: CALayer, data: RenderData<IndicatorData>) {
+    func draw(in layer: CALayer, data: RenderData<Item>) {
         guard let transformer = transformer else { return }
         
         let dashLineLayer = CAShapeLayer()
@@ -78,7 +78,7 @@ final class CrosshairRenderer: ChartRenderer {
         let index = transformer.indexOfVisibleItem(xAxis: location.x, extend: true)!
         let candleHalfWidth = styleManager.candleStyle.width * 0.5
         let indexInVisibaleRect = index - data.visibleRange.lowerBound
-        location.x = transformer.xAxisInLayer(at: indexInVisibaleRect) + candleHalfWidth
+        location.x = transformer.xAxis(at: indexInVisibaleRect, space: .layer) + candleHalfWidth
         // x轴变化时反馈
         if lastLocationX != location.x {
             if #available(iOS 17.5, *) {
@@ -88,8 +88,7 @@ final class CrosshairRenderer: ChartRenderer {
                 feedback.selectionChanged()
             }
             if index >= 0 && index < data.items.count {
-                let item = data.items[index]
-                NotificationCenter.default.post(name: .didSelectKLineItem, object: item)
+                NotificationCenter.default.post(name: .didSelectKLineItem, object: index)
             }
         }
         lastLocationX = location.x
@@ -101,9 +100,9 @@ final class CrosshairRenderer: ChartRenderer {
         defer { dashLineLayer.path = path.cgPath }
         
         let edgeInset = UIEdgeInsets(
-            top: transformer.contentInset.top,
+            top: transformer.axisInset.top,
             left: 0,
-            bottom: transformer.contentInset.bottom,
+            bottom: transformer.axisInset.bottom,
             right: 0
         )
         

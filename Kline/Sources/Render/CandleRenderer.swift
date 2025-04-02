@@ -182,7 +182,7 @@ final class CandleRenderer: ChartRenderer {
             var y = transformer.yAxis(for: item.closing)
             y = min(max(y, minY), maxY)
             let index = data.items.count - data.visibleRange.lowerBound - 1
-            var x = transformer.xAxisInLayer(at: index)
+            var x = transformer.xAxis(at: index, space: .layer)
             if x > rect.maxX { x = 0 }
             let end = CGPoint(x: x, y: y)
             let start = CGPoint(x: rect.width, y: y)

@@ -9,7 +9,7 @@ import Foundation
 
 extension Notification.Name {
     
-    static let scrollToTop = Notification.Name(rawValue: "scrollKLineChartToTop")
+    static let scrollToTop = Notification.Name(rawValue: "scrollKlineChartToTop")
     
-    static let didSelectKLineItem = Notification.Name(rawValue: "didSelectKLineItem")
+    static let didSelectKLineItem = Notification.Name(rawValue: "didSelectKlineItem")
 }
