@@ -24,7 +24,7 @@ public struct KLineItem: Equatable, Sendable {
     public let closing: Double      // 收盘价
     public let highest: Double      // 最高价
     public let lowest: Double       // 最低价
-    public let volume: Int          // 成交量
+    public let volume: Double       // 成交量
     public let value: Double        // 成交额
     public let timestamp: Int       // 时间戳
     
@@ -33,7 +33,7 @@ public struct KLineItem: Equatable, Sendable {
         closing: Double,
         highest: Double,
         lowest: Double,
-        volume: Int,
+        volume: Double,
         value: Double,
         timestamp: Int
     ) {
