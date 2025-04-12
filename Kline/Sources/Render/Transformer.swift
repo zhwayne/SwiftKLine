@@ -19,7 +19,6 @@ struct AxisInset {
     }
 }
 
-@MainActor
 struct Transformer {
     
     enum CoordinatorSpace {

@@ -23,6 +23,7 @@ enum ChartSection: Sendable {
     private let timelineView = CanvasView()
     private let subIndicatorView = CanvasView()
     private var indicatorTypeView = IndicatorTypeView()
+    private let watermarkLabel = UILabel()
     
     // MARK: - Height defines
     private let candleHeight: CGFloat = 340
@@ -68,6 +69,14 @@ enum ChartSection: Sendable {
         
         addSubview(chartView)
         addSubview(indicatorTypeView)
+        
+        watermarkLabel.text = "Created by iyabb"
+        watermarkLabel.textColor = .quaternarySystemFill
+        watermarkLabel.font = .systemFont(ofSize: 32, weight: .bold)
+        candleView.addSubview(watermarkLabel)
+        watermarkLabel.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+        }
         
         chartView.snp.makeConstraints { make in
             make.left.right.top.equalToSuperview()
@@ -275,6 +284,12 @@ extension KLineView {
     }
     
     private func drawVisibleContent() {
+        let start = CACurrentMediaTime()
+        defer {
+            let end = CACurrentMediaTime()
+            let duration = (end - start) * 1000
+            print("draw in \(String(format: "%.3f", duration)) ms.")
+        }
         guard !klineItems.isEmpty else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(false)

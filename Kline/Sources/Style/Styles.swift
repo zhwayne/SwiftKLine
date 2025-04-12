@@ -37,9 +37,9 @@ public struct CandleStyle {
     fileprivate init() { }
 }
 
-@MainActor final public class StyleManager {
+final public class StyleManager {
     
-    public static let shared = StyleManager()
+    nonisolated(unsafe) public static let shared = StyleManager()
         
     private init() { }
     

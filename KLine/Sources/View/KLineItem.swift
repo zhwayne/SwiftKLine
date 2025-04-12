@@ -10,7 +10,7 @@ import UIKit
 enum KLineTrend: Sendable {
     case up, down, equal
     
-    @MainActor var color: CGColor {
+    var color: CGColor {
         switch self {
         case .down: return StyleManager.shared.candleStyle.downColor.cgColor
         default: return StyleManager.shared.candleStyle.upColor.cgColor
