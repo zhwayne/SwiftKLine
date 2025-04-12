@@ -10,7 +10,7 @@ import UIKit
 final class MACDRenderer: IndicatorRenderer {
     
     private var styleManager: StyleManager { .shared }
-    
+    private let lineWidth = 1 / UIScreen.main.scale
     var transformer: Transformer?
     
     var type: IndicatorType { .macd }
@@ -18,10 +18,14 @@ final class MACDRenderer: IndicatorRenderer {
     typealias Item = IndicatorData
     
     func draw(in layer: CALayer, data: RenderData<IndicatorData>) {
-        guard let transformer = transformer,
-              case let .macd(shortPeriod, longPeriod, signalPeriod) = type.keys[0] else {
+        guard var transformer = transformer,
+              case .macd = type.keys[0] else {
             return
         }
+        let maxValue = max(abs(transformer.dataBounds.min), abs(transformer.dataBounds.max))
+        transformer.dataBounds.combine(other: MetricBounds(max: maxValue, min: -maxValue))
+        self.transformer = transformer
+        
         let rect = transformer.viewPort
         let candleStyle = styleManager.candleStyle
         let visibleItems = data.visibleItems
@@ -47,21 +51,35 @@ final class MACDRenderer: IndicatorRenderer {
         for (idx, value) in indicatorValues.enumerated() {
             guard let value else { continue }
             let shape = CAShapeLayer()
+            shape.lineWidth = 1
             shape.contentsScale = UIScreen.main.scale
             shape.strokeColor = UIColor.clear.cgColor
+            shape.fillColor = UIColor.clear.cgColor
             let x = transformer.xAxis(at: idx)
-            var fillColor = KLineTrend.up.color
-            if idx > 0, let previousValue = indicatorValues[idx - 1],
-               value.histogram < previousValue.histogram {
-                fillColor = KLineTrend.down.color
-            }
-            shape.fillColor = fillColor
             
             let y1 = transformer.yAxis(for: value.histogram > 0 ? value.histogram : 0)
             let y2 = transformer.yAxis(for: value.histogram > 0 ? 0 : value.histogram)
-            let rect = CGRect(x: x, y: y1, width: candleStyle.width, height: y2 - y1)
+            let height = max(y2 - y1, 1)
+            let rect = CGRect(x: x, y: y1, width: candleStyle.width, height: height)
             let path = UIBezierPath(rect: rect)
             shape.path = path.cgPath
+            
+            var isFillMode = true
+            var color = KLineTrend.up.color
+            if idx > 0, let previousValue = indicatorValues[idx - 1] {
+                if value.histogram < previousValue.histogram {
+                    isFillMode = false
+                }
+                if value.histogram < 0 {
+                    color = KLineTrend.down.color
+                }
+            }
+            if isFillMode {
+                shape.fillColor = color
+            } else {
+                shape.strokeColor = color
+            }
+            
             sublayer.addSublayer(shape)
         }
         
@@ -138,5 +156,17 @@ final class MACDRenderer: IndicatorRenderer {
         let size = legendLayer.preferredFrameSize()
         legendLayer.frame = CGRect(x: 12, y: rect.minY + 8, width: size.width, height: size.height)
         layer.addSublayer(legendLayer)
+        
+        // MARK: - 边界线
+        
+        let bottomLineLayer = CAShapeLayer()
+        bottomLineLayer.lineWidth = lineWidth
+        bottomLineLayer.fillColor = UIColor.clear.cgColor
+        bottomLineLayer.strokeColor = UIColor.separator.cgColor
+        let bottomLinePath = UIBezierPath()
+        bottomLinePath.move(to: CGPoint(x: 0, y: rect.maxY - lineWidth))
+        bottomLinePath.addLine(to: CGPoint(x: layer.bounds.maxX, y: rect.maxY - lineWidth))
+        bottomLineLayer.path = bottomLinePath.cgPath
+        layer.addSublayer(bottomLineLayer)
     }
 }

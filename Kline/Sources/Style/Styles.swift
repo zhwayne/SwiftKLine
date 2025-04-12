@@ -29,8 +29,8 @@ public struct IndicatorStyle {
 }
 
 public struct CandleStyle {
-    public var upColor: UIColor = .systemPink
-    public var downColor: UIColor = .systemTeal
+    public var upColor: UIColor = .systemTeal
+    public var downColor: UIColor = .systemPink
     public var width: CGFloat = 12
     public var gap: CGFloat = 2
         

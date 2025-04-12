@@ -132,7 +132,7 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
     
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         let snapshot = dataSource.snapshot()
-        let type = snapshot.itemIdentifiers[indexPath.item]
+        let type = snapshot.itemIdentifiers(inSection: indexPath.section)[indexPath.item]
         if case .separator = type {
             return false
         }

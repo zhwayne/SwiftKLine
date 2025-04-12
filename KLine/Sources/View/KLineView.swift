@@ -59,7 +59,7 @@ enum ChartSection: Sendable {
         chartView.canvas.zPosition = 1
         
         /* 这个地方应该开放接口，让调用方决定启用哪些指标 */
-        indicatorTypeView.mainIndicators = [.vol, .ma, .ema]
+        indicatorTypeView.mainIndicators = [.ma, .ema]
         indicatorTypeView.subIndicators = [.vol, .rsi, .macd]
         
         scrollView.delegate = self
@@ -71,8 +71,9 @@ enum ChartSection: Sendable {
         addSubview(indicatorTypeView)
         
         watermarkLabel.text = "Created by iyabb"
-        watermarkLabel.textColor = .quaternarySystemFill
+        watermarkLabel.textColor = .tertiarySystemFill
         watermarkLabel.font = .systemFont(ofSize: 32, weight: .bold)
+        watermarkLabel.layer.zPosition = -1
         candleView.addSubview(watermarkLabel)
         watermarkLabel.snp.makeConstraints { make in
             make.center.equalToSuperview()
