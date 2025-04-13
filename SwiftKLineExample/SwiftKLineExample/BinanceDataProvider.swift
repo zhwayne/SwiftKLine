@@ -6,8 +6,8 @@
 //  Copyright © 2025 iya. All rights reserved.
 //
 
-import KLine
 import Foundation
+import KLine
 import SwiftyJSON
 
 final class BinanceDataProvider: KLineItemProvider {

@@ -53,6 +53,7 @@ final class KLineItemLoader: @unchecked Sendable {
                 try Task.checkCancellation()
                 page += 1
             } catch {
+                print(error)
             }
         }
     }

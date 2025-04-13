@@ -28,7 +28,7 @@ enum ChartSection: Sendable {
     // MARK: - Height defines
     private let candleHeight: CGFloat = 340
     private let timelineHeight: CGFloat = 16
-    private let indicatorHeight: CGFloat = 64
+    private let indicatorHeight: CGFloat = 72
     private let indicatorTypeHeight: CGFloat = 32
     private var chartHeightConstraint: Constraint!
     
@@ -162,9 +162,16 @@ enum ChartSection: Sendable {
             drawCrosshair()
         }
     }
+    
+    public override var intrinsicContentSize: CGSize {
+        var size = super.intrinsicContentSize
+        size.height = scrollViewHeight + indicatorTypeHeight
+        return size
+    }
    
     private func updateChartHeightConstraint() {
         chartHeightConstraint.update(offset: scrollViewHeight)
+        invalidateIntrinsicContentSize()
         cleanLongPressContetent()
     }
     
@@ -214,10 +221,11 @@ enum ChartSection: Sendable {
 extension KLineView {
     
     public func setProvider(_ provider: KLineItemProvider) {
+        // TODO: 显示 loading
         klineItemLoader = KLineItemLoader(provider: provider) { [weak self] page, items in
             guard let self else { return }
             let allItems = page == 0 ? items : items + klineItems
-            await draw(items: allItems, scrollPosition: klineItems.isEmpty ? .right : .current)
+            await draw(items: allItems, scrollPosition: page == 0 ? .right : .current)
         }
         klineItemLoader?.loadMore()
     }
@@ -231,6 +239,7 @@ extension KLineView {
         klineItems = items
         scrollView.klineItemCount = items.count
         scrollView.scroll(to: scrollPosition)
+        drawVisibleContent()
     }
     
     private func drawMainIndicator(type: IndicatorType) async {

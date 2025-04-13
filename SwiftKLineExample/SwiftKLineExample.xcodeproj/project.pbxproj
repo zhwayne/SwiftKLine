@@ -7,70 +7,55 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0BB9A3582CD35F8B0076CCF8 /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = 0BB9A3572CD35F8B0076CCF8 /* SnapKit */; };
-		0BB9A35D2CD363070076CCF8 /* SwiftyJSON in Frameworks */ = {isa = PBXBuildFile; productRef = 0BB9A35C2CD363070076CCF8 /* SwiftyJSON */; };
-		9624C05A2D9BE25F00A0BA5D /* KLine in Frameworks */ = {isa = PBXBuildFile; productRef = 9624C0592D9BE25F00A0BA5D /* KLine */; };
+		9636C3CE2DABEDF700420970 /* KLine in Frameworks */ = {isa = PBXBuildFile; productRef = 9636C3CD2DABEDF700420970 /* KLine */; };
+		9636C3D12DABEE0F00420970 /* SwiftyJSON in Frameworks */ = {isa = PBXBuildFile; productRef = 9636C3D02DABEE0F00420970 /* SwiftyJSON */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0BB9A3332CD353E10076CCF8 /* KLineDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KLineDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		9624C0582D9BE25800A0BA5D /* KLine */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = KLine; sourceTree = "<group>"; };
+		9636C3BD2DABED4C00420970 /* SwiftKLineExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwiftKLineExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9636C3CB2DABEDB400420970 /* KLine */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = KLine; path = ../KLine; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		0BB9A3452CD353E20076CCF8 /* Exceptions for "KLineDemo" folder in "KLineDemo" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 0BB9A3322CD353E10076CCF8 /* KLineDemo */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		0BB9A3352CD353E10076CCF8 /* KLineDemo */ = {
+		9636C3BF2DABED4C00420970 /* SwiftKLineExample */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				0BB9A3452CD353E20076CCF8 /* Exceptions for "KLineDemo" folder in "KLineDemo" target */,
-			);
-			path = KLineDemo;
+			path = SwiftKLineExample;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		0BB9A3302CD353E10076CCF8 /* Frameworks */ = {
+		9636C3BA2DABED4C00420970 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9624C05A2D9BE25F00A0BA5D /* KLine in Frameworks */,
-				0BB9A35D2CD363070076CCF8 /* SwiftyJSON in Frameworks */,
-				0BB9A3582CD35F8B0076CCF8 /* SnapKit in Frameworks */,
+				9636C3D12DABEE0F00420970 /* SwiftyJSON in Frameworks */,
+				9636C3CE2DABEDF700420970 /* KLine in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		0BB9A32A2CD353E10076CCF8 = {
+		9636C3B42DABED4C00420970 = {
 			isa = PBXGroup;
 			children = (
-				9624C0582D9BE25800A0BA5D /* KLine */,
-				0BB9A3352CD353E10076CCF8 /* KLineDemo */,
-				964915972D9267EF008D4E5A /* Frameworks */,
-				0BB9A3342CD353E10076CCF8 /* Products */,
+				9636C3CB2DABEDB400420970 /* KLine */,
+				9636C3BF2DABED4C00420970 /* SwiftKLineExample */,
+				9636C3CC2DABEDF700420970 /* Frameworks */,
+				9636C3BE2DABED4C00420970 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		0BB9A3342CD353E10076CCF8 /* Products */ = {
+		9636C3BE2DABED4C00420970 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0BB9A3332CD353E10076CCF8 /* KLineDemo.app */,
+				9636C3BD2DABED4C00420970 /* SwiftKLineExample.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		964915972D9267EF008D4E5A /* Frameworks */ = {
+		9636C3CC2DABEDF700420970 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -80,72 +65,69 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		0BB9A3322CD353E10076CCF8 /* KLineDemo */ = {
+		9636C3BC2DABED4C00420970 /* SwiftKLineExample */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 0BB9A3462CD353E20076CCF8 /* Build configuration list for PBXNativeTarget "KLineDemo" */;
+			buildConfigurationList = 9636C3C82DABED4E00420970 /* Build configuration list for PBXNativeTarget "SwiftKLineExample" */;
 			buildPhases = (
-				0BB9A32F2CD353E10076CCF8 /* Sources */,
-				0BB9A3302CD353E10076CCF8 /* Frameworks */,
-				0BB9A3312CD353E10076CCF8 /* Resources */,
+				9636C3B92DABED4C00420970 /* Sources */,
+				9636C3BA2DABED4C00420970 /* Frameworks */,
+				9636C3BB2DABED4C00420970 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				0BB9A3352CD353E10076CCF8 /* KLineDemo */,
+				9636C3BF2DABED4C00420970 /* SwiftKLineExample */,
 			);
-			name = KLineDemo;
+			name = SwiftKLineExample;
 			packageProductDependencies = (
-				0BB9A3572CD35F8B0076CCF8 /* SnapKit */,
-				0BB9A35C2CD363070076CCF8 /* SwiftyJSON */,
-				9624C0592D9BE25F00A0BA5D /* KLine */,
+				9636C3CD2DABEDF700420970 /* KLine */,
+				9636C3D02DABEE0F00420970 /* SwiftyJSON */,
 			);
-			productName = KLineDemo;
-			productReference = 0BB9A3332CD353E10076CCF8 /* KLineDemo.app */;
+			productName = SwiftKLineExample;
+			productReference = 9636C3BD2DABED4C00420970 /* SwiftKLineExample.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		0BB9A32B2CD353E10076CCF8 /* Project object */ = {
+		9636C3B52DABED4C00420970 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1610;
-				LastUpgradeCheck = 1610;
-				ORGANIZATIONNAME = iya;
+				LastSwiftUpdateCheck = 1630;
+				LastUpgradeCheck = 1630;
 				TargetAttributes = {
-					0BB9A3322CD353E10076CCF8 = {
-						CreatedOnToolsVersion = 16.1;
+					9636C3BC2DABED4C00420970 = {
+						CreatedOnToolsVersion = 16.3;
 					};
 				};
 			};
-			buildConfigurationList = 0BB9A32E2CD353E10076CCF8 /* Build configuration list for PBXProject "KLineDemo" */;
+			buildConfigurationList = 9636C3B82DABED4C00420970 /* Build configuration list for PBXProject "SwiftKLineExample" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = 0BB9A32A2CD353E10076CCF8;
+			mainGroup = 9636C3B42DABED4C00420970;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				0BB9A3562CD35F8B0076CCF8 /* XCRemoteSwiftPackageReference "SnapKit" */,
-				0BB9A35B2CD363070076CCF8 /* XCRemoteSwiftPackageReference "SwiftyJSON" */,
+				9636C3CF2DABEE0F00420970 /* XCRemoteSwiftPackageReference "SwiftyJSON" */,
 			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 0BB9A3342CD353E10076CCF8 /* Products */;
+			productRefGroup = 9636C3BE2DABED4C00420970 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				0BB9A3322CD353E10076CCF8 /* KLineDemo */,
+				9636C3BC2DABED4C00420970 /* SwiftKLineExample */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		0BB9A3312CD353E10076CCF8 /* Resources */ = {
+		9636C3BB2DABED4C00420970 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -155,7 +137,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		0BB9A32F2CD353E10076CCF8 /* Sources */ = {
+		9636C3B92DABED4C00420970 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -165,73 +147,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		0BB9A3472CD353E20076CCF8 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = BS4TL98W43;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = KLineDemo/Info.plist;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UIMainStoryboardFile = Main;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.iyabb.KLineDemo;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
-			};
-			name = Debug;
-		};
-		0BB9A3482CD353E20076CCF8 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = BS4TL98W43;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = KLineDemo/Info.plist;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UIMainStoryboardFile = Main;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.iyabb.KLineDemo;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
-			};
-			name = Release;
-		};
-		0BB9A3492CD353E20076CCF8 /* Debug */ = {
+		9636C3C62DABED4E00420970 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -266,6 +182,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = BS4TL98W43;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -283,7 +200,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -294,7 +211,7 @@
 			};
 			name = Debug;
 		};
-		0BB9A34A2CD353E20076CCF8 /* Release */ = {
+		9636C3C72DABED4E00420970 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -329,6 +246,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = BS4TL98W43;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -340,7 +258,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -350,23 +268,89 @@
 			};
 			name = Release;
 		};
+		9636C3C92DABED4E00420970 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BS4TL98W43;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = top.iyabb.SwiftKLineExample;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		9636C3CA2DABED4E00420970 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BS4TL98W43;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = top.iyabb.SwiftKLineExample;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		0BB9A32E2CD353E10076CCF8 /* Build configuration list for PBXProject "KLineDemo" */ = {
+		9636C3B82DABED4C00420970 /* Build configuration list for PBXProject "SwiftKLineExample" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				0BB9A3492CD353E20076CCF8 /* Debug */,
-				0BB9A34A2CD353E20076CCF8 /* Release */,
+				9636C3C62DABED4E00420970 /* Debug */,
+				9636C3C72DABED4E00420970 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		0BB9A3462CD353E20076CCF8 /* Build configuration list for PBXNativeTarget "KLineDemo" */ = {
+		9636C3C82DABED4E00420970 /* Build configuration list for PBXNativeTarget "SwiftKLineExample" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				0BB9A3472CD353E20076CCF8 /* Debug */,
-				0BB9A3482CD353E20076CCF8 /* Release */,
+				9636C3C92DABED4E00420970 /* Debug */,
+				9636C3CA2DABED4E00420970 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -374,15 +358,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		0BB9A3562CD35F8B0076CCF8 /* XCRemoteSwiftPackageReference "SnapKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/SnapKit/SnapKit";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 5.7.1;
-			};
-		};
-		0BB9A35B2CD363070076CCF8 /* XCRemoteSwiftPackageReference "SwiftyJSON" */ = {
+		9636C3CF2DABEE0F00420970 /* XCRemoteSwiftPackageReference "SwiftyJSON" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/SwiftyJSON/SwiftyJSON";
 			requirement = {
@@ -393,21 +369,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		0BB9A3572CD35F8B0076CCF8 /* SnapKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 0BB9A3562CD35F8B0076CCF8 /* XCRemoteSwiftPackageReference "SnapKit" */;
-			productName = SnapKit;
-		};
-		0BB9A35C2CD363070076CCF8 /* SwiftyJSON */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 0BB9A35B2CD363070076CCF8 /* XCRemoteSwiftPackageReference "SwiftyJSON" */;
-			productName = SwiftyJSON;
-		};
-		9624C0592D9BE25F00A0BA5D /* KLine */ = {
+		9636C3CD2DABEDF700420970 /* KLine */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = KLine;
 		};
+		9636C3D02DABEE0F00420970 /* SwiftyJSON */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9636C3CF2DABEE0F00420970 /* XCRemoteSwiftPackageReference "SwiftyJSON" */;
+			productName = SwiftyJSON;
+		};
 /* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 0BB9A32B2CD353E10076CCF8 /* Project object */;
+	rootObject = 9636C3B52DABED4C00420970 /* Project object */;
 }

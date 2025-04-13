@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct KLinePeriod: Sendable {
+public struct KLinePeriod: Equatable, Sendable {
     
     public let seconds: Int
     public let identifier: String
