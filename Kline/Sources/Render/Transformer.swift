@@ -79,16 +79,26 @@ struct Transformer {
     func yAxis(for value: Double, inset: AxisInset = .zero) -> CGFloat {
         // 将数据值映射到图表高度上的位置。
         // valueRatio 表示数据值在最小值和最大值之间的归一化比例。
+        if dataBounds.distance == 0 { return 0 }
         let valueRatio = CGFloat((value - dataBounds.min) / dataBounds.distance)
         let adjustedInset = self.axisInset.merging(inset)
         let height = viewPort.height - adjustedInset.top - adjustedInset.bottom
-        return adjustedInset.top + (1.0 - valueRatio) * height
+        let yAxis = adjustedInset.top + (1.0 - valueRatio) * height
+        if yAxis.isNaN {
+            fatalError()
+        }
+        return yAxis
     }
     
     func valueOf(yAxis y: CGFloat) -> Double {
         let topY = axisInset.top
         let bottomY = viewPort.height - axisInset.bottom
+        if bottomY - topY == 0 { return 0 }
         let valueRatio = CGFloat((y - topY) / (bottomY - topY))
-        return dataBounds.min + (1 - valueRatio) * dataBounds.distance
+        let value = dataBounds.min + (1 - valueRatio) * dataBounds.distance
+        if value.isNaN {
+            fatalError()
+        }
+        return value
     }
 }

@@ -121,7 +121,6 @@ final class CandleRenderer: ChartRenderer {
         upLayer.path = upPath.cgPath
         downLayer.path = downPath.cgPath
         
-        
         let priceLinePath = UIBezierPath()
         
         // MARK: - 最高价指示

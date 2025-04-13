@@ -53,13 +53,11 @@ final class MACDRenderer: IndicatorRenderer {
             let shape = CAShapeLayer()
             shape.lineWidth = 1
             shape.contentsScale = UIScreen.main.scale
-            shape.strokeColor = UIColor.clear.cgColor
-            shape.fillColor = UIColor.clear.cgColor
             let x = transformer.xAxis(at: idx)
             
             let y1 = transformer.yAxis(for: value.histogram > 0 ? value.histogram : 0)
             let y2 = transformer.yAxis(for: value.histogram > 0 ? 0 : value.histogram)
-            let height = max(y2 - y1, 1)
+            let height = max(y2 - y1, 0)
             let rect = CGRect(x: x, y: y1, width: candleStyle.width, height: height)
             let path = UIBezierPath(rect: rect)
             shape.path = path.cgPath
@@ -74,10 +72,11 @@ final class MACDRenderer: IndicatorRenderer {
                     color = KLineTrend.down.color
                 }
             }
+            shape.strokeColor = color
             if isFillMode {
                 shape.fillColor = color
             } else {
-                shape.strokeColor = color
+                shape.fillColor = UIColor.clear.cgColor
             }
             
             sublayer.addSublayer(shape)

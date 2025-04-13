@@ -19,6 +19,12 @@ final class HorizontalScrollView: UIScrollView {
         didSet { updateScrollViewContentSize() }
     }
     
+    private var oldContentWidth: CGFloat = 0
+    
+    override var contentSize: CGSize {
+        didSet { oldContentWidth = oldValue.width }
+    }
+    
     // 样式管理器
     private var styleManager: StyleManager { .shared }
     private var candleStyle: CandleStyle { styleManager.candleStyle }
@@ -117,8 +123,7 @@ final class HorizontalScrollView: UIScrollView {
         let itemWidth = candleStyle.width + candleStyle.gap
         let contentWidth = count * itemWidth - candleStyle.gap
         let width = max(contentWidth, bounds.width)
-        let height = bounds.height
-        contentSize = CGSize(width: width, height: height)
+        contentSize = CGSize(width: width, height: 1)
     }
 }
 
@@ -153,12 +158,6 @@ extension HorizontalScrollView {
     }
     
     func scroll(to scrollPosition: ScrollPosition) {
-        // 获取当前的显示位置比例
-        var offsetRatio: CGFloat = 0
-        if contentSize.width > 0 {
-            offsetRatio = contentOffset.x / contentSize.width
-        }
-
         // 更新内容大小
         // updateScrollViewContentSize()
         
@@ -170,10 +169,15 @@ extension HorizontalScrollView {
             offsetX = contentSize.width - frame.width + contentInset.right
         } else {
             // 保持当前显示位置不变
-            offsetX = offsetRatio * contentSize.width
+            if oldContentWidth < contentSize.width {
+                offsetX = contentSize.width - (oldContentWidth - contentOffset.x)
+            } else {
+                offsetX = contentOffset.x
+            }
         }
         
         // 设置新的 contentOffset，确保不超出范围
         contentOffset.x = offsetX
+        oldContentWidth = contentSize.width
     }
 }

@@ -50,6 +50,7 @@ enum ChartSection: Sendable {
     private var styleManager: StyleManager { .shared }
     private var longPressLocation: CGPoint = .zero
     
+    private var klineItemLoader: KLineItemLoader?
     private var disposeBag = Set<AnyCancellable>()
     
     // MARK: - Initializers
@@ -148,7 +149,6 @@ enum ChartSection: Sendable {
     public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
     
     private var scrollViewHeight: CGFloat {
         let subIndicatorCount = CGFloat(subIndicatorTypes.count)
@@ -211,26 +211,27 @@ enum ChartSection: Sendable {
     }
 }
 
-// MARK: - 对外提供的绘制接口
 extension KLineView {
     
-    public func draw(items: [KLineItem], scrollPosition: ScrollPosition) {
-        Task {
-            klineItems = items
-            scrollView.klineItemCount = items.count
-            indicatorDatas = await klineItems.decorateWithIndicators(calculators: calculators)
-            redrawContent(scrollPosition: scrollPosition)
+    public func setProvider(_ provider: KLineItemProvider) {
+        klineItemLoader = KLineItemLoader(provider: provider) { [weak self] page, items in
+            guard let self else { return }
+            let allItems = page == 0 ? items : items + klineItems
+            await draw(items: allItems, scrollPosition: klineItems.isEmpty ? .right : .current)
         }
-    }
-    
-    private func redrawContent(scrollPosition: ScrollPosition) {
-        scrollView.scroll(to: scrollPosition)
-        drawVisibleContent()
+        klineItemLoader?.loadMore()
     }
 }
 
 // MARK: - 绘制和擦除指标
 extension KLineView {
+    
+    private func draw(items: [KLineItem], scrollPosition: ScrollPosition) async {
+        indicatorDatas = await items.decorateWithIndicators(calculators: calculators)
+        klineItems = items
+        scrollView.klineItemCount = items.count
+        scrollView.scroll(to: scrollPosition)
+    }
     
     private func drawMainIndicator(type: IndicatorType) async {
         mainIndicatorTypes.append(type)
@@ -241,7 +242,7 @@ extension KLineView {
         calculators.append(contentsOf: calcs)
         let datas = await klineItems.decorateWithIndicators(calculators: calcs)
         indicatorDatas.merge(datas)
-        redrawContent(scrollPosition: .current)
+        drawVisibleContent()
     }
     
     private func eraseMainIndicator(type: IndicatorType) {
@@ -249,7 +250,7 @@ extension KLineView {
         mainRenderers.removeAll { $0.type == type }
         let keys = type.keys
         calculators.removeAll { keys.contains($0.key) }
-        redrawContent(scrollPosition: .current)
+        drawVisibleContent()
     }
     
     private func drawSubIndicator(type: IndicatorType) async {
@@ -259,7 +260,7 @@ extension KLineView {
         calculators.append(contentsOf: calcs)
         let datas = await klineItems.decorateWithIndicators(calculators: calcs)
         indicatorDatas.merge(datas)
-        redrawContent(scrollPosition: .current)
+        drawVisibleContent()
     }
     
     private func eraseSubIndicator(type: IndicatorType) {
@@ -267,7 +268,7 @@ extension KLineView {
         subRenderers.removeAll { $0.type == type }
         let keys = type.keys
         calculators.removeAll { keys.contains($0.key) }
-        redrawContent(scrollPosition: .current)
+        drawVisibleContent()
     }
 }
 
@@ -285,12 +286,6 @@ extension KLineView {
     }
     
     private func drawVisibleContent() {
-        let start = CACurrentMediaTime()
-        defer {
-            let end = CACurrentMediaTime()
-            let duration = (end - start) * 1000
-            print("draw in \(String(format: "%.3f", duration)) ms.")
-        }
         guard !klineItems.isEmpty else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(false)
@@ -304,9 +299,13 @@ extension KLineView {
         subIndicatorView.clean()
         
         let visibleRange = scrollView.visibleRange
+        if visibleRange.isEmpty {
+            return
+        }
         let visibleRect = scrollView.frameOfVisibleRangeInConentView
         let indices = scrollView.indices
-            
+        
+        
         
         // MARK: - 绘制主图
         drawMainChartSection(
@@ -336,6 +335,12 @@ extension KLineView {
         range: Range<Int>,
         indices: Range<Int>
     ) {
+        let start = CACurrentMediaTime()
+        defer {
+            let end = CACurrentMediaTime()
+            let duration = (end - start) * 1000
+            print("Draw in \(String(format: "%.3f", duration)) ms.")
+        }
         // 绘制图例。可以考虑将 legend 渲染方式替换成 ChartRenderer。
         legendLabel.attributedText = legendText(for: mainIndicatorTypes)
         let legendSize = legendLabel.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
@@ -499,10 +504,10 @@ extension KLineView {
 extension KLineView: UIScrollViewDelegate {
     
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if scrollView === self.scrollView {
-            drawVisibleContent()
-            cleanLongPressContetent()
-        }
+        guard scrollView === self.scrollView else { return }
+        drawVisibleContent()
+        cleanLongPressContetent()
+        klineItemLoader?.scrollViewDidScroll(scrollView: scrollView)
     }
 }
 

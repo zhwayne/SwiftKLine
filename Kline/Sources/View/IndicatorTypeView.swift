@@ -117,7 +117,7 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
         case let .sub(type): drawPublisher.send((.subChart, type))
         default: break
         }
-        
+        dataSource.apply(snapshot)
     }
     
     func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
@@ -147,7 +147,7 @@ private class IndicatorCell: UICollectionViewCell {
     override init(frame: CGRect) {
         super.init(frame: frame)
         label.font = .systemFont(ofSize: 12)
-        label.textColor = .label.withAlphaComponent(0.3)
+        label.textColor = .systemGray2
         label.textAlignment = .center
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         
@@ -166,6 +166,9 @@ private class IndicatorCell: UICollectionViewCell {
             label.textColor = isSelected
             ? .label.withAlphaComponent(0.8)
             : .systemGray2
+            label.font = isSelected
+            ? .systemFont(ofSize: 12, weight: .medium)
+            : .systemFont(ofSize: 12)
         }
     }
 }

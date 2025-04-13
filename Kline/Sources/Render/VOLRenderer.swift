@@ -72,7 +72,8 @@ final class VOLRenderer: IndicatorRenderer {
             // 计算 x 坐标
             let x = transformer.xAxis(at: idx)
             let y = transformer.yAxis(for: Double(item.item.volume))
-            let rect = CGRect(x: x, y: y, width: candleStyle.width, height: rect.height - y - 2)
+            let height = max(rect.height - y - 2, 0)
+            let rect = CGRect(x: x, y: y, width: candleStyle.width, height: height)
             let path = UIBezierPath(rect: rect)
             let trend = item.item.trend
             let candlePath = trend == .down ? downPath : upPath
