@@ -43,19 +43,19 @@ final class CandleRenderer: ChartRenderer {
         dashLineLayer.lineDashPattern = [2, 2]
         layer.addSublayer(dashLineLayer)
         
-        let upLayer = CAShapeLayer()
-        upLayer.fillColor = KLineTrend.up.color
-        upLayer.strokeColor = KLineTrend.up.color
-        upLayer.lineWidth = 1
-        upLayer.contentsScale = UIScreen.main.scale
-        sublayer.addSublayer(upLayer)
+        let risingLayer = CAShapeLayer()
+        risingLayer.fillColor = KLineTrend.rising.color
+        risingLayer.strokeColor = KLineTrend.rising.color
+        risingLayer.lineWidth = 1
+        risingLayer.contentsScale = UIScreen.main.scale
+        sublayer.addSublayer(risingLayer)
         
-        let downLayer = CAShapeLayer()
-        downLayer.fillColor = KLineTrend.down.color
-        downLayer.strokeColor = KLineTrend.down.color
-        downLayer.lineWidth = 1
-        downLayer.contentsScale = UIScreen.main.scale
-        sublayer.addSublayer(downLayer)
+        let fallingLayer = CAShapeLayer()
+        fallingLayer.fillColor = KLineTrend.falling.color
+        fallingLayer.strokeColor = KLineTrend.falling.color
+        fallingLayer.lineWidth = 1
+        fallingLayer.contentsScale = UIScreen.main.scale
+        sublayer.addSublayer(fallingLayer)
         
         let priceLineLayer = CAShapeLayer()
         priceLineLayer.lineWidth = 1
@@ -115,11 +115,11 @@ final class CandleRenderer: ChartRenderer {
             path.addLine(to: CGPoint(x: centerX, y: y + h))
             
             let trend = item.trend
-            let candlePath = trend == .down ? downPath : upPath
+            let candlePath = trend == .falling ? downPath : upPath
             candlePath.append(path)
         }
-        upLayer.path = upPath.cgPath
-        downLayer.path = downPath.cgPath
+        risingLayer.path = upPath.cgPath
+        fallingLayer.path = downPath.cgPath
         
         let priceLinePath = UIBezierPath()
         

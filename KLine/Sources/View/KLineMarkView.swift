@@ -126,18 +126,18 @@ class KLineMarkView: UIView {
         let changeRateString = numberFormatter.string(from: NSNumber(floatLiteral: changeRate)) ?? ""
         var prefix = changeRateString.hasPrefix("-") ? "" : "+"
         changeRateLabel.detailLabel.text =  prefix + changeRateString + "%"
-        changeRateLabel.detailLabel.textColor = item.trend == .up
-        ? styleManager.candleStyle.upColor
-        : styleManager.candleStyle.downColor
+        changeRateLabel.detailLabel.textColor = item.trend == .rising
+        ? styleManager.candleStyle.risingColor
+        : styleManager.candleStyle.fallingColor
         // 振幅
         let amplitude = ((item.highest - item.lowest) / item.lowest) * 100
         amplitudeLabel.titleLabel.text = "振幅"
         let amplitudeString = numberFormatter.string(from: NSNumber(floatLiteral: amplitude)) ?? ""
         prefix = amplitudeString.hasPrefix("-") ? "" : "+"
         amplitudeLabel.detailLabel.text =  prefix + amplitudeString + "%"
-        amplitudeLabel.detailLabel.textColor = item.trend == .up
-        ? styleManager.candleStyle.upColor
-        : styleManager.candleStyle.downColor
+        amplitudeLabel.detailLabel.textColor = item.trend == .rising
+        ? styleManager.candleStyle.risingColor
+        : styleManager.candleStyle.fallingColor
         // 成交量
         volumeLabel.titleLabel.text = "成交量"
         volumeLabel.detailLabel.text = styleManager.format(value: item.volume)

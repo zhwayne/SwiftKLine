@@ -8,12 +8,12 @@
 import UIKit
 
 enum KLineTrend: Sendable {
-    case up, down, equal
+    case rising, falling
     
     var color: CGColor {
         switch self {
-        case .down: return StyleManager.shared.candleStyle.downColor.cgColor
-        default: return StyleManager.shared.candleStyle.upColor.cgColor
+        case .falling: return StyleManager.shared.candleStyle.fallingColor.cgColor
+        default: return StyleManager.shared.candleStyle.risingColor.cgColor
         }
     }
 }
@@ -50,8 +50,7 @@ public struct KLineItem: Equatable, Sendable {
 extension KLineItem {
     
     var trend: KLineTrend {
-        if opening > closing { return .down }
-        if opening < closing { return .up }
-        return .equal
+        if opening > closing { return .falling }
+        return .rising
     }
 }

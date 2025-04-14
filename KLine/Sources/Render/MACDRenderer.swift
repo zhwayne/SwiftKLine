@@ -19,7 +19,8 @@ final class MACDRenderer: IndicatorRenderer {
     
     func draw(in layer: CALayer, data: RenderData<IndicatorData>) {
         guard var transformer = transformer,
-              case .macd = type.keys[0] else {
+              case .macd = type.keys[0],
+              let indicatorStyle = styleManager.indicatorStyle(for: type.keys[0], type: MACDStyle.self) else {
             return
         }
         let maxValue = max(abs(transformer.dataBounds.min), abs(transformer.dataBounds.max))
@@ -63,13 +64,13 @@ final class MACDRenderer: IndicatorRenderer {
             shape.path = path.cgPath
             
             var isFillMode = true
-            var color = KLineTrend.up.color
+            var color = KLineTrend.rising.color
             if idx > 0, let previousValue = indicatorValues[idx - 1] {
                 if value.histogram < previousValue.histogram {
                     isFillMode = false
                 }
                 if value.histogram < 0 {
-                    color = KLineTrend.down.color
+                    color = KLineTrend.falling.color
                 }
             }
             shape.strokeColor = color
@@ -123,7 +124,7 @@ final class MACDRenderer: IndicatorRenderer {
         let macdText = NSAttributedString(
             string: "MACD:\(styleManager.format(value: selectedValue.histogram))  ",
             attributes: [
-                .foregroundColor: UIColor.systemPurple.cgColor,
+                .foregroundColor: indicatorStyle.macdColor.cgColor,
                 .font: font,
                 .paragraphStyle: paragraphStyle
             ]
@@ -132,7 +133,7 @@ final class MACDRenderer: IndicatorRenderer {
         let difText = NSAttributedString(
             string: "DIF:\(styleManager.format(value: selectedValue.macd))  ",
             attributes: [
-                .foregroundColor: UIColor.systemPink.cgColor,
+                .foregroundColor: indicatorStyle.difColor.cgColor,
                 .font: font,
                 .paragraphStyle: paragraphStyle
             ]
@@ -141,7 +142,7 @@ final class MACDRenderer: IndicatorRenderer {
         let deaText = NSAttributedString(
             string: "DEA:\(styleManager.format(value: selectedValue.signal))  ",
             attributes: [
-                .foregroundColor: UIColor.systemOrange.cgColor,
+                .foregroundColor: indicatorStyle.deaColor.cgColor,
                 .font: font,
                 .paragraphStyle: paragraphStyle
             ]
@@ -150,7 +151,7 @@ final class MACDRenderer: IndicatorRenderer {
         
         let legendLayer = CATextLayer()
         legendLayer.contentsScale = UIScreen.main.scale
-        legendLayer.alignmentMode = .center
+        legendLayer.alignmentMode = .left
         legendLayer.string = attrText
         let size = legendLayer.preferredFrameSize()
         legendLayer.frame = CGRect(x: 12, y: rect.minY + 8, width: size.width, height: size.height)

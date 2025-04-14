@@ -32,11 +32,16 @@ final class EMARenderer: IndicatorRenderer {
         layer.addSublayer(sublayer)
         
         for key in type.keys {
-            let indicatorStyle = styleManager.indicatorStyle(for: key)
+            guard let indicatorStyle = styleManager.indicatorStyle(
+                for: key,
+                type: TrackStyle.self
+            ) else {
+                return
+            }
             let indicatorLayer = CAShapeLayer()
             indicatorLayer.contentsScale = UIScreen.main.scale
-            indicatorLayer.lineWidth = indicatorStyle.lineWidth
-            indicatorLayer.fillColor = indicatorStyle.fillColor.cgColor
+            indicatorLayer.lineWidth = 1
+            indicatorLayer.fillColor = UIColor.clear.cgColor
             indicatorLayer.strokeColor = indicatorStyle.strokeColor.cgColor
             
             let path = UIBezierPath()

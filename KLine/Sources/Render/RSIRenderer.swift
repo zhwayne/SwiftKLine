@@ -43,26 +43,23 @@ final class RSIRenderer: IndicatorRenderer {
         let attrText = NSMutableAttributedString()
         
         for key in type.keys {
-            var number: Double = 0
-            if let value = indicatorData.indicator(forKey: key) as? Double {
-                number = value
+            guard let indicatorStyle = styleManager.indicatorStyle(for: key, type: TrackStyle.self),
+                  let value = indicatorData.indicator(forKey: key) as? Double else {
+                return
             }
-            let indicatorStyle = styleManager.indicatorStyle(for: key)
-            let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.lineHeightMultiple = 1.1
+
             let span = NSAttributedString(
-                string: "\(key):\(styleManager.format(value: number))  ",
+                string: "\(key):\(styleManager.format(value: value))  ",
                 attributes: [
                     .foregroundColor: indicatorStyle.strokeColor,
-                    .font: indicatorStyle.font,
-                    .paragraphStyle: paragraphStyle
+                    .font: UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
                 ]
             )
             attrText.append(span)
         }
         let legendLayer = CATextLayer()
         legendLayer.contentsScale = UIScreen.main.scale
-        legendLayer.alignmentMode = .center
+        legendLayer.alignmentMode = .left
         legendLayer.string = attrText
         let size = legendLayer.preferredFrameSize()
         legendLayer.frame = CGRect(x: 12, y: rect.minY + 8, width: size.width, height: size.height)
@@ -95,11 +92,13 @@ final class RSIRenderer: IndicatorRenderer {
         
         // MARK: - 折线图
         for key in type.keys {
-            let indicatorStyle = styleManager.indicatorStyle(for: key)
+            guard let indicatorStyle = styleManager.indicatorStyle(for: key, type: TrackStyle.self) else {
+                return
+            }
             let indicatorLayer = CAShapeLayer()
             indicatorLayer.contentsScale = UIScreen.main.scale
-            indicatorLayer.lineWidth = indicatorStyle.lineWidth
-            indicatorLayer.fillColor = indicatorStyle.fillColor.cgColor
+            indicatorLayer.lineWidth = 1
+            indicatorLayer.fillColor = UIColor.clear.cgColor
             indicatorLayer.strokeColor = indicatorStyle.strokeColor.cgColor
             
             let path = UIBezierPath()

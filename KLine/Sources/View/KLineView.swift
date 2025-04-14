@@ -488,18 +488,16 @@ extension KLineView {
                 if let value = indicatorData.indicator(forKey: key) as? Int {
                     string = "\(key):\(styleManager.format(value: value))  "
                 }
-                let indicatorStyle = styleManager.indicatorStyle(for: key)
-                let paragraphStyle = NSMutableParagraphStyle()
-                paragraphStyle.lineHeightMultiple = 1.1
-                let span = NSAttributedString(
-                    string: string,
-                    attributes: [
-                        .foregroundColor: indicatorStyle.strokeColor,
-                        .font: indicatorStyle.font,
-                        .paragraphStyle: paragraphStyle
-                    ]
-                )
-                text.append(span)
+                if let indicatorStyle = styleManager.indicatorStyle(for: key, type: TrackStyle.self) {
+                    let span = NSAttributedString(
+                        string: string,
+                        attributes: [
+                            .foregroundColor: indicatorStyle.strokeColor,
+                            .font: UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
+                        ]
+                    )
+                    text.append(span)
+                }
             }
             if idx != 0 {
                 text.insert(NSAttributedString(string: "\n"), at: 0)
