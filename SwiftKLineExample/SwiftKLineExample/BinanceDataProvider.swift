@@ -11,10 +11,11 @@ import KLine
 import SwiftyJSON
 
 final class BinanceDataProvider: KLineItemProvider {
-    
+    typealias Item = KLineHistoryItem
+
     private let symbol: String
     private let period: KLinePeriod
-    private let size = 500
+    private let size = 1000
     private lazy var endDate = Int(Date().timeIntervalSince1970) * 1000
     private let session = URLSession(configuration: URLSessionConfiguration.default)
     
@@ -23,7 +24,7 @@ final class BinanceDataProvider: KLineItemProvider {
         self.period = period
     }
     
-    func fetchKLineItems(forPage page: Int) async throws -> [KLineItem] {
+    func fetchKLineItems(forPage page: Int) async throws -> [Item] {
         // https://developers.binance.com/docs/zh-CN/binance-spot-api-docs/rest-api/market-data-endpoints#k%E7%BA%BF%E6%95%B0%E6%8D%AE
         var urlComponents = URLComponents(string: "https://data-api.binance.vision/api/v3/klines")!
         let endTime = endDate - period.seconds * size * 1000 * page
@@ -41,7 +42,7 @@ final class BinanceDataProvider: KLineItemProvider {
         let json = try JSON(data: data)
         let items = json.arrayValue.map { json in
             let array = json.arrayValue
-            return KLineItem(
+            return KLineHistoryItem(
                 opening: array[1].doubleValue,
                 closing: array[4].doubleValue,
                 highest: array[2].doubleValue,

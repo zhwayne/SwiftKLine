@@ -1,0 +1,193 @@
+//
+//  Layout.swift
+//  KLine
+//
+//  Created by iya on 2025/4/19.
+//
+
+import UIKit
+
+/// 负责处理K线图布局相关的计算
+@MainActor final class Layout {
+    /// 承载K线图的滚动视图
+    private let scrollView: UIScrollView
+    
+    /// K线数据总数量
+    var itemCount: Int = 0 {
+        didSet { updateContentSize() }
+    }
+    
+    /// 当前可见范围内的数值范围
+    var dataBounds: MetricBounds = .empty
+        
+    init(scrollView: UIScrollView) {
+        self.scrollView = scrollView
+    }
+    
+    func updateContentSize() {
+        scrollView.contentSize = contentSize
+    }
+    
+    private var styleManager: StyleManager { .shared }
+    /// K线样式配置
+    private var candleStyle: CandleStyle { styleManager.candleStyle }
+    
+    var containerSize: CGSize { scrollView.bounds.size }
+    
+    /// 计算内容大小
+    /// 根据K线数量和样式计算滚动视图的contentSize
+    @inline(__always)
+    var contentSize: CGSize {
+        let itemWidth = candleStyle.width + candleStyle.gap
+        let width = max(CGFloat(itemCount) * itemWidth - candleStyle.gap, scrollView.bounds.width)
+        return CGSize(width: width, height: scrollView.frame.height)
+    }
+    
+    /// 计算需要绘制的K线索引范围
+    /// 根据当前滚动位置计算出需要绘制的K线起始和结束索引
+    @inline(__always)
+    var indices: Range<Int> {
+        let contentOffset = scrollView.contentOffset
+        let itemWidth = candleStyle.width + candleStyle.gap
+        // 计算起始索引
+        let startIndex = Int(floor(contentOffset.x / itemWidth))
+        // 计算偏移量
+        let offset = CGFloat(startIndex) * (itemWidth) - contentOffset.x
+        // 计算可见区域宽度
+        let width = scrollView.frame.width + abs(min(0, offset))
+        // 计算需要绘制的K线数量
+        let itemCountToBeDrawn = Int(ceil(width / itemWidth))
+        guard startIndex < itemCount else { return 0..<0 }
+        return startIndex..<(startIndex + itemCountToBeDrawn)
+    }
+    
+    /// 获取实际可见的K线索引范围
+    /// 确保索引范围在有效范围内（0到itemCount之间）
+    @inline(__always)
+    var visibleRange: Range<Int> {
+        let range = indices
+        let lowerBound = min(max(range.lowerBound, 0), itemCount)
+        let upperBound = max(min(range.upperBound, itemCount), 0)
+        return lowerBound..<upperBound
+    }
+    
+    /// 计算可见范围在视图中的框架
+    @inline(__always)
+    var frameOfVisibleRange: CGRect {
+        guard !visibleRange.isEmpty else { return .zero }
+        let contentOffset = scrollView.contentOffset
+        let lowerBound = CGFloat(visibleRange.lowerBound)
+        let upperBound = CGFloat(visibleRange.upperBound)
+        let itemWidth = candleStyle.width + candleStyle.gap
+        let offset = lowerBound * (itemWidth) - contentOffset.x
+        let width = (upperBound - lowerBound) * itemWidth
+        let height = scrollView.frame.height
+        return CGRect(x: offset, y: 0, width: width, height: height)
+    }
+}
+
+extension Layout {
+    enum CoordinateSpace {
+        case bounds, viewPort
+    }
+    
+    /// 计算指定索引位置的x坐标
+    /// - Parameter index: K线数据索引
+    /// - Returns: 对应的x坐标
+    func minX(at index: Int) -> CGFloat {
+        let itemWidth = candleStyle.width + candleStyle.gap
+        return CGFloat(index) * itemWidth + frameOfVisibleRange.minX
+    }
+    
+    /// 根据x坐标计算对应的相对数据索引
+    /// - Parameter x: x轴坐标
+    /// - Returns: 相对数据索引，请注意该值可能会超过可见数据范围。
+    func relativeIndex(on x: CGFloat) -> Int {
+        let itemWidth = candleStyle.width + candleStyle.gap
+        let viewPort = frameOfVisibleRange
+        var index = Int(floor((x - viewPort.minX) / itemWidth))
+        if viewPort.minX <= 0 {
+            index += indices.lowerBound
+        }
+        return index
+    }
+    
+    /// 根据x坐标计算对应的绝对数据索引
+    /// - Parameter x: x轴坐标
+    /// - Returns: 绝对数据索引，如果超过可见数据范围，结果为 nil。
+    func absoluteIndex(on x: CGFloat) -> Int? {
+        let index = relativeIndex(on: x)
+        if visibleRange.contains(index) {
+            return index
+        }
+        return nil
+    }
+}
+
+extension Layout {
+    
+    /// // 将数据值映射到图表高度上的位置。
+    /// - Parameters:
+    ///   - value: 当前数据值
+    ///   - drawRect: 绘制区域
+    /// - Returns: 映射后的 y 坐标。
+    func minY(for value: Double, viewPort: CGRect) -> CGFloat {
+        let value = CGFloat(value)
+        if dataBounds.distance == 0 { return 0 }
+        // 表示数据值在最小值和最大值之间的归一化比例。
+        let ratio = (value - dataBounds.min) / dataBounds.distance
+        let height = viewPort.height
+        let y = (1 - ratio) * height + viewPort.minY
+        return y
+    }
+    
+    func value(on y: CGFloat, drawRect: CGRect) -> Double {
+        guard drawRect.height > 0,
+              dataBounds.distance > 0 else {
+            return dataBounds.min
+        }
+        let minY = drawRect.minY
+        let ratio = Double((y - minY) / drawRect.height)
+        let value = dataBounds.min + (1 - ratio) * dataBounds.distance
+        return value
+    }
+}
+
+extension Layout {
+    
+    func niceValues(in drawRect: CGRect) -> [(value: Double, y: CGFloat)] {
+        let (stepSize, _) = determineNiceGridSteps(maxLines: 7)
+        var niceValues = [(Double, CGFloat)]()
+        var value = floor(dataBounds.min / stepSize) * stepSize
+        var y = minY(for: value, viewPort: drawRect)
+        while y > drawRect.minY {
+            if y < drawRect.maxY {
+                niceValues.append((value, y))
+            }
+            y = self.minY(for: value, viewPort: drawRect)
+            value += stepSize
+        }
+        return niceValues
+    }
+    
+    private func determineNiceGridSteps(maxLines: Int) -> (step: Double, count: Int) {
+        let range = dataBounds.distance
+        guard range > 0, maxLines > 0 else { return (0, 0) }
+        
+        // 计算初始估算步长
+        let roughStep = range / Double(maxLines)
+        
+        // 计算数量级
+        let magnitude = pow(10, floor(log10(roughStep)))
+        let normalizedStep = roughStep / magnitude
+        
+        // 选择最接近的标准步长
+        let niceSteps: [Double] = [0.1, 0.2, 0.25, 0.5, 1.0, 2.0, 2.5, 5.0, 10.0]
+        let chosenStep = niceSteps.first { $0 >= normalizedStep } ?? normalizedStep
+        
+        let actualStep = chosenStep * magnitude
+        let stepCount = Int(ceil(range / actualStep))
+        
+        return (actualStep, Swift.min(stepCount, maxLines))
+    }
+}
