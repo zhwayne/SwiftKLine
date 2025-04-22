@@ -37,7 +37,7 @@ class KLineMarkView: UIView {
         }
     }
     
-    var item: KLineItem? {
+    var item: (any KLineItem)? {
         didSet { update() }
     }
     
@@ -53,14 +53,13 @@ class KLineMarkView: UIView {
     private let changeRateLabel = ItemLabel()
     private let amplitudeLabel = ItemLabel()
     private let dateFormatter = DateFormatter()
-    private let numberFormatter = NumberFormatter()
+    private let volumeFormatter = VolumeFormatter()
+    private let priceFormatter = PriceFormatter()
     
     override init(frame: CGRect) {
         super.init(frame: frame)
         // TODO: 根据周期改变format
         dateFormatter.dateFormat = "MM/dd HH:mm"
-        numberFormatter.maximumFractionDigits = 2
-        numberFormatter.minimumFractionDigits = 0
         
         layer.cornerRadius = 6
         layer.masksToBounds = true
@@ -106,24 +105,24 @@ class KLineMarkView: UIView {
         dateLabel.detailLabel.text = dateFormatter.string(from: date)
         // 开盘
         openingLabel.titleLabel.text = "开盘"
-        openingLabel.detailLabel.text = styleManager.format(value: item.opening)
+        openingLabel.detailLabel.text = priceFormatter.format(item.opening as NSNumber)
         // 最高价
         highestLabel.titleLabel.text = "最高"
-        highestLabel.detailLabel.text = styleManager.format(value: item.highest)
+        highestLabel.detailLabel.text = priceFormatter.format(item.highest as NSNumber)
         // 最低价
         lowestLabel.titleLabel.text = "最低"
-        lowestLabel.detailLabel.text = styleManager.format(value: item.lowest)
+        lowestLabel.detailLabel.text = priceFormatter.format(item.lowest as NSNumber)
         // 收盘
         closingLabel.titleLabel.text = "收盘"
-        closingLabel.detailLabel.text = styleManager.format(value: item.closing)
+        closingLabel.detailLabel.text = priceFormatter.format(item.closing as NSNumber)
         // 涨跌额
         let changeAmount = item.closing - item.opening
         changeAmountLabel.titleLabel.text = "涨跌额"
-        changeAmountLabel.detailLabel.text = styleManager.format(value: changeAmount)
+        changeAmountLabel.detailLabel.text = priceFormatter.format(changeAmount as NSNumber)
         // 涨跌幅
         let changeRate = (changeAmount / item.opening) * 100
         changeRateLabel.titleLabel.text = "涨跌幅"
-        let changeRateString = numberFormatter.string(from: NSNumber(floatLiteral: changeRate)) ?? ""
+        let changeRateString = priceFormatter.format(changeRate as NSNumber)
         var prefix = changeRateString.hasPrefix("-") ? "" : "+"
         changeRateLabel.detailLabel.text =  prefix + changeRateString + "%"
         changeRateLabel.detailLabel.textColor = item.trend == .rising
@@ -132,7 +131,7 @@ class KLineMarkView: UIView {
         // 振幅
         let amplitude = ((item.highest - item.lowest) / item.lowest) * 100
         amplitudeLabel.titleLabel.text = "振幅"
-        let amplitudeString = numberFormatter.string(from: NSNumber(floatLiteral: amplitude)) ?? ""
+        let amplitudeString = priceFormatter.format(amplitude as NSNumber)
         prefix = amplitudeString.hasPrefix("-") ? "" : "+"
         amplitudeLabel.detailLabel.text =  prefix + amplitudeString + "%"
         amplitudeLabel.detailLabel.textColor = item.trend == .rising
@@ -140,9 +139,9 @@ class KLineMarkView: UIView {
         : styleManager.candleStyle.fallingColor
         // 成交量
         volumeLabel.titleLabel.text = "成交量"
-        volumeLabel.detailLabel.text = styleManager.format(value: item.volume)
+        volumeLabel.detailLabel.text = volumeFormatter.format(item.volume as NSNumber)
         // 成交额
         valueLabel.titleLabel.text = "成交额"
-        valueLabel.detailLabel.text = styleManager.format(value: item.value)
+        valueLabel.detailLabel.text = volumeFormatter.format(item.volume as NSNumber)
     }
 }

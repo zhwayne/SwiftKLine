@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class CanvasView: UIView {
+class CanvasView: UIView {
     
     let canvas = CALayer()
     

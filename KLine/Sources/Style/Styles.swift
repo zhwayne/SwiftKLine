@@ -1,6 +1,6 @@
 //
 //  Styles.swift
-//  KLineDemo
+//  KLine
 //
 //  Created by iya on 2024/11/1.
 //
@@ -12,42 +12,42 @@ public struct CandleStyle {
     public var fallingColor: UIColor = .systemPink
     public var width: CGFloat = 10
     public var gap: CGFloat = 2
-        
+    
     fileprivate init() { }
 }
 
 final public class StyleManager {
     
     nonisolated(unsafe) public static let shared = StyleManager()
-        
+    
     private init() { }
     
+//    private var indicatorStyleRegistry: [Indicator.Key: any IndicatorStyle] = [
+//        // MA
+//        .ma(period: 5): LineStyle(strokeColor: .systemOrange),
+//        .ma(period: 10): LineStyle(strokeColor: .systemPink),
+//        .ma(period: 20): LineStyle(strokeColor: .systemTeal),
+//        // EMA
+//        .ema(period: 5): LineStyle(strokeColor: .systemOrange),
+//        .ema(period: 10): LineStyle(strokeColor: .systemPink),
+//        .ema(period: 20): LineStyle(strokeColor: .systemTeal),
+//        // RSI
+//        .rsi(period: 6): LineStyle(strokeColor: .systemOrange),
+//        .rsi(period: 12): LineStyle(strokeColor: .systemPink),
+//        .rsi(period: 24): LineStyle(strokeColor: .systemTeal),
+//        // MACD
+//        .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9): MACDStyle(macdColor: .systemOrange, difColor: .systemPink, deaColor: .systemTeal)
+//    ]
+//    
+//    public func setIndicatorStyle<S>(_ style: S, for key: Indicator.Key) where S: IndicatorStyle {
+//        indicatorStyleRegistry[key] = style
+//    }
+//    
+//    public func indicatorStyle<S>(for key: Indicator.Key, type: S.Type) -> S? where S: IndicatorStyle {
+//        let style = indicatorStyleRegistry[key]
+//        return style as? S
+//    }
+//    
     public var candleStyle = CandleStyle()
-    public var priceFractionDigits: Int = 4
-    
-    private var indicatorStyles: [IndicatorKey: IndicatorStyle] = [
-        
-        .ma(period: 5): TrackStyle(strokeColor: .systemOrange),
-        .ma(period: 10): TrackStyle(strokeColor: .systemPink),
-        .ma(period: 20): TrackStyle(strokeColor: .systemTeal),
-        
-        .ema(period: 5): TrackStyle(strokeColor: .systemOrange),
-        .ema(period: 10): TrackStyle(strokeColor: .systemPink),
-        .ema(period: 20): TrackStyle(strokeColor: .systemTeal),
-        
-        .rsi(period: 6): TrackStyle(strokeColor: .systemOrange),
-        .rsi(period: 12): TrackStyle(strokeColor: .systemPink),
-        .rsi(period: 24): TrackStyle(strokeColor: .systemTeal),
-        
-        .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9): MACDStyle(macdColor: .systemOrange, difColor: .systemPink, deaColor: .systemTeal)
-    ]
-        
-    public func setIndicatorStyle<S>(_ style: S, for key: IndicatorKey) where S: IndicatorStyle {
-        indicatorStyles[key] = style
-    }
-    
-    public func indicatorStyle<S>(for key: IndicatorKey, type: S.Type) -> S? where S: IndicatorStyle {
-        let style = indicatorStyles[key]
-        return style as? S
-    }
+    public var legendFont = UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
 }

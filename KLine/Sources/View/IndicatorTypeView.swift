@@ -1,6 +1,6 @@
 //
 //  IndicatorTypeView.swift
-//  KLineDemo
+//  KLine
 //
 //  Created by iya on 2025/3/22.
 //
@@ -11,24 +11,24 @@ import Combine
 final class IndicatorTypeView: UIView, UICollectionViewDelegate {
     
     private enum SectionItem: Hashable {
-        case main(IndicatorType)
+        case main(Indicator)
         case separator
-        case sub(IndicatorType)
+        case sub(Indicator)
     }
 
-    var drawIndicatorPublisher: AnyPublisher<(ChartSection, IndicatorType), Never> {
+    var drawIndicatorPublisher: AnyPublisher<(ChartSection, Indicator), Never> {
         drawPublisher.eraseToAnyPublisher()
     }
     
-    var eraseIndicatorPublisher: AnyPublisher<(ChartSection, IndicatorType), Never> {
+    var eraseIndicatorPublisher: AnyPublisher<(ChartSection, Indicator), Never> {
         erasePublisher.eraseToAnyPublisher()
     }
     
-    var mainIndicators: [IndicatorType] = [] { didSet { reloadData() } }
-    var subIndicators: [IndicatorType] = [] { didSet { reloadData() } }
+    var mainIndicators: [Indicator] = [] { didSet { reloadData() } }
+    var subIndicators: [Indicator] = [] { didSet { reloadData() } }
     
-    private let drawPublisher = PassthroughSubject<(ChartSection, IndicatorType), Never>()
-    private let erasePublisher = PassthroughSubject<(ChartSection, IndicatorType), Never>()
+    private let drawPublisher = PassthroughSubject<(ChartSection, Indicator), Never>()
+    private let erasePublisher = PassthroughSubject<(ChartSection, Indicator), Never>()
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Int, SectionItem>!
     

@@ -8,33 +8,35 @@
 import Foundation
 
 /// 用于存储 MACD 相关指标值的结构体
-struct MACDIndicatorValue: IndicatorValue {
+struct MACDIndicatorValue: ValueBounds {
     let macd: Double     // MACD 线(DIF)
     let signal: Double   // 信号线(DEA)
     let histogram: Double // 柱状图(BAR)
     
-    var bounds: MetricBounds {
-        MetricBounds(max: max(macd, signal, histogram), min: min(macd, signal, histogram))
-    }
+    var min: Double { Swift.min(macd, signal, histogram) }
+    var max: Double { Swift.max(macd, signal, histogram) }
 }
 
 /// MACD 计算器
 struct MACDCalculator: IndicatorCalculator {
+    typealias Identifier = Indicator.Key
+    typealias Result = MACDIndicatorValue
+    
     let shortPeriod: Int   // 短期 EMA 的周期（常用 12）
     let longPeriod: Int    // 长期 EMA 的周期（常用 26）
     let signalPeriod: Int  // 信号线 EMA 的周期（常用 9）
     
-    var key: IndicatorKey {
-        return .macd(shortPeriod: shortPeriod, longPeriod: longPeriod, signalPeriod: signalPeriod)
+    var identifier: Indicator.Key {
+        return .macd(shortPeriod, longPeriod, signalPeriod)
     }
     
-    func calculate(for items: [KLineItem]) -> [IndicatorValue?] {
+    func calculate(for items: [any KLineItem]) -> [MACDIndicatorValue?] {
         // 至少需要足够的数据来计算长期 EMA
         guard items.count >= longPeriod else { return [] }
         
         // 计算短期 EMA 和长期 EMA
-        let shortEMA = EMACalculator(period: shortPeriod).calculate(for: items) as! [Double?]
-        let longEMA = EMACalculator(period: longPeriod).calculate(for: items) as! [Double?]
+        let shortEMA = EMACalculator(period: shortPeriod).calculate(for: items) 
+        let longEMA = EMACalculator(period: longPeriod).calculate(for: items) 
         
         // 计算MACD线：shortEMA - longEMA
         let macdLine = zip(shortEMA, longEMA).map { s, l -> Double? in
@@ -77,7 +79,7 @@ struct MACDCalculator: IndicatorCalculator {
         }
         
         // 整合结果到 MACDIndicatorValue 中
-        var macdValues: [IndicatorValue?] = Array(repeating: nil, count: items.count)
+        var macdValues: [MACDIndicatorValue?] = Array(repeating: nil, count: items.count)
         for i in 0..<items.count {
             if let macd = macdLine[i],
                let signal = signalLine[i],

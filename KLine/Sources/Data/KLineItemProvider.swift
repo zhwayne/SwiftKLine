@@ -8,6 +8,8 @@
 import Foundation
 
 public protocol KLineItemProvider {
+    
+    associatedtype Item: KLineItem
 
-    func fetchKLineItems(forPage page: Int) async throws -> [KLineItem]
+    func fetchKLineItems(forPage page: Int) async throws -> [Item]
 }

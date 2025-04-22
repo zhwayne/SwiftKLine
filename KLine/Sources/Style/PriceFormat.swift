@@ -7,49 +7,42 @@
 
 import Foundation
 
-// TODO: 格式化功能从 StyleManager 中分离出去
-extension StyleManager {
+protocol NumberFormatting {
     
-    func format(value: Double) -> String {
-        let dvalue = Decimal(floatLiteral: value)
-        return format(value: dvalue, priceFractionDigits: priceFractionDigits)
-    }
+    func format(_ number: NSNumber) -> String
+}
+
+struct PriceFormatter: NumberFormatting {
     
-    func format(value: Int) -> String {
-        let ivalue = Decimal(integerLiteral: value)
-        return format(value: ivalue, priceFractionDigits: 0)
-    }
+    var maximumSignificantDigits = 4
+    var minimumFractionDigits = 2
     
-    private func format(value: Decimal, priceFractionDigits: Int) -> String {
-        var number = NSDecimalNumber(decimal: value)
-        // 避免科学计数法
+    
+    func format(_ number: NSNumber) -> String {
+        var integer = number.intValue
+        var digits = 0
+        while integer != 0 {
+            digits += 1
+            integer /= 10
+        }
         let formatter = NumberFormatter()
+        formatter.maximumSignificantDigits = max(maximumSignificantDigits, digits + minimumFractionDigits)
         formatter.numberStyle = .decimal
-        formatter.roundingMode = .halfEven
-        formatter.minimumFractionDigits = priceFractionDigits
-        if value >= 1 && value < 100_000 {
-            formatter.maximumFractionDigits = 2  // 设置最大小数位数
-            return formatter.string(from: number) ?? ""
-        }
-        if value >= 100_000 && value < 1_000_000 {
-            number = NSDecimalNumber(decimal: value / 1000)
-            formatter.maximumFractionDigits = 2  // 设置最大小数位数
-            return formatter.string(from: number)?.appending("K") ?? ""
-        }
-        if value >= 1_000_000 && value < 1_000_000_000 {
-            number = NSDecimalNumber(decimal: value / 1_000_000)
-            formatter.maximumFractionDigits = 2  // 设置最大小数位数
-            return formatter.string(from: number)?.appending("M") ?? ""
-        }
-        if value >= 1_000_000_000 {
-            number = NSDecimalNumber(decimal: value / 1_000_000_000)
-            formatter.maximumFractionDigits = 2  // 设置最大小数位数
-            return formatter.string(from: number)?.appending("B") ?? ""
-        }
-        
-        // 最后处理小数
-        formatter.maximumFractionDigits = priceFractionDigits  // 设置最大小数位数
-        return formatter.string(from: number) ?? ""
+        return formatter.string(from: number)!
     }
 }
 
+struct VolumeFormatter: NumberFormatting {
+    
+    func format(_ number: NSNumber) -> String {
+        var units = ["K", "M", "B", "T"]
+        var unit = ""
+        var value = number.doubleValue
+        while value >= 1000, units.count > 0 {
+            value /= 1000
+            unit = units.removeFirst()
+        }
+        let formatter = PriceFormatter()
+        return formatter.format(number) + unit
+    }
+}

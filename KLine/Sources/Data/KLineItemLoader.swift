@@ -12,13 +12,13 @@ final class KLineItemLoader: @unchecked Sendable {
     private var page = 0
     private var isLoading = false
     private var fetchTask: Task<Void, Never>?
-    let provider: KLineItemProvider
+    let provider: any KLineItemProvider
     
-    typealias KLineItemsHandler = (Int, [KLineItem]) async -> Void
+    typealias KLineItemsHandler = (Int, [any KLineItem]) async -> Void
     
     let klineItemsHandler: KLineItemsHandler
     
-    init(provider: KLineItemProvider, klineItemsHandler: @escaping KLineItemsHandler) {
+    init(provider: some KLineItemProvider, klineItemsHandler: @escaping KLineItemsHandler) {
         self.provider = provider
         self.klineItemsHandler = klineItemsHandler
     }
@@ -42,9 +42,7 @@ final class KLineItemLoader: @unchecked Sendable {
         isLoading = true
         fetchTask?.cancel()
         fetchTask = Task {
-            defer {
-                isLoading = false
-            }
+            defer { isLoading = false }
             do {
                 let items = try await provider.fetchKLineItems(forPage: page)
                 try Task.checkCancellation()
