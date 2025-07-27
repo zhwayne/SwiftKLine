@@ -25,10 +25,6 @@ final class ChartScrollView: UIScrollView {
     
     var onLayoutChanged: ((UIScrollView) -> Void)?
     
-    // pinch
-    private var pinchCenterX: CGFloat = 0
-    private var oldScale: CGFloat = 1
-    
     override init(frame: CGRect) {
         super.init(frame: frame)
         alwaysBounceHorizontal = true
@@ -39,13 +35,6 @@ final class ChartScrollView: UIScrollView {
                 
         contentView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         addSubview(contentView)
-        
-        // pinch
-        let pinch = UIPinchGestureRecognizer(
-            target: self,
-            action: #selector(Self.handlePinch(_:))
-        )
-        contentView.addGestureRecognizer(pinch)
     }
     
     required init?(coder: NSCoder) {
@@ -60,57 +49,6 @@ final class ChartScrollView: UIScrollView {
         let padding = (bounds.width) / 2
         contentInset = UIEdgeInsets(top: 0, left: padding, bottom: 0, right: padding)
         onLayoutChanged?(self)
-    }
-    
-    @objc private func handlePinch(_ pinch: UIPinchGestureRecognizer) {
-//        switch pinch.state {
-//        case .began:
-//            isScrollEnabled = false
-//            let p1 = pinch.location(ofTouch: 0, in: contentView)
-//            let p2 = pinch.location(ofTouch: 1, in: contentView)
-//            pinchCenterX = (p1.x + p2.x) / 2
-//            oldScale = 1.0
-//        case .changed:
-//            break;
-//            
-//        default:
-//            isScrollEnabled = true
-//        }
-//        
-//        let difValue = pinch.scale - oldScale
-//        
-//        let newLineWidth = candleStyle.width * (difValue + 1)
-//        let newGap = candleStyle.gap * (difValue + 1)
-//        guard (1...32).contains(newLineWidth) else { return }
-//        
-//        styleManager.candleStyle.width = newLineWidth
-//        styleManager.candleStyle.gap = newGap
-//        oldScale = pinch.scale
-//        
-//        // 更新 contentSize
-//        let contentOffsetAtPinch = contentOffset.x + pinchCenterX
-//        let oldContentSize = contentSize
-//        contentSize = layout.contentSize
-//        
-//        
-//        // 算新的内容偏移量
-//        let scale = contentSize.width / oldContentSize.width
-//        let newContentOffsetAtPinch = contentOffsetAtPinch * scale
-//        var newContentOffsetX = newContentOffsetAtPinch - pinchCenterX
-//        
-//        // 限制偏移量的范围
-//        newContentOffsetX = max(-contentInset.left, newContentOffsetX)
-//        let maxContentOffsetX = contentSize.width - bounds.width + contentInset.right
-//        newContentOffsetX = min(maxContentOffsetX, newContentOffsetX)
-//
-//        // 更新 contentOffset 并重绘内容
-//        if contentOffset.x == newContentOffsetX {
-//            setNeedsLayout()
-//            layoutIfNeeded()
-//            delegate?.scrollViewDidScroll?(self)
-//        } else {
-//            contentOffset.x = newContentOffsetX
-//        }
     }
 }
 

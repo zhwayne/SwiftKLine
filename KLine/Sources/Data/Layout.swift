@@ -10,7 +10,7 @@ import UIKit
 /// 负责处理K线图布局相关的计算
 @MainActor public final class Layout {
     /// 承载K线图的滚动视图
-    private let scrollView: UIScrollView
+    let scrollView: UIScrollView
     
     /// K线数据总数量
     var itemCount: Int = 0 {

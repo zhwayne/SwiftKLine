@@ -51,19 +51,19 @@ final class EMARenderer: Renderer {
             }
             lineLayer.strokeColor = config.style.strokeColor.cgColor
             
-            // 将MA值转换为坐标点
-            let points = visibleValues.enumerated().compactMap { item -> CGPoint? in
-                let (idx, value) = (item.offset, item.element)
-                guard let value else { return nil }
-                // 计算点的x坐标（基于索引位置）
-                let x = layout.minX(at: idx) + candleStyle.width * 0.5
-                // 计算点的y坐标（基于MA值）
-                let y = layout.minY(for: value, viewPort: context.viewPort)
-                return CGPoint(x: x, y: y)
-            }
-            
-            // 使用计算出的点创建路径并设置到图层
-            lineLayer.path = points.cgPath
+//            // 将MA值转换为坐标点
+//            let points = visibleValues.enumerated().compactMap { item -> CGPoint? in
+//                let (idx, value) = (item.offset, item.element)
+//                guard let value else { return nil }
+//                // 计算点的x坐标（基于索引位置）
+//                let x = layout.minX(at: idx) + candleStyle.width * 0.5
+//                // 计算点的y坐标（基于MA值）
+//                let y = layout.minY(for: value, viewPort: context.viewPort)
+//                return CGPoint(x: x, y: y)
+//            }
+//            
+//            // 使用计算出的点创建路径并设置到图层
+//            lineLayer.path = points.cgPath
         }
     }
     

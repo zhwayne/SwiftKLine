@@ -20,12 +20,13 @@ enum ChartSection: Sendable {
     private let scrollView = ChartScrollView()
     private let legendLabel = UILabel()
     private var indicatorTypeView = IndicatorTypeView()
+    private let watermarkLabel = UILabel()
     private lazy var layout = Layout(scrollView: scrollView)
     
     // MARK: - Height defines
-    private let candleHeight: CGFloat = 340
+    private let candleHeight: CGFloat = 360
     private let timelineHeight: CGFloat = 16
-    private let indicatorHeight: CGFloat = 72
+    private let indicatorHeight: CGFloat = 64
     private let indicatorTypeHeight: CGFloat = 32
     private var chartHeightConstraint: Constraint!
     private var viewHeight: CGFloat { descriptor.height + indicatorTypeHeight }
@@ -56,6 +57,17 @@ enum ChartSection: Sendable {
         
         addSubview(chartView)
         addSubview(indicatorTypeView)
+        
+        watermarkLabel.textAlignment = .center
+        watermarkLabel.text = "Created by iyabb"
+        watermarkLabel.textColor = .tertiarySystemFill
+        watermarkLabel.font = .systemFont(ofSize: 32, weight: .bold)
+        watermarkLabel.layer.zPosition = -1
+        chartView.addSubview(watermarkLabel)
+        watermarkLabel.snp.makeConstraints { make in
+            make.left.right.top.equalToSuperview()
+            make.height.equalTo(candleHeight)
+        }
         
         chartView.snp.makeConstraints { make in
             make.left.right.top.equalToSuperview()
@@ -101,6 +113,7 @@ enum ChartSection: Sendable {
 //        longPress.delegate = self
 //        chartView.addGestureRecognizer(longPress)
         
+        addInteractions()
         observeScrollViewLayoutChange()
         setupBindings()
         updateDescriptor()
@@ -108,6 +121,11 @@ enum ChartSection: Sendable {
     
     public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    private func addInteractions() {
+        let pinchInteraction = PinchInteraction(layout: layout)
+        chartView.addInteraction(pinchInteraction)
     }
     
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -361,175 +379,6 @@ extension KLineView {
             }
         }
     }
-//    
-//    /// 绘制主图区域内的所有内容，包括图例，背景，蜡烛图，主图指标。
-//    private func drawMainChartSection(
-//        in visibleRect: CGRect,
-//        range: Range<Int>,
-//        indices: Range<Int>
-//    ) {
-//        let start = CACurrentMediaTime()
-//        defer {
-//            let end = CACurrentMediaTime()
-//            let duration = (end - start) * 1000
-//            print("Draw in \(String(format: "%.3f", duration)) ms.")
-//        }
-//        // 绘制图例。可以考虑将 legend 渲染方式替换成 Renderer。
-//        legendLabel.attributedText = legendText(for: mainIndicatorTypes)
-//        let legendSize = legendLabel.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
-//        var offsetY: CGFloat = 16
-//        if legendSize.height > 0 {
-//            offsetY = legendLabel.frame.origin.y + legendSize.height + 8
-//        }
-//        
-//        let candleInset = AxisInset(top: offsetY, bottom: 16)
-//        let rect = CGRect(
-//            x: visibleRect.minX,
-//            y: 0,
-//            width: visibleRect.width,
-//            height: candleHeight
-//        )
-//        
-//        // 获取可见区域内数据的 metricBounds
-//        var dataBounds = visibleItems.priceBounds
-//        mainRenderers.forEach { renderer in
-//            renderer.type.keys.forEach { key in
-//                if let indicatorMetricBounds = visibleDatas.bounds(for: key) {
-//                    dataBounds.combine(other: indicatorMetricBounds)
-//                }
-//            }
-//        }
-//        
-//        let transformer = Transformer(
-//            axisInset: candleInset,
-//            dataBounds: dataBounds,
-//            viewPort: rect,
-//            itemCount: klineItems.count,
-//            visibleRange: range,
-//            indices: indices
-//        )
-//        let itemRenderData = RenderData(
-//            items: klineItems,
-//            visibleRange: range
-//        )
-//        let indicatorRenderData = RenderData(
-//            items: indicatorDatas as [Any],
-//            visibleRange: range
-//        )
-//        
-//        // 蜡烛图背景
-//        backgroundRenderer.transformer = transformer
-//        backgroundRenderer.draw(in: candleView.canvas, data: itemRenderData)
-//        
-//        // 蜡烛图
-//        candleRenderer.transformer = transformer
-//        candleRenderer.draw(in: candleView.canvas, data: itemRenderData)
-//        
-//        // 主图指标
-//        mainRenderers.forEach { renderer in
-//            renderer.transformer = transformer
-//            renderer.draw(in: candleView.canvas, data: indicatorRenderData)
-//        }
-//    }
-//    
-//    /// 绘制时间轴
-//    private func drawTimeline(in rect: CGRect, range: Range<Int>, indices: Range<Int>) {
-//        // 指标数据在 layer 中的可见区域
-//        let viewPort = CGRect(
-//            x: rect.minX, y: 0,
-//            width: rect.width,
-//            height: timelineHeight
-//        )
-//        // 创建一个新的 transformer
-//        let transformer = Transformer(
-//            dataBounds: .neutral,
-//            viewPort: viewPort,
-//            itemCount: klineItems.count,
-//            visibleRange: range,
-//            indices: indices
-//        )
-//        // 创建一个新的 RenderData
-//        let renderData = RenderData(
-//            items: klineItems,
-//            visibleRange: range
-//        )
-//        // 绘制时间轴
-//        timelineRenderer.transformer = transformer
-//        timelineRenderer.draw(in: timelineView.canvas, data: renderData)
-//    }
-//    
-//    private func drawSubChartSection(in rect: CGRect, range: Range<Int>, indices: Range<Int>) {
-//        for (idx, renderer) in subRenderers.enumerated() {
-//            // 获取可见区域内数据的 metricBounds
-//            var dataBounds = MetricBounds.neutral
-//            renderer.type.keys.forEach { key in
-//                if let indicatorMetricBounds = visibleDatas.bounds(for: key) {
-//                    dataBounds.combine(other: indicatorMetricBounds)
-//                }
-//            }
-//            // 指标数据在 layer 中的可见区域
-//            let viewPort = CGRect(
-//                x: rect.minX,
-//                y: CGFloat(idx) * indicatorHeight,
-//                width: rect.width,
-//                height: indicatorHeight
-//            )
-//            // 创建一个新的 transformer
-//            let transformer = Transformer(
-//                axisInset: AxisInset(top: 26, bottom: 2),
-//                dataBounds: dataBounds,
-//                viewPort: viewPort,
-//                itemCount: indicatorDatas.count,
-//                visibleRange: range,
-//                indices: indices
-//            )
-//            // 创建一个新的 RenderData
-//            let renderData: RenderData<Any> = RenderData(
-//                items: indicatorDatas,
-//                visibleRange: range,
-//                selectedItem: selectedData
-//            )
-//            // 绘制指标
-//            renderer.transformer = transformer
-//            renderer.draw(in: subIndicatorView.canvas, data: renderData)
-//        }
-//    }
-//    
-//    private func legendText(for types: [Indicator]) -> NSAttributedString? {
-//        let legendText = NSMutableAttributedString()
-//        
-//        guard let indicatorData = selectedData ?? visibleDatas.last else {
-//            return nil
-//        }
-//        
-//        types.enumerated().forEach { idx, type in
-//            let text = NSMutableAttributedString()
-//            for key in type.keys {
-//                var string: String = ""
-//                if let value = indicatorData.indicator(forKey: key) as? Double {
-//                    string = "\(key):\(styleManager.format(value: value))  "
-//                }
-//                if let value = indicatorData.indicator(forKey: key) as? Int {
-//                    string = "\(key):\(styleManager.format(value: value))  "
-//                }
-//                if let indicatorStyle = styleManager.indicatorStyle(for: key, type: TrackStyle.self) {
-//                    let span = NSAttributedString(
-//                        string: string,
-//                        attributes: [
-//                            .foregroundColor: indicatorStyle.strokeColor,
-//                            .font: UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
-//                        ]
-//                    )
-//                    text.append(span)
-//                }
-//            }
-//            if idx != 0 {
-//                text.insert(NSAttributedString(string: "\n"), at: 0)
-//            }
-//            legendText.append(text)
-//        }
-//        return legendText
-//    }
 }
 
 extension KLineView {

@@ -49,5 +49,5 @@ final public class StyleManager {
 //    }
 //    
     public var candleStyle = CandleStyle()
-    public var legendFont = UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+    public var legendFont: UIFont { UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular) }
 }
