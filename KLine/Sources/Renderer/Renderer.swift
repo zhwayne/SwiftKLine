@@ -32,13 +32,6 @@ extension Renderer {
     }
 }
 
-//final class NothingRenderer: Renderer {
-//    typealias Calculator = NothingCalculator
-//    func install(to layer: CALayer) { }
-//    func uninstall(from layer: CALayer) { }
-//    func draw(in layer: CALayer, context: Context) { }
-//}
-
 final class AnyRenderer: Renderer {
         
     private let _id: () -> AnyHashable
@@ -48,7 +41,10 @@ final class AnyRenderer: Renderer {
     private let _legendStringFunc: (Int, Context) -> NSAttributedString?
     private let _dataBoundsFunc: (Context) -> MetricBounds
     
+    let base: any Renderer
+    
     init<R: Renderer>(_ base: R) {
+        self.base = base
         _id = { AnyHashable(base.id) }
         _installFunc = { base.install(to: $0) }
         _uninstallFunc = { base.uninstall(from: $0) }

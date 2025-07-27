@@ -24,8 +24,8 @@ public struct MetricBounds: ValueBounds {
     
     public static var empty: Self {
         MetricBounds(
-            min: .greatestFiniteMagnitude,
-            max: -.greatestFiniteMagnitude
+            min: Double(Int.max),
+            max: Double(Int.min)
         )
     }
 }

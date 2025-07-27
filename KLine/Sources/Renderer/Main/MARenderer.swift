@@ -72,13 +72,13 @@ final class MARenderer: Renderer {
     func legend(at index: Int, context: Context) -> NSAttributedString? {
         return configurations.reduce(NSMutableAttributedString()) { partialResult, config in
             guard let values = context.values(forKey: config.key, valueType: Double?.self),
-                  0 <= index && index < values.count - 1,
                   let value = values[index] else {
                 return partialResult
             }
-            let string = NSAttributedString(string: "MA\(config.period): \(priceFormatter.format(value as NSNumber)) ", attributes: [
-                .foregroundColor: config.style.strokeColor.cgColor
-            ])
+            let string = NSAttributedString(
+                string: "MA\(config.period): \(priceFormatter.format(NSNumber(floatLiteral: value))) ",
+                attributes: [.foregroundColor: config.style.strokeColor.cgColor]
+            )
             partialResult.append(string)
             return partialResult
         }

@@ -38,7 +38,7 @@ import UIKit
     public var contentSize: CGSize {
         let itemWidth = candleStyle.width + candleStyle.gap
         let width = max(CGFloat(itemCount) * itemWidth - candleStyle.gap, scrollView.bounds.width)
-        return CGSize(width: width, height: scrollView.frame.height)
+        return CGSize(width: width, height: 0)
     }
     
     /// 计算需要绘制的K线索引范围
@@ -47,6 +47,7 @@ import UIKit
     public var indices: Range<Int> {
         let contentOffset = scrollView.contentOffset
         let itemWidth = candleStyle.width + candleStyle.gap
+        guard itemWidth > 0 else { return 0..<0 }
         // 计算起始索引
         let startIndex = Int(floor(contentOffset.x / itemWidth))
         // 计算偏移量
@@ -104,6 +105,7 @@ extension Layout {
     @inline(__always)
     public func relativeIndex(on x: CGFloat) -> Int {
         let itemWidth = candleStyle.width + candleStyle.gap
+        guard itemWidth > 0 else { return 0 }
         let viewPort = frameOfVisibleRange
         var index = Int(floor((x - viewPort.minX) / itemWidth))
         if viewPort.minX <= 0 {
@@ -135,7 +137,7 @@ extension Layout {
     @inline(__always)
     public func minY(for value: Double, viewPort: CGRect) -> CGFloat {
         let value = CGFloat(value)
-        if dataBounds.distance == 0 { return 0 }
+        guard dataBounds.distance > 0 else { return 0 }
         // 表示数据值在最小值和最大值之间的归一化比例。
         let ratio = (value - dataBounds.min) / dataBounds.distance
         let height = viewPort.height
@@ -145,8 +147,7 @@ extension Layout {
     
     @inline(__always)
     public func value(on y: CGFloat, viewPort: CGRect) -> Double {
-        guard viewPort.height > 0,
-              dataBounds.distance > 0 else {
+        guard viewPort.height > 0, dataBounds.distance > 0 else {
             return dataBounds.min
         }
         let minY = viewPort.minY
@@ -160,6 +161,7 @@ extension Layout {
     
     func niceValues(in viewPort: CGRect, groupFrame: CGRect) -> [(value: Double, y: CGFloat)] {
         let (stepSize, _) = determineNiceGridSteps(maxLines: 7)
+        guard stepSize > 0 else { return [(0, 0)] }
         var niceValues = [(Double, CGFloat)]()
         var value = floor(dataBounds.min / stepSize) * stepSize
         var y = minY(for: value, viewPort: viewPort)

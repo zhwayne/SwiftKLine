@@ -62,10 +62,7 @@ extension RendererContext {
     ///   - type: 数据类型
     /// - Returns: 可见范围内的数据切片，如果类型不匹配则返回nil
     public func visibleValues<Key: Hashable, T>(forKey key: Key, valueType: T.Type) -> ArraySlice<T>? {
-        if let values = valueStorage.getValue(forKey: key, type: [T].self) {
-            return values[visibleRange]
-        }
-        return nil
+        return values(forKey: key, valueType: valueType)?[visibleRange]
     }
     
     public func values<Key: Hashable, T>(forKey key: Key, valueType type: T.Type) -> Array<T>? {

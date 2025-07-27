@@ -71,9 +71,10 @@ final class VOLRenderer: Renderer {
     
     func legend(at index: Int, context: Context) -> NSAttributedString? {
         let item = context.visibleItems[index]
-        let string = NSAttributedString(string: "VOL: \(volumeFormatter.format(item.volume as NSNumber))", attributes: [
-            .foregroundColor: UIColor.secondaryLabel.cgColor
-        ])
+        let string = NSAttributedString(
+            string: "VOL: \(volumeFormatter.format(NSNumber(floatLiteral: item.volume))) ",
+            attributes: [.foregroundColor: UIColor.secondaryLabel.cgColor]
+        )
         return string
     }
     

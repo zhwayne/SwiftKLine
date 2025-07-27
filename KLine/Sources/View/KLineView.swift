@@ -28,6 +28,7 @@ enum ChartSection: Sendable {
     private let indicatorHeight: CGFloat = 72
     private let indicatorTypeHeight: CGFloat = 32
     private var chartHeightConstraint: Constraint!
+    private var viewHeight: CGFloat { descriptor.height + indicatorTypeHeight }
     
     // MARK: - ChartDescriptor
     private var descriptor = ChartDescriptor()
@@ -76,7 +77,7 @@ enum ChartSection: Sendable {
         scrollView.contentView.addSubview(legendLabel)
         legendLabel.snp.makeConstraints { make in
             make.left.equalTo(12)
-            make.width.equalToSuperview().multipliedBy(0.7)
+            make.width.equalToSuperview().multipliedBy(0.8)
             make.top.equalTo(8)
         }
 
@@ -115,16 +116,20 @@ enum ChartSection: Sendable {
     }
     
     public override func invalidateIntrinsicContentSize() {
-        super.invalidateIntrinsicContentSize()
         chartHeightConstraint.update(offset: descriptor.height)
         layout.updateContentSize()
+        super.invalidateIntrinsicContentSize()
     }
     
     public override var intrinsicContentSize: CGSize {
         var size = super.intrinsicContentSize
         size.width = max(size.width, bounds.width)
-        size.height = descriptor.height + indicatorTypeHeight
+        size.height = viewHeight
         return size
+    }
+    
+    public override func sizeThatFits(_ size: CGSize) -> CGSize {
+        return CGSize(width: size.width, height: viewHeight)
     }
     
     private func setupBindings() {
@@ -308,10 +313,6 @@ extension KLineView {
         for (idx, group) in descriptor.groups.enumerated() {
             let renderers = group.renderers
             
-            // 计算可见区域内每个 group 所在的位置
-            let groupFrame = descriptor.frameOfGroup(at: idx, rect: contentRect)
-            context.groupFrame = groupFrame
-            
             var dataBounds: MetricBounds = .empty
             // 计算可见区域内数据范围
             for renderer in renderers {
@@ -319,19 +320,28 @@ extension KLineView {
             }
             context.layout.dataBounds = dataBounds
             
+            // 计算可见区域内每个 group 所在的位置
+            let groupFrame = descriptor.frameOfGroup(at: idx, rect: contentRect)
+            context.groupFrame = groupFrame
+            
             // 绘制主图图例（副图图例由 renderer 自行处理）
             var viewPortOffsetY: CGFloat = 0
             if group.chartSection == .mainChart {
                 let legendIndex = context.visibleRange.upperBound - 1
-                let legendString = NSMutableAttributedString()
-                for renderer in renderers {
-                    if let string = renderer.legend(at: legendIndex, context: context) {
-                        legendString.append(string)
-                        legendString.append(NSAttributedString(string: "\n"))
+                if legendIndex < 0 {
+                    legendLabel.attributedText = nil
+                } else {
+                    let legendString = NSMutableAttributedString()
+                    for renderer in renderers {
+                        if let string = renderer.legend(at: legendIndex, context: context) {
+                            legendString.append(string)
+                            legendString.append(NSAttributedString(string: "\n"))
+                        }
                     }
+                    legendString.addAttribute(.font, value: styleManager.legendFont, range: NSMakeRange(0, legendString.length))
+                    legendLabel.attributedText = legendString
                 }
-                legendString.addAttribute(.font, value: styleManager.legendFont, range: NSMakeRange(0, legendString.length))
-                legendLabel.attributedText = legendString
+               
                 legendLabel.sizeToFit()
                 // 计算 viewPort
                 let legendFrame = legendLabel.frame
