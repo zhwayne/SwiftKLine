@@ -158,17 +158,17 @@ extension Layout {
 
 extension Layout {
     
-    func niceValues(in viewPort: CGRect) -> [(value: Double, y: CGFloat)] {
+    func niceValues(in viewPort: CGRect, groupFrame: CGRect) -> [(value: Double, y: CGFloat)] {
         let (stepSize, _) = determineNiceGridSteps(maxLines: 7)
         var niceValues = [(Double, CGFloat)]()
         var value = floor(dataBounds.min / stepSize) * stepSize
         var y = minY(for: value, viewPort: viewPort)
-        while y > viewPort.minY {
-            if y < viewPort.maxY {
+        while y > groupFrame.minY {
+            if y < groupFrame.maxY {
                 niceValues.append((value, y))
             }
-            y = self.minY(for: value, viewPort: viewPort)
             value += stepSize
+            y = self.minY(for: value, viewPort: viewPort)
         }
         return niceValues
     }

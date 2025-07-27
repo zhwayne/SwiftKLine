@@ -32,12 +32,13 @@ final class YAxisRenderer: Renderer {
     
     func draw(in layer: CALayer, context: Context) {
         let layout = context.layout
+        let viewPort = context.viewPort
         let groupFrame = context.groupFrame
         let rect = layer.bounds
         lineLayer.strokeColor = UIColor.systemGray5.cgColor
         
         let path = CGMutablePath()
-        let values = layout.niceValues(in: groupFrame)
+        let values = layout.niceValues(in: viewPort, groupFrame: groupFrame)
         
         let count = values.count - textLayerQueue.count
         if count > 0 {
