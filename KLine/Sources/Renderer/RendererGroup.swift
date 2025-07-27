@@ -15,6 +15,7 @@ struct RendererGroup {
     let padding: (top: CGFloat, bottom: CGFloat)
     let renderers: [AnyRenderer]
     let chartSection: ChartSection
+    let legendSpacing: CGFloat
     
     typealias Builder = RendererBuilder
     
@@ -22,11 +23,13 @@ struct RendererGroup {
         chartSection: ChartSection,
         height: CGFloat,
         padding: (CGFloat, CGFloat) = (8, 2),
+        legendSpacing: CGFloat = 8,
         @Builder renderers: () -> [AnyRenderer]
     ) {
         self.chartSection = chartSection
         self.height = height
         self.padding = padding
+        self.legendSpacing = legendSpacing
         self.renderers = renderers()
     }
 }

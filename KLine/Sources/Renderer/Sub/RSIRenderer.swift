@@ -19,6 +19,7 @@ final class RSIRenderer: Renderer {
     
     private let configurations: [Configuration]
     private let lineLayers: [CAShapeLayer]
+    private let legendLayer = CATextLayer()
 
     var id: some Hashable { Indicator.rsi }
 
@@ -30,13 +31,17 @@ final class RSIRenderer: Renderer {
             layer.fillColor = UIColor.clear.cgColor
             return layer
         }
+        legendLayer.alignmentMode = .center
+        legendLayer.contentsScale = UIScreen.main.scale
     }
 
     func install(to layer: CALayer) {
+        layer.addSublayer(legendLayer)
         lineLayers.forEach { layer.addSublayer($0) }
     }
     
     func uninstall(from layer: CALayer) {
+        legendLayer.removeFromSuperlayer()
         lineLayers.forEach { $0.removeFromSuperlayer() }
     }
     
@@ -44,6 +49,9 @@ final class RSIRenderer: Renderer {
         // 获取K线样式配置
         let candleStyle = context.candleStyle
         let layout = context.layout
+        
+        legendLayer.string = context.legendText
+        legendLayer.frame = context.legendFrame
         
         zip(configurations, lineLayers).forEach { config, lineLayer in
             guard let visibleValues = context.visibleValues(forKey: config.key, valueType: Double?.self) else {
@@ -67,15 +75,18 @@ final class RSIRenderer: Renderer {
         }
     }
     
-    func legend(at index: Int, context: Context) -> NSAttributedString? {
+    func legend(context: Context) -> NSAttributedString? {
         return configurations.reduce(NSMutableAttributedString()) { partialResult, config in
             guard let values = context.values(forKey: config.key, valueType: Double?.self),
-                  let value = values[index] else {
+                  let value = values[context.currentIndex] else {
                 return partialResult
             }
             let string = NSAttributedString(
                 string: "RSI\(config.period): \(priceFormatter.format(NSNumber(floatLiteral: value))) ",
-                attributes: [.foregroundColor: config.style.strokeColor.cgColor]
+                attributes: [
+                    .foregroundColor: config.style.strokeColor.cgColor,
+                    .font: UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+                ]
             )
             partialResult.append(string)
             return partialResult

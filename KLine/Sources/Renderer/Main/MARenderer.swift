@@ -69,10 +69,10 @@ final class MARenderer: Renderer {
         }
     }
     
-    func legend(at index: Int, context: Context) -> NSAttributedString? {
+    func legend(context: Context) -> NSAttributedString? {
         return configurations.reduce(NSMutableAttributedString()) { partialResult, config in
             guard let values = context.values(forKey: config.key, valueType: Double?.self),
-                  let value = values[index] else {
+                  let value = values[context.currentIndex] else {
                 return partialResult
             }
             let string = NSAttributedString(

@@ -15,7 +15,7 @@ import Foundation
     /// K线数据数组
     public var items: [Item]
     /// 当前选中的K线索引
-    public var selectedIndex: Int?
+    public var currentIndex: Int
     /// 当前可见的K线数据范围
     public var visibleRange: Range<Int>
     /// K线样式管理器
@@ -23,28 +23,28 @@ import Foundation
     /// 布局信息，包含位置计算相关的方法
     public let layout: Layout
     /// 当前组的区域
-    public var groupFrame: CGRect
+    public internal(set) var groupFrame: CGRect = .zero
     /// 当前渲染的区域
-    public var viewPort: CGRect
+    public internal(set) var viewPort: CGRect = .zero
+    /// 图例的位置
+    public internal(set) var legendFrame: CGRect = .zero
+    /// 图例的文本
+    public internal(set) var legendText: NSAttributedString?
     
     init(
         valueStorage: ValueStorage,
         items: [Item],
-        selectedIndex: Int? = nil,
         visibleRange: Range<Int>,
+        selectedIndex: Int? = nil,
         candleStyle: CandleStyle,
-        layout: Layout,
-        groupFrame: CGRect,
-        viewPort: CGRect
+        layout: Layout
     ) {
         self.valueStorage = valueStorage
         self.items = items
-        self.selectedIndex = selectedIndex
+        self.currentIndex = selectedIndex ?? visibleRange.upperBound - 1
         self.visibleRange = visibleRange
         self.candleStyle = candleStyle
         self.layout = layout
-        self.groupFrame = groupFrame
-        self.viewPort = viewPort
     }
 }
 

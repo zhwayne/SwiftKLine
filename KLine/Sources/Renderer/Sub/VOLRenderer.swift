@@ -15,6 +15,7 @@ final class VOLRenderer: Renderer {
     
     private let risingLayer = CAShapeLayer()
     private let fallingLayer = CAShapeLayer()
+    private let legendLayer = CATextLayer()
     private let volumeFormatter = VolumeFormatter()
     private let configuration: Configuration
     
@@ -29,14 +30,19 @@ final class VOLRenderer: Renderer {
         fallingLayer.lineWidth = 1
         fallingLayer.contentsScale = UIScreen.main.scale
         fallingLayer.opacity = 0.5
+        
+        legendLayer.alignmentMode = .center
+        legendLayer.contentsScale = UIScreen.main.scale
     }
     
     func install(to layer: CALayer) {
+        layer.addSublayer(legendLayer)
         layer.addSublayer(risingLayer)
         layer.addSublayer(fallingLayer)
     }
     
     func uninstall(from layer: CALayer) {
+        legendLayer.removeFromSuperlayer()
         risingLayer.removeFromSuperlayer()
         fallingLayer.removeFromSuperlayer()
     }
@@ -50,6 +56,9 @@ final class VOLRenderer: Renderer {
         risingLayer.strokeColor = KLineTrend.rising.color
         fallingLayer.fillColor = KLineTrend.falling.color
         fallingLayer.strokeColor = KLineTrend.falling.color
+        
+        legendLayer.string = context.legendText
+        legendLayer.frame = context.legendFrame
         
         let upPath = CGMutablePath()
         let downPath = CGMutablePath()
@@ -69,11 +78,14 @@ final class VOLRenderer: Renderer {
         fallingLayer.path = downPath
     }
     
-    func legend(at index: Int, context: Context) -> NSAttributedString? {
-        let item = context.visibleItems[index]
+    func legend(context: Context) -> NSAttributedString? {
+        let item = context.items[context.currentIndex]
         let string = NSAttributedString(
             string: "VOL: \(volumeFormatter.format(NSNumber(floatLiteral: item.volume))) ",
-            attributes: [.foregroundColor: UIColor.secondaryLabel.cgColor]
+            attributes: [
+                .foregroundColor: UIColor.secondaryLabel.cgColor,
+                .font: UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+            ]
         )
         return string
     }

@@ -17,13 +17,13 @@ import UIKit
     func uninstall(from layer: CALayer)
     func draw(in layer: CALayer, context: Context)
     
-    func legend(at index: Int, context: Context) -> NSAttributedString?
+    func legend(context: Context) -> NSAttributedString?
     func dataBounds(context: Context) -> MetricBounds
 }
 
 extension Renderer {
     
-    public func legend(at index: Int, context: Context) -> NSAttributedString? {
+    public func legend(context: Context) -> NSAttributedString? {
         return nil
     }
     
@@ -38,7 +38,7 @@ final class AnyRenderer: Renderer {
     private let _installFunc: (CALayer) -> Void
     private let _uninstallFunc: (CALayer) -> Void
     private let _drawFunc: (CALayer, Context) -> Void
-    private let _legendStringFunc: (Int, Context) -> NSAttributedString?
+    private let _legendStringFunc: (Context) -> NSAttributedString?
     private let _dataBoundsFunc: (Context) -> MetricBounds
     
     let base: any Renderer
@@ -51,7 +51,7 @@ final class AnyRenderer: Renderer {
         _drawFunc = {
             base.draw(in: $0, context: $1)
         }
-        _legendStringFunc = { base.legend(at: $0, context: $1) }
+        _legendStringFunc = { base.legend(context: $0) }
         _dataBoundsFunc = { base.dataBounds(context: $0) }
     }
     
@@ -69,8 +69,8 @@ final class AnyRenderer: Renderer {
         _drawFunc(layer, context)
     }
     
-    func legend(at index: Int, context: Context) -> NSAttributedString? {
-        return _legendStringFunc(index, context)
+    func legend(context: Context) -> NSAttributedString? {
+        return _legendStringFunc(context)
     }
     
     func dataBounds(context: Context) -> MetricBounds {

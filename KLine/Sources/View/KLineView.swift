@@ -320,12 +320,10 @@ extension KLineView {
         let context = RendererContext(
             valueStorage: valueStorage,
             items: klineItems,
-            selectedIndex: selectedIndex,
             visibleRange: visibleRange,
+            selectedIndex: selectedIndex,
             candleStyle: styleManager.candleStyle,
-            layout: layout,
-            groupFrame: .zero,
-            viewPort: .zero
+            layout: layout
         )
         
         for (idx, group) in descriptor.groups.enumerated() {
@@ -345,13 +343,12 @@ extension KLineView {
             // 绘制主图图例（副图图例由 renderer 自行处理）
             var viewPortOffsetY: CGFloat = 0
             if group.chartSection == .mainChart {
-                let legendIndex = context.visibleRange.upperBound - 1
-                if legendIndex < 0 {
+                if context.currentIndex < 0 {
                     legendLabel.attributedText = nil
                 } else {
                     let legendString = NSMutableAttributedString()
                     for renderer in renderers {
-                        if let string = renderer.legend(at: legendIndex, context: context) {
+                        if let string = renderer.legend(context: context) {
                             legendString.append(string)
                             legendString.append(NSAttributedString(string: "\n"))
                         }
@@ -364,6 +361,28 @@ extension KLineView {
                 // 计算 viewPort
                 let legendFrame = legendLabel.frame
                 viewPortOffsetY = legendFrame.height == 0 ? 0 : (legendFrame.maxY - groupFrame.minY)
+                context.legendFrame = legendFrame
+            } else if group.chartSection == .subChart {
+                let legendText = NSMutableAttributedString()
+                for renderer in renderers {
+                    if let string = renderer.legend(context: context) {
+                        legendText.append(string)
+                    }
+                }
+                if !legendText.string.isEmpty {
+                    let boundingRect = legendText.boundingRect(
+                        with: CGSize(width: groupFrame.width, height: groupFrame.height),
+                        context: nil
+                    )
+                    viewPortOffsetY = boundingRect.height == 0 ? 0 : boundingRect.height + group.legendSpacing
+                    context.legendText = legendText
+                    context.legendFrame = CGRect(
+                        x: 12,
+                        y: groupFrame.minY + group.padding.top,
+                        width: boundingRect.width,
+                        height: boundingRect.height
+                    )
+                }
             }
             
             // 计算 viewPort
