@@ -8,10 +8,10 @@
 import Foundation
 
 struct VOLCalculator: IndicatorCalculator {
-    typealias Identifier = Indicator.Key
+    
     typealias Result = Double
-        
-    var identifier: Indicator.Key { .vol }
+    var indicator: Indicator { .vol }
+    var id: some Hashable { Indicator.Key.vol }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
         return items.map(\.volume)

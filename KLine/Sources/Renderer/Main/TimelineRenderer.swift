@@ -8,8 +8,8 @@
 import UIKit
 
 final class TimelineRenderer: Renderer {
-    typealias Calculator = NothingCalculator
     
+    var id: some Hashable { ObjectIdentifier(TimelineRenderer.self) }
     private let style: TimelineStyle
     private var textLayers: [CATextLayer] = []
     private let borderLayer = CAShapeLayer()

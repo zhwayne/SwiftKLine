@@ -8,8 +8,8 @@
 import UIKit
 
 final class PriceIndicatorRenderer: Renderer {
-    typealias Calculator = NothingCalculator
         
+    var id: some Hashable { ObjectIdentifier(PriceIndicatorRenderer.self) }
     private let style: PriceIndicatorStyle
     
     private let priceLineLayer = CAShapeLayer()

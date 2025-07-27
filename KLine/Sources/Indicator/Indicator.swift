@@ -56,20 +56,20 @@ extension Indicator {
     }
 }
 
-extension Indicator {
-    
-    public var keys: [Indicator.Key] {
-        switch self {
-        case .vol:
-            return [.vol]
-        case .ma:
-            return [.ma(5), .ma(10), .ma(20)]
-        case .ema:
-            return [.ema(5), .ema(10), .ema(20)]
-        case .rsi:
-            return [.rsi(5), .rsi(10), .rsi(20)]
-        case .macd:
-            return [.macd(12, 26, 9)]
-        }
-    }
-}
+//extension Indicator {
+//    
+//    public var keys: [Indicator.Key] {
+//        switch self {
+//        case .vol:
+//            return [.vol]
+//        case .ma:
+//            return [.ma(5), .ma(10), .ma(20)]
+//        case .ema:
+//            return [.ema(5), .ema(10), .ema(20)]
+//        case .rsi:
+//            return [.rsi(5), .rsi(10), .rsi(20)]
+//        case .macd:
+//            return [.macd(12, 26, 9)]
+//        }
+//    }
+//}

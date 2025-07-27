@@ -8,8 +8,8 @@
 import UIKit
 
 final class CandleRenderer: Renderer {
-    typealias Calculator = NothingCalculator
 
+    var id: some Hashable { ObjectIdentifier(CandleRenderer.self) }
     private let risingLayer = CAShapeLayer()
     private let fallingLayer = CAShapeLayer()
     

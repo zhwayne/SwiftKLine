@@ -9,18 +9,15 @@ import Foundation
 
 /// 渲染器上下文
 /// 包含渲染K线图所需的所有上下文信息
-@MainActor
-public struct RendererContext<Item> {
+@MainActor public final class RendererContext<Item> {
+    /// 存储指标计算结果
+    let valueStorage: ValueStorage
     /// K线数据数组
     public var items: [Item]
     /// 当前选中的K线索引
     public var selectedIndex: Int?
     /// 当前可见的K线数据范围
     public var visibleRange: Range<Int>
-    /// 当前可见范围内的K线数据
-    public var visibleItems: [Item]
-    /// 存储指标计算结果
-    public var visibleValues: [Any?]?
     /// K线样式管理器
     public let candleStyle: CandleStyle
     /// 布局信息，包含位置计算相关的方法
@@ -30,12 +27,20 @@ public struct RendererContext<Item> {
     /// 当前渲染的区域
     public var viewPort: CGRect
     
-    init(items: [Item], selectedIndex: Int? = nil, visibleRange: Range<Int>, visibleItems: [Item], visibleValues: [Any?]? = nil, candleStyle: CandleStyle, layout: Layout, groupFrame: CGRect, viewPort: CGRect) {
+    init(
+        valueStorage: ValueStorage,
+        items: [Item],
+        selectedIndex: Int? = nil,
+        visibleRange: Range<Int>,
+        candleStyle: CandleStyle,
+        layout: Layout,
+        groupFrame: CGRect,
+        viewPort: CGRect
+    ) {
+        self.valueStorage = valueStorage
         self.items = items
         self.selectedIndex = selectedIndex
         self.visibleRange = visibleRange
-        self.visibleItems = visibleItems
-        self.visibleValues = visibleValues
         self.candleStyle = candleStyle
         self.layout = layout
         self.groupFrame = groupFrame
@@ -43,18 +48,30 @@ public struct RendererContext<Item> {
     }
 }
 
-///// 渲染器上下文的扩展方法
-//extension RendererContext {
-//    
-//    /// 获取指定键对应的可见范围内的数据
-//    /// - Parameters:
-//    ///   - key: 存储数据的键
-//    ///   - type: 数据类型
-//    /// - Returns: 可见范围内的数据切片，如果类型不匹配则返回nil
-//    func visibleValue<T>(key: any Hashable, type: T.Type) -> ArraySlice<T>? {
-//        guard let values = valueStorage[key] as? [T] else {
-//            return nil
-//        }
-//        return values[visibleRange]
-//    }
-//}
+/// 渲染器上下文的扩展方法
+extension RendererContext {
+    
+    public var visibleItems: ArraySlice<Item> {
+        if items.isEmpty { return [] }
+        return items[visibleRange]
+    }
+    
+    /// 获取指定键对应的可见范围内的数据
+    /// - Parameters:
+    ///   - key: 存储数据的键
+    ///   - type: 数据类型
+    /// - Returns: 可见范围内的数据切片，如果类型不匹配则返回nil
+    public func visibleValues<Key: Hashable, T>(forKey key: Key, valueType: T.Type) -> ArraySlice<T>? {
+        if let values = valueStorage.getValue(forKey: key, type: [T].self) {
+            return values[visibleRange]
+        }
+        return nil
+    }
+    
+    public func values<Key: Hashable, T>(forKey key: Key, valueType type: T.Type) -> Array<T>? {
+        if let values = valueStorage.getValue(forKey: key, type: [T].self) {
+            return values
+        }
+        return nil
+    }
+}

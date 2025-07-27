@@ -8,9 +8,8 @@
 import UIKit
 
 final class YAxisRenderer: Renderer {
-    
-    typealias Calculator = NothingCalculator
-    
+        
+    var id: some Hashable { ObjectIdentifier(YAxisRenderer.self) }
     private let lineLayer = CAShapeLayer()
     private var textLayerQueue = [CATextLayer]()
     private let priceFormatter = PriceFormatter()

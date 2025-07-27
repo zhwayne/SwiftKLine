@@ -41,4 +41,10 @@ extension MetricBounds {
         max = Swift.max(max, bounds.max)
         min = Swift.min(min, bounds.min)
     }
+    
+    func merging(other bounds: MetricBounds) -> MetricBounds {
+        let max = Swift.max(max, bounds.max)
+        let min = Swift.min(min, bounds.min)
+        return MetricBounds(min: min, max: max)
+    }
 }

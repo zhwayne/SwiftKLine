@@ -17,7 +17,6 @@ struct PriceFormatter: NumberFormatting {
     var maximumSignificantDigits = 4
     var minimumFractionDigits = 2
     
-    
     func format(_ number: NSNumber) -> String {
         var integer = number.intValue
         var digits = 0

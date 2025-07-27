@@ -10,7 +10,7 @@ import SnapKit
 import Combine
 
 enum ChartSection: Sendable {
-    case mainChart, subChart
+    case mainChart, timeline, subChart
 }
 
 @MainActor public final class KLineView: UIView {
@@ -18,8 +18,8 @@ enum ChartSection: Sendable {
     // MARK: - Views
     private let chartView = UIView()
     private let scrollView = ChartScrollView()
+    private let legendLabel = UILabel()
     private var indicatorTypeView = IndicatorTypeView()
-    
     private lazy var layout = Layout(scrollView: scrollView)
     
     // MARK: - Height defines
@@ -64,11 +64,20 @@ enum ChartSection: Sendable {
         indicatorTypeView.snp.makeConstraints { make in
             make.left.right.bottom.equalToSuperview()
             make.height.equalTo(indicatorTypeHeight)
+            make.top.equalTo(chartView.snp.bottom)
         }
         
         chartView.addSubview(scrollView)
         scrollView.snp.makeConstraints { make in
             make.edges.equalToSuperview()
+        }
+        
+        legendLabel.numberOfLines = 0
+        scrollView.contentView.addSubview(legendLabel)
+        legendLabel.snp.makeConstraints { make in
+            make.left.equalTo(12)
+            make.width.equalToSuperview().multipliedBy(0.7)
+            make.top.equalTo(8)
         }
 
 //        // 添加手势
@@ -106,8 +115,8 @@ enum ChartSection: Sendable {
     }
     
     public override func invalidateIntrinsicContentSize() {
-        chartHeightConstraint.update(offset: descriptor.height)
         super.invalidateIntrinsicContentSize()
+        chartHeightConstraint.update(offset: descriptor.height)
         layout.updateContentSize()
     }
     
@@ -173,25 +182,14 @@ extension KLineView {
     private func makeDescriptor() -> ChartDescriptor {
         ChartDescriptor {
             // MARK: - 主图
-            RendererGroup(height: candleHeight, padding: (12, 12)) {
+            RendererGroup(chartSection: .mainChart, height: candleHeight, padding: (12, 12)) {
                 // X轴
                 XAxisRenderer()
                 //蜡烛图
                 CandleRenderer()
                 // 主图指标
                 for type in mainIndicatorTypes {
-                    switch type {
-                    case .ma:
-                        MARenderer(period: 5, style: LineStyle(strokeColor: .systemOrange))
-                        MARenderer(period: 10, style: LineStyle(strokeColor: .systemPink))
-                        MARenderer(period: 20, style: LineStyle(strokeColor: .systemTeal))
-                    case .ema:
-                        EMARenderer(period: 5, style: LineStyle(strokeColor: .systemOrange))
-                        EMARenderer(period: 10, style: LineStyle(strokeColor: .systemPink))
-                        EMARenderer(period: 20, style: LineStyle(strokeColor: .systemTeal))
-                    default:
-                        NothingRenderer()
-                    }
+                    type.makeRenderer()
                 }
                 // Y轴
                 YAxisRenderer()
@@ -199,24 +197,14 @@ extension KLineView {
                 PriceIndicatorRenderer(style: PriceIndicatorStyle())
             }
             // MARK: - Timeline
-            RendererGroup(height: timelineHeight, padding: (0, 0)) {
+            RendererGroup(chartSection: .timeline, height: timelineHeight, padding: (0, 0)) {
                 TimelineRenderer(style: TimelineStyle())
             }
             // MARK: - 副图
             for type in subIndicatorTypes {
-                RendererGroup(height: indicatorHeight) {
+                RendererGroup(chartSection: .subChart, height: indicatorHeight) {
                     XAxisRenderer()
-                    switch type {
-                    case .vol:
-                        VOLRenderer()
-                    case .rsi:
-                        OverboughtRenderer(range: 30...70)
-                        RSIRenderer(period: 5, style: LineStyle(strokeColor: .systemOrange))
-                        RSIRenderer(period: 10, style: LineStyle(strokeColor: .systemPink))
-                        RSIRenderer(period: 20, style: LineStyle(strokeColor: .systemTeal))
-                    default:
-                        NothingRenderer()
-                    }
+                    type.makeRenderer()
                 }
             }
         }
@@ -238,41 +226,36 @@ extension KLineView {
         
         Task(priority: .userInitiated) {
             // 计算指标数据
-            let renderers = newDescriptor.renderers
-            let valueStorage = await renderers.calculateIndicators(items: klineItems)
-            
-            oldDescriptor.groups.forEach { group in
-                group.uninstall(from: scrollView.contentView.canvas)
+            let calculators = (mainIndicatorTypes + subIndicatorTypes).flatMap { indicator in
+                return indicator.makeCalculators()
             }
             
-            newDescriptor.groups.forEach { group in
-                group.install(to: scrollView.contentView.canvas)
-            }
+            let newValueStorage = await calculators.calculate(items: klineItems)
             
-            deletions.forEach { renderer in
-                renderer.uninstall(from: scrollView.contentView.canvas)
-                if let identifier = renderer.calculator?.identifier {
-                    self.valueStorage[identifier] = nil
-                }
-            }
             insertions.forEach { renderer in
                 renderer.install(to: scrollView.contentView.canvas)
             }
-            
+            deletions.forEach { renderer in
+                renderer.uninstall(from: scrollView.contentView.canvas)
+            }
+
             descriptor = newDescriptor
-            self.valueStorage.merge(valueStorage)
+            valueStorage = newValueStorage
             invalidateIntrinsicContentSize()
             drawVisibleContent()
         }
     }
     
     private func draw(items: [any KLineItem], scrollPosition: ScrollPosition) async {
-        let renderers = descriptor.renderers
-        let valueStorage = await renderers.calculateIndicators(items: items)
-        self.valueStorage.merge(valueStorage)
+        let calculators = (mainIndicatorTypes + subIndicatorTypes).flatMap { indicator in
+            return indicator.makeCalculators()
+        }
+        let newValueStorage = await calculators.calculate(items: items)
+        valueStorage = newValueStorage
         klineItems = items
-        layout.itemCount = klineItems.count
+        layout.itemCount = items.count
         scrollView.scroll(to: scrollPosition)
+        updateDescriptor()
         drawVisibleContent()
     }
     
@@ -311,12 +294,11 @@ extension KLineView {
         let visibleRange = layout.visibleRange
         if visibleRange.isEmpty { return }
         
-        var context = RendererContext(
+        let context = RendererContext(
+            valueStorage: valueStorage,
             items: klineItems,
             selectedIndex: selectedIndex,
             visibleRange: visibleRange,
-            visibleItems: Array(klineItems[visibleRange]),
-            visibleValues: [],
             candleStyle: styleManager.candleStyle,
             layout: layout,
             groupFrame: .zero,
@@ -330,57 +312,41 @@ extension KLineView {
             let groupFrame = descriptor.frameOfGroup(at: idx, rect: contentRect)
             context.groupFrame = groupFrame
             
-            var extralValues: [[Any?]?] = Array(repeating: nil, count: group.renderers.count)
             var dataBounds: MetricBounds = .empty
-            // 预设 extralValues
             // 计算可见区域内数据范围
-            for (idx, renderer) in renderers.enumerated() {
-                if let identifier = renderer.calculator?.identifier,
-                   let values = valueStorage[identifier] as? [Any?] {
-                    extralValues[idx] = values
-                    context.visibleValues = Array(values[visibleRange])
-                }
+            for renderer in renderers {
                 dataBounds.merge(other: renderer.dataBounds(context: context))
             }
             context.layout.dataBounds = dataBounds
             
-            // 绘制每个group的图例
-            let legendIndex = context.visibleItems.count - 1
-            let legendString = NSMutableAttributedString()
-            var lastLegendIndicator: Indicator?
-            for (idx, renderer) in renderers.enumerated() {
-                if let values = extralValues[idx] {
-                    context.visibleValues = Array(values[visibleRange])
-                } else {
-                    context.visibleValues = nil
-                }
-                if let legend = renderer.legend(at: legendIndex, context: context) {
-                    if let indicator = lastLegendIndicator, indicator != legend.0 {
+            // 绘制主图图例（副图图例由 renderer 自行处理）
+            var viewPortOffsetY: CGFloat = 0
+            if group.chartSection == .mainChart {
+                let legendIndex = context.visibleRange.upperBound - 1
+                let legendString = NSMutableAttributedString()
+                for renderer in renderers {
+                    if let string = renderer.legend(at: legendIndex, context: context) {
+                        legendString.append(string)
                         legendString.append(NSAttributedString(string: "\n"))
                     }
-                    lastLegendIndicator = legend.0
-                    legendString.append(legend.1)
                 }
+                legendString.addAttribute(.font, value: styleManager.legendFont, range: NSMakeRange(0, legendString.length))
+                legendLabel.attributedText = legendString
+                legendLabel.sizeToFit()
+                // 计算 viewPort
+                let legendFrame = legendLabel.frame
+                viewPortOffsetY = legendFrame.height == 0 ? 0 : (legendFrame.maxY - groupFrame.minY)
             }
-            legendString.addAttribute(.font, value: styleManager.legendFont, range: NSMakeRange(0, legendString.length))
-            group.drawLegend(groupFrame: groupFrame, string: legendString)
             
             // 计算 viewPort
-            let legendFrame = group.legendFrame
-            let viewPortOffsetY = legendFrame.height == 0 ? 0 : (legendFrame.maxY - groupFrame.minY)
             let groupInset = UIEdgeInsets(
                 top: group.padding.top + viewPortOffsetY, left: 0,
                 bottom: group.padding.bottom, right: 0
             )
             context.viewPort = groupFrame.inset(by: groupInset)
 
-            // 绘制
-            for (idx, renderer) in renderers.enumerated() {
-                if let values = extralValues[idx] {
-                    context.visibleValues = Array(values[visibleRange])
-                } else {
-                    context.visibleValues = nil
-                }
+            // 绘制图表
+            for renderer in renderers {
                 renderer.draw(in: scrollView.contentView.canvas, context: context)
             }
         }
@@ -651,3 +617,4 @@ extension KLineView {
 //        return true
 //    }
 //}
+

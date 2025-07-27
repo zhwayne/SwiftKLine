@@ -8,76 +8,91 @@
 import UIKit
 
 final class EMARenderer: Renderer {
-    typealias Calculator = EMACalculator
+    
+    struct Configuration {
+        let period: Int
+        let style: LineStyle
+        var key: Indicator.Key { .ema(period) }
+    }
     
     private let priceFormatter = PriceFormatter()
     
-    private let period: Int
-    private let style: LineStyle
-    private let lineLayer = CAShapeLayer()
-    
-    let calculator: Calculator?
+    private let configurations: [Configuration]
+    private let lineLayers: [CAShapeLayer]
 
-    init(period: Int, style: LineStyle) {
-        self.period = period
-        self.style = style
-        calculator = EMACalculator(period: period)
-        lineLayer.lineWidth = 1
-        lineLayer.fillColor = UIColor.clear.cgColor
+    var id: some Hashable { Indicator.ema }
+
+    init(configurations: [Configuration]) {
+        self.configurations = configurations
+        lineLayers = configurations.map { _ in
+            let layer = CAShapeLayer()
+            layer.lineWidth = 1
+            layer.fillColor = UIColor.clear.cgColor
+            return layer
+        }
     }
 
     func install(to layer: CALayer) {
-        layer.addSublayer(lineLayer)
+        lineLayers.forEach { layer.addSublayer($0) }
     }
     
     func uninstall(from layer: CALayer) {
-        lineLayer.removeFromSuperlayer()
+        lineLayers.forEach { $0.removeFromSuperlayer() }
     }
     
     func draw(in layer: CALayer, context: Context) {
         // 获取K线样式配置
         let candleStyle = context.candleStyle
         let layout = context.layout
-        lineLayer.strokeColor = style.strokeColor.cgColor
         
-        guard let visibleValues = context.visibleValues as? [Double?] else {
-            return
+        zip(configurations, lineLayers).forEach { config, lineLayer in
+            guard let visibleValues = context.visibleValues(forKey: config.key, valueType: Double?.self) else {
+                return
+            }
+            lineLayer.strokeColor = config.style.strokeColor.cgColor
+            
+            // 将MA值转换为坐标点
+            let points = visibleValues.enumerated().compactMap { item -> CGPoint? in
+                let (idx, value) = (item.offset, item.element)
+                guard let value else { return nil }
+                // 计算点的x坐标（基于索引位置）
+                let x = layout.minX(at: idx) + candleStyle.width * 0.5
+                // 计算点的y坐标（基于MA值）
+                let y = layout.minY(for: value, viewPort: context.viewPort)
+                return CGPoint(x: x, y: y)
+            }
+            
+            // 使用计算出的点创建路径并设置到图层
+            lineLayer.path = points.cgPath
         }
-        
-        // 将MA值转换为坐标点
-        let points = visibleValues.enumerated().compactMap { item -> CGPoint? in
-            let (idx, value) = (item.offset, item.element)
-            guard let value else { return nil }
-            // 计算点的x坐标（基于索引位置）
-            let x = layout.minX(at: idx) + candleStyle.width * 0.5
-            // 计算点的y坐标（基于MA值）
-            let y = layout.minY(for: value, viewPort: context.viewPort)
-            return CGPoint(x: x, y: y)
-        }
-        
-        // 使用计算出的点创建路径并设置到图层
-        lineLayer.path = points.cgPath
     }
     
-    func legend(at index: Int, context: Context) -> (Indicator, NSAttributedString)? {
-        guard let visibleValues = context.visibleValues as? [Double?],
-              let value = visibleValues[index] else {
-            return nil
+    func legend(at index: Int, context: Context) -> NSAttributedString? {
+        return configurations.reduce(NSMutableAttributedString()) { partialResult, config in
+            guard let values = context.values(forKey: config.key, valueType: Double?.self),
+                  0 <= index && index < values.count,
+                  let value = values[index] else {
+                return partialResult
+            }
+            let string = NSAttributedString(string: "EMA\(config.period): \(priceFormatter.format(value as NSNumber)) ", attributes: [
+                .foregroundColor: config.style.strokeColor.cgColor
+            ])
+            partialResult.append(string)
+            return partialResult
         }
-        let string = NSAttributedString(string: "EMA\(period): \(priceFormatter.format(value as NSNumber)) ", attributes: [
-            .foregroundColor: style.strokeColor.cgColor
-        ])
-        return (.ema, string)
     }
     
     func dataBounds(context: Context) -> MetricBounds {
-        guard let visibleValues = context.visibleValues?.compactMap({ $0 as? Double }),
-              let min = visibleValues.min(),
-              let max = visibleValues.max() else {
-            return .empty
+        return configurations.reduce(MetricBounds.empty) { partialResult, config in
+            let visibleValues = context.visibleValues(forKey: config.key, valueType: Double?.self)
+            guard let visibleValues = visibleValues?.compactMap({ $0 }),
+                  let min = visibleValues.min(),
+                  let max = visibleValues.max() else {
+                return partialResult
+            }
+            let bounds = MetricBounds(min: min, max: max)
+            return bounds.merging(other: partialResult)
         }
-
-        return MetricBounds(min: min, max: max)
     }
 }
 

@@ -10,14 +10,10 @@ import Foundation
 /// 简单移动平均线 (SMA) 的计算器。
 struct MACalculator: IndicatorCalculator {
     
-    typealias Identifier = Indicator.Key
     typealias Result = Double
-    
     let period: Int       // 移动平均线的周期
-    
-    var identifier: Indicator.Key {
-        return .ma(period)
-    }
+    var indicator: Indicator { .ma }
+    var id: some Hashable { Indicator.Key.ma(period) }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
         guard period > 0 && items.count >= period else {

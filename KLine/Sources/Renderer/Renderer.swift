@@ -7,27 +7,23 @@
 
 import UIKit
 
-/// 定义绘制器协议 Renderer，每种 Renderer 单独负责一种绘制任务，KLineView 通过聚
-/// 合多个 Renderer 来实现多种绘制效果。
 @MainActor public protocol Renderer: AnyObject {
     typealias Context = RendererContext<any KLineItem>
-    associatedtype Calculator: IndicatorCalculator
+    associatedtype Identifier: Hashable
     
-    var calculator: Calculator? { get }
+    var id: Identifier { get }
     
     func install(to layer: CALayer)
     func uninstall(from layer: CALayer)
     func draw(in layer: CALayer, context: Context)
     
-    func legend(at index: Int, context: Context) -> (Indicator, NSAttributedString)?
+    func legend(at index: Int, context: Context) -> NSAttributedString?
     func dataBounds(context: Context) -> MetricBounds
 }
 
 extension Renderer {
     
-    public var calculator: Calculator? { nil }
-    
-    public func legend(at index: Int, context: Context) ->(Indicator, NSAttributedString)? {
+    public func legend(at index: Int, context: Context) -> NSAttributedString? {
         return nil
     }
     
@@ -36,28 +32,24 @@ extension Renderer {
     }
 }
 
-final class NothingRenderer: Renderer {
-    typealias Calculator = NothingCalculator
-    func install(to layer: CALayer) { }
-    func uninstall(from layer: CALayer) { }
-    func draw(in layer: CALayer, context: Context) { }
-}
+//final class NothingRenderer: Renderer {
+//    typealias Calculator = NothingCalculator
+//    func install(to layer: CALayer) { }
+//    func uninstall(from layer: CALayer) { }
+//    func draw(in layer: CALayer, context: Context) { }
+//}
 
 final class AnyRenderer: Renderer {
-    typealias Calculator = AnyIndicatorCalculator
         
+    private let _id: () -> AnyHashable
     private let _installFunc: (CALayer) -> Void
     private let _uninstallFunc: (CALayer) -> Void
     private let _drawFunc: (CALayer, Context) -> Void
-    private let _legendStringFunc: (Int, Context) -> (Indicator, NSAttributedString)?
+    private let _legendStringFunc: (Int, Context) -> NSAttributedString?
     private let _dataBoundsFunc: (Context) -> MetricBounds
-    private let _base: any Renderer
-    
-    let calculator: Calculator?
     
     init<R: Renderer>(_ base: R) {
-        calculator = base.calculator?.eraseToAnyCalculator()
-        _base = base
+        _id = { AnyHashable(base.id) }
         _installFunc = { base.install(to: $0) }
         _uninstallFunc = { base.uninstall(from: $0) }
         _drawFunc = {
@@ -66,6 +58,8 @@ final class AnyRenderer: Renderer {
         _legendStringFunc = { base.legend(at: $0, context: $1) }
         _dataBoundsFunc = { base.dataBounds(context: $0) }
     }
+    
+    var id: some Hashable { _id() }
     
     func install(to layer: CALayer) {
         _installFunc(layer)
@@ -79,7 +73,7 @@ final class AnyRenderer: Renderer {
         _drawFunc(layer, context)
     }
     
-    func legend(at index: Int, context: Context) -> (Indicator, NSAttributedString)? {
+    func legend(at index: Int, context: Context) -> NSAttributedString? {
         return _legendStringFunc(index, context)
     }
     
@@ -90,13 +84,13 @@ final class AnyRenderer: Renderer {
 
 extension AnyRenderer: @preconcurrency Equatable {
     static func == (lhs: AnyRenderer, rhs: AnyRenderer) -> Bool {
-        lhs._base === rhs._base
+        lhs.id == rhs.id
     }
 }
 
 extension AnyRenderer: @preconcurrency Hashable {
     func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(_base))
+        hasher.combine(id)
     }
 }
 

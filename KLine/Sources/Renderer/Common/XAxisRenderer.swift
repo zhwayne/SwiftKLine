@@ -8,8 +8,8 @@
 import UIKit
 
 final class XAxisRenderer: Renderer {
-    typealias Calculator = NothingCalculator
     
+    var id: some Hashable { ObjectIdentifier(XAxisRenderer.self) }
     private let lineLayer = CAShapeLayer()
     
     init() {

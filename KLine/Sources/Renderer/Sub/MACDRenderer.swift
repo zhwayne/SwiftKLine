@@ -8,33 +8,27 @@
 import UIKit
 
 final class MACDRenderer: Renderer {
-    
-    typealias Calculator = MACDCalculator
-    
+        
     struct Configuration {
         let shortPeriod: Int  // 短期 EMA 的周期（常用 12）
         let longPeriod: Int   // 长期 EMA 的周期（常用 26）
         let signalPeriod: Int // 信号线 EMA 的周期（常用 9）
+        
+        let style: MACDStyle
+        
+        var key: Indicator.Key {
+            .macd(shortPeriod, longPeriod, signalPeriod)
+        }
     }
     
-    let calculator: Calculator?
-    private let style: MACDStyle
+    var id: some Hashable { Indicator.macd }
+    
     private let configuration: Configuration
     
     private let lineLayer = CAShapeLayer()
     
-    init(period: (Int, Int, Int), style: MACDStyle) {
-        self.style = style
-        self.calculator = MACDCalculator(
-            shortPeriod: period.0,
-            longPeriod: period.1,
-            signalPeriod: period.2
-        )
-        self.configuration = Configuration(
-            shortPeriod: period.0,
-            longPeriod: period.1,
-            signalPeriod: period.2
-        )
+    init(configuration: Configuration) {
+        self.configuration = configuration
         // 设置线条宽度和填充色
         lineLayer.lineWidth = 1
         lineLayer.fillColor = UIColor.clear.cgColor
@@ -49,39 +43,7 @@ final class MACDRenderer: Renderer {
     }
     
     func draw(in layer: CALayer, context: Context) {
-//        // 获取K线样式配置
-//        let candleStyle = context.candleStyle
-//        let layout = context.layout
-//        lineLayer.strokeColor = style.color.cgColor
-//        
-//        // 获取可见范围内的MA值
-//        guard let visibleValues = context.visibleValues as? [Double?] else {
-//            return
-//        }
-//        
-//        // 将MA值转换为坐标点
-//        let points = visibleValues.enumerated().compactMap { item -> CGPoint? in
-//            let (idx, value) = (item.offset, item.element)
-//            guard let value else { return nil }
-//            // 计算点的x坐标（基于索引位置）
-//            let x = layout.minX(at: idx) + candleStyle.width * 0.5
-//            // 计算点的y坐标（基于MA值）
-//            let y = layout.minY(for: value, viewPort: context.viewPort)
-//            return CGPoint(x: x, y: y)
-//        }
-//        
-//        // 使用计算出的点创建路径并设置到图层
-//        lineLayer.path = points.cgPath
-    }
-    
-    func dataBounds(context: Context) -> MetricBounds {
-        guard let visibleValues = context.visibleValues?.compactMap({ $0 as? MACDIndicatorValue }),
-              let min = visibleValues.min(by: { $0.min < $1.min })?.min,
-              let max = visibleValues.max(by: { $0.max < $1.max })?.max else {
-            return .empty
-        }
-        
-        return MetricBounds(min: min, max: max)
+       
     }
 }
 

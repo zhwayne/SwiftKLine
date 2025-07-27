@@ -7,12 +7,18 @@
 
 import Foundation
 
+public protocol ValueBounds {
+    var min: Double { get }
+    var max: Double { get }
+}
+
 /// 指标计算协议
-public protocol IndicatorCalculator {
+public protocol IndicatorCalculator: Sendable {
     associatedtype Result
     associatedtype Identifier: Hashable
     
-    var identifier: Identifier { get }
+    var indicator: Indicator { get }
+    var id: Identifier { get }
         
     /// 计算给定数据的指标值。
     ///
@@ -21,38 +27,11 @@ public protocol IndicatorCalculator {
     func calculate(for items: [any KLineItem]) -> [Result?]
 }
 
-public struct NothingCalculator: IndicatorCalculator {
-    public typealias Result = Void
-    public typealias Identifier = String
-    public let identifier: String
-    public func calculate(for items: [any KLineItem]) -> [Void?] { return [] }
-}
-
-struct AnyIndicatorCalculator: IndicatorCalculator, @unchecked Sendable {
-    
-    typealias Result = Any
-    typealias Identifier = AnyHashable
-    
-    private let _calculate: ([any KLineItem]) -> [Result?]
-    
-    let identifier: AnyHashable
-        
-    init<C: IndicatorCalculator>(_ base: C) {
-        identifier = base.identifier
-        _calculate = { items in
-            base.calculate(for: items)
-        }
-    }
-    
-    @Sendable
-    func calculate(for items: [any KLineItem]) -> [Result?] {
-        return _calculate(items)
-    }
-}
-
 extension IndicatorCalculator {
     
-    func eraseToAnyCalculator() -> AnyIndicatorCalculator {
-        AnyIndicatorCalculator(self)
+    func calculate<T>(for items: [any KLineItem], asType type: T.Type) -> [T?]? {
+        let values = calculate(for: items)
+        let result = values as? [T?]
+        return result
     }
 }
