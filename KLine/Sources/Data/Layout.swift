@@ -18,7 +18,7 @@ import UIKit
     }
     
     /// 当前可见范围内的数值范围
-    public var dataBounds: MetricBounds = .empty
+    public internal(set) var dataBounds: MetricBounds = .empty
         
     init(scrollView: UIScrollView) {
         self.scrollView = scrollView

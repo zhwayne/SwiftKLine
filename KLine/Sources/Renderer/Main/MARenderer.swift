@@ -77,7 +77,10 @@ final class MARenderer: Renderer {
             }
             let string = NSAttributedString(
                 string: "MA\(config.period): \(priceFormatter.format(NSNumber(floatLiteral: value))) ",
-                attributes: [.foregroundColor: config.style.strokeColor.cgColor]
+                attributes: [
+                    .foregroundColor: config.style.strokeColor.cgColor,
+                    .font: UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+                ]
             )
             partialResult.append(string)
             return partialResult

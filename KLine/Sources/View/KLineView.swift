@@ -205,7 +205,7 @@ extension KLineView {
     private func makeDescriptor() -> ChartDescriptor {
         ChartDescriptor {
             // MARK: - 主图
-            RendererGroup(chartSection: .mainChart, height: candleHeight, padding: (12, 12)) {
+            RendererGroup(chartSection: .mainChart, height: candleHeight, padding: (16, 12)) {
                 // X轴
                 XAxisRenderer()
                 //蜡烛图
@@ -234,31 +234,24 @@ extension KLineView {
     }
     
     private func updateDescriptor() {
-        let oldDescriptor = descriptor
-        let newDescriptor = makeDescriptor()
-        
-//        let oldRendererSet = Set(oldDescriptor.renderers)
-//        let newRendererSet = Set(newDescriptor.renderers)
-//        let insertions = newRendererSet.subtracting(oldRendererSet)
-//        let deletions = oldRendererSet.subtracting(newRendererSet)
-        
-        // FIXME: 需要进行 diff 操作
-        // 同时还应该把 oldDescriptor 中已存在的 renderer 转移到新的 descriptor 中
-        let insertions = newDescriptor.renderers
-        let deletions = oldDescriptor.renderers
-        
         Task(priority: .userInitiated) {
+            let oldDescriptor = descriptor
+            let newDescriptor = makeDescriptor()
+            let inserted = newDescriptor.renderers
+            let deleted = oldDescriptor.renderers
+    
+            let allTypes = mainIndicatorTypes + subIndicatorTypes
             // 计算指标数据
-            let calculators = (mainIndicatorTypes + subIndicatorTypes).flatMap { indicator in
+            let calculators = allTypes.flatMap { indicator in
                 return indicator.makeCalculators()
             }
             
             let newValueStorage = await calculators.calculate(items: klineItems)
             
-            insertions.forEach { renderer in
+            inserted.forEach { renderer in
                 renderer.install(to: scrollView.contentView.canvas)
             }
-            deletions.forEach { renderer in
+            deleted.forEach { renderer in
                 renderer.uninstall(from: scrollView.contentView.canvas)
             }
 
@@ -340,47 +333,39 @@ extension KLineView {
             let groupFrame = descriptor.frameOfGroup(at: idx, rect: contentRect)
             context.groupFrame = groupFrame
             
-            // 绘制主图图例（副图图例由 renderer 自行处理）
+            // 绘制主图图例（副图图例暂由 renderer 自行处理）
             var viewPortOffsetY: CGFloat = 0
-            if group.chartSection == .mainChart {
-                if context.currentIndex < 0 {
+            let legendText = NSMutableAttributedString()
+            for renderer in renderers {
+                if let string = renderer.legend(context: context) {
+                    if !legendText.string.isEmpty {
+                        legendText.append(NSAttributedString(string: "\n"))
+                    }
+                    legendText.append(string)
+                }
+            }
+            if legendText.string.isEmpty {
+                if group.chartSection == .mainChart {
                     legendLabel.attributedText = nil
+                }
+            } else {
+                context.legendText = legendText
+                if group.chartSection == .mainChart {
+                    legendLabel.attributedText = legendText
+                    legendLabel.sizeToFit()
+                    let legendFrame = legendLabel.frame
+                    viewPortOffsetY = legendFrame.maxY
+                    context.legendFrame = legendFrame
                 } else {
-                    let legendString = NSMutableAttributedString()
-                    for renderer in renderers {
-                        if let string = renderer.legend(context: context) {
-                            legendString.append(string)
-                            legendString.append(NSAttributedString(string: "\n"))
-                        }
-                    }
-                    legendString.addAttribute(.font, value: styleManager.legendFont, range: NSMakeRange(0, legendString.length))
-                    legendLabel.attributedText = legendString
-                }
-               
-                legendLabel.sizeToFit()
-                // 计算 viewPort
-                let legendFrame = legendLabel.frame
-                viewPortOffsetY = legendFrame.height == 0 ? 0 : (legendFrame.maxY - groupFrame.minY)
-                context.legendFrame = legendFrame
-            } else if group.chartSection == .subChart {
-                let legendText = NSMutableAttributedString()
-                for renderer in renderers {
-                    if let string = renderer.legend(context: context) {
-                        legendText.append(string)
-                    }
-                }
-                if !legendText.string.isEmpty {
                     let boundingRect = legendText.boundingRect(
-                        with: CGSize(width: groupFrame.width, height: groupFrame.height),
+                        with: CGSize(width: groupFrame.width * 0.8, height: groupFrame.height),
+                        options: [.usesLineFragmentOrigin, .usesFontLeading],
                         context: nil
                     )
-                    viewPortOffsetY = boundingRect.height == 0 ? 0 : boundingRect.height + group.legendSpacing
-                    context.legendText = legendText
+                    viewPortOffsetY = boundingRect.height + group.legendSpacing
                     context.legendFrame = CGRect(
-                        x: 12,
-                        y: groupFrame.minY + group.padding.top,
-                        width: boundingRect.width,
-                        height: boundingRect.height
+                        x: 12, y: groupFrame.minY + group.padding.top,
+                        width: boundingRect.width, height: boundingRect.height
                     )
                 }
             }
