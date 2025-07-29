@@ -13,9 +13,10 @@ struct RendererGroup {
     
     let height: CGFloat
     let padding: (top: CGFloat, bottom: CGFloat)
-    var renderers: [AnyRenderer]
+    let renderers: [AnyRenderer]
     let chartSection: ChartSection
     let legendSpacing: CGFloat
+    var viewPort: CGRect = .zero
     
     typealias Builder = RendererBuilder
     

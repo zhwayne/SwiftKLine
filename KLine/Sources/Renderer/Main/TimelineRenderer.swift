@@ -65,7 +65,7 @@ final class TimelineRenderer: Renderer {
             let label = textLayers[idx]
             let position = CGPoint(x: CGFloat(idx) * labelWidth, y: viewPort.midY)
             
-            if let index = layout.absoluteIndex(on: position.x) {
+            if let index = layout.indexInViewPort(on: position.x) {
                 let item = items[index]
                 let date = Date(timeIntervalSince1970: TimeInterval(item.timestamp))
                 let timeString = dateFormatter.string(from: date)

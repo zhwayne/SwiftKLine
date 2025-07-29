@@ -7,8 +7,45 @@
 
 import UIKit
 
-//final class CrosshairRenderer: ChartRenderer {
-//    
+final class CrosshairRenderer: Renderer {
+    
+    var id: some Hashable { ObjectIdentifier(CrosshairRenderer.self) }
+    private let dashLineLayer = CAShapeLayer()
+    
+    var drawableRect: CGRect = .zero
+    
+    init() {
+        dashLineLayer.lineWidth = 1 / UIScreen.main.scale
+        dashLineLayer.lineDashPattern = [2, 2]
+        dashLineLayer.strokeColor = UIColor.label.cgColor
+        dashLineLayer.zPosition = 1
+    }
+    
+    func install(to layer: CALayer) {
+        layer.addSublayer(dashLineLayer)
+    }
+    
+    func uninstall(from layer: CALayer) {
+        dashLineLayer.removeFromSuperlayer()
+    }
+    
+    func draw(in layer: CALayer, context: Context) {
+        guard let location = context.location else { return }
+        // MARK: - 绘制y轴虚线
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: location.x, y: 0))
+        path.addLine(to: CGPoint(x: location.x, y: context.groupFrame.maxY))
+        
+        // MARK: - 绘制x轴虚线x
+        if drawableRect.contains(location) {
+            path.move(to: CGPoint(x: 0, y: location.y))
+            path.addLine(to: CGPoint(x: layer.bounds.width, y: location.y))
+        }
+        
+        dashLineLayer.path = path.cgPath
+    }
+}
+//
 //    private let feedback = UISelectionFeedbackGenerator()
 //    private var styleManager: StyleManager { .shared }
 //    private let dateFormatter: DateFormatter

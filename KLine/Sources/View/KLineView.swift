@@ -24,15 +24,17 @@ enum ChartSection: Sendable {
     private lazy var layout = Layout(scrollView: scrollView)
     
     // MARK: - Height defines
-    private let candleHeight: CGFloat = 360
+    private let candleHeight: CGFloat = 320
     private let timelineHeight: CGFloat = 16
-    private let indicatorHeight: CGFloat = 64
+    private let indicatorHeight: CGFloat = 56
     private let indicatorTypeHeight: CGFloat = 32
     private var chartHeightConstraint: Constraint!
     private var viewHeight: CGFloat { descriptor.height + indicatorTypeHeight }
     
     // MARK: - ChartDescriptor
     private var descriptor = ChartDescriptor()
+    private var customRenderers = [AnyRenderer]()
+    private var crosshairRenderer: CrosshairRenderer?
     
     // MARK: - Data
     private var mainIndicatorTypes: [Indicator] = []
@@ -40,6 +42,7 @@ enum ChartSection: Sendable {
     private var klineItems: [any KLineItem] = []
     private var valueStorage = ValueStorage()
     private var selectedIndex: Int?
+    private var selectedLocation: CGPoint?
     private var styleManager: StyleManager { .shared }
     private var longPressLocation: CGPoint = .zero
     
@@ -92,26 +95,6 @@ enum ChartSection: Sendable {
             make.width.equalToSuperview().multipliedBy(0.8)
             make.top.equalTo(8)
         }
-
-//        // 添加手势
-//        // tap
-//        let tap = UITapGestureRecognizer(
-//            target: self,
-//            action: #selector(Self.handleTap(_:))
-//        )
-//        tap.cancelsTouchesInView = false
-//        tap.delegate = self
-//        chartView.addGestureRecognizer(tap)
-//        // long press
-//        let longPress = UILongPressGestureRecognizer(
-//            target: self,
-//            action: #selector(Self.handleLongPress(_:))
-//        )
-//        longPress.minimumPressDuration = 0.25
-//        longPress.allowableMovement = 2
-//        longPress.cancelsTouchesInView = false
-//        longPress.delegate = self
-//        chartView.addGestureRecognizer(longPress)
         
         addInteractions()
         observeScrollViewLayoutChange()
@@ -126,6 +109,8 @@ enum ChartSection: Sendable {
     private func addInteractions() {
         let pinchInteraction = PinchInteraction(layout: layout)
         chartView.addInteraction(pinchInteraction)
+        let crosshairInteraction = CrosshairInteraction(layout: layout, delegate: self)
+        chartView.addInteraction(crosshairInteraction)
     }
     
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -213,6 +198,10 @@ extension KLineView {
                 // 主图指标
                 for type in mainIndicatorTypes {
                     type.makeRenderer()
+                }
+                // 自定义主图渲染器
+                for renderer in customRenderers {
+                    renderer
                 }
                 // Y轴
                 YAxisRenderer()
@@ -314,9 +303,10 @@ extension KLineView {
             valueStorage: valueStorage,
             items: klineItems,
             visibleRange: visibleRange,
-            selectedIndex: selectedIndex,
             candleStyle: styleManager.candleStyle,
-            layout: layout
+            layout: layout,
+            location: selectedLocation,
+            selectedIndex: selectedIndex
         )
         
         for (idx, group) in descriptor.groups.enumerated() {
@@ -375,12 +365,22 @@ extension KLineView {
                 top: group.padding.top + viewPortOffsetY, left: 0,
                 bottom: group.padding.bottom, right: 0
             )
-            context.viewPort = groupFrame.inset(by: groupInset)
+            let viewPort = groupFrame.inset(by: groupInset)
+            descriptor.setViewPort(viewPort, forGroupAt: idx)
+            context.viewPort = viewPort
 
             // 绘制图表
             for renderer in renderers {
                 renderer.draw(in: scrollView.contentView.canvas, context: context)
             }
+        }
+        
+        // 绘制十字线
+        if let renderer = crosshairRenderer {
+            context.groupFrame = contentRect
+            context.viewPort = contentRect
+            context.layout.dataBounds = .empty
+            renderer.draw(in: scrollView.contentView.canvas, context: context)
         }
     }
 }
@@ -389,12 +389,36 @@ extension KLineView {
     
     private func observeScrollViewLayoutChange() {
         scrollView.onLayoutChanged = { [unowned self] scrollView in
+            if crosshairRenderer != nil {
+                selectedIndex = nil
+                selectedLocation = nil
+                crosshairRenderer?.uninstall(from: self.scrollView.contentView.canvas)
+                crosshairRenderer = nil
+            }
             drawVisibleContent()
             klineItemLoader?.scrollViewDidScroll(scrollView: scrollView)
         }
     }
 }
 
+extension KLineView: CrosshairInteractionDelegate {
+    
+    func updateCrosshair(location: CGPoint, itemIndex: Int) {
+        // 根据 location 定位当前所在的 group
+        guard let index = descriptor.indexOfGroup(at: location) else { return }
+        let group = descriptor.groups[index]
+        selectedLocation = location
+        selectedIndex = itemIndex
+        if crosshairRenderer == nil {
+            crosshairRenderer = CrosshairRenderer()
+            crosshairRenderer?.install(to: scrollView.contentView.canvas)
+        }
+        if group.chartSection != .timeline {
+            crosshairRenderer?.drawableRect = group.viewPort
+        }
+        drawVisibleContent()
+    }
+}
 //// MARK: - 手势处理
 //extension KLineView: UIGestureRecognizerDelegate {
 //    

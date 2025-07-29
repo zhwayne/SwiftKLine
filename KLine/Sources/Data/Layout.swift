@@ -18,7 +18,8 @@ import UIKit
     }
     
     /// 当前可见范围内的数值范围
-    public internal(set) var dataBounds: MetricBounds = .empty
+    public internal(set)
+    var dataBounds: MetricBounds = .empty
         
     init(scrollView: UIScrollView) {
         self.scrollView = scrollView
@@ -86,9 +87,9 @@ import UIKit
 }
 
 extension Layout {
-    public enum CoordinateSpace {
-        case bounds, viewPort
-    }
+//    public enum CoordinateSpace {
+//        case global, local
+//    }
     
     /// 计算指定索引位置的x坐标
     /// - Parameter index: K线数据索引
@@ -103,7 +104,7 @@ extension Layout {
     /// - Parameter x: x轴坐标
     /// - Returns: 相对数据索引，请注意该值可能会超过可见数据范围。
     @inline(__always)
-    public func relativeIndex(on x: CGFloat) -> Int {
+    public func unsafeIndexInViewPort(on x: CGFloat) -> Int {
         let itemWidth = candleStyle.width + candleStyle.gap
         guard itemWidth > 0 else { return 0 }
         let viewPort = frameOfVisibleRange
@@ -114,12 +115,9 @@ extension Layout {
         return index
     }
     
-    /// 根据x坐标计算对应的绝对数据索引
-    /// - Parameter x: x轴坐标
-    /// - Returns: 绝对数据索引，如果超过可见数据范围，结果为 nil。
     @inline(__always)
-    public func absoluteIndex(on x: CGFloat) -> Int? {
-        let index = relativeIndex(on: x)
+    public func indexInViewPort(on x: CGFloat) -> Int? {
+        let index = unsafeIndexInViewPort(on: x)
         if visibleRange.contains(index) {
             return index
         }

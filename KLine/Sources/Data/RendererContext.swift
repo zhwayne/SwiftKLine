@@ -13,15 +13,17 @@ import Foundation
     /// 存储指标计算结果
     let valueStorage: ValueStorage
     /// K线数据数组
-    public var items: [Item]
-    /// 当前选中的K线索引
-    public var currentIndex: Int
+    public let items: [Item]
     /// 当前可见的K线数据范围
-    public var visibleRange: Range<Int>
+    public let visibleRange: Range<Int>
     /// K线样式管理器
     public let candleStyle: CandleStyle
     /// 布局信息，包含位置计算相关的方法
     public let layout: Layout
+    /// 当前长按手势坐标位置
+    public let location: CGPoint?
+    /// 当前长按手势坐标位置对应的item下标
+    public let currentIndex: Int
     /// 当前组的区域
     public internal(set) var groupFrame: CGRect = .zero
     /// 当前渲染的区域
@@ -35,16 +37,18 @@ import Foundation
         valueStorage: ValueStorage,
         items: [Item],
         visibleRange: Range<Int>,
-        selectedIndex: Int? = nil,
         candleStyle: CandleStyle,
-        layout: Layout
+        layout: Layout,
+        location: CGPoint?,
+        selectedIndex: Int?
     ) {
         self.valueStorage = valueStorage
         self.items = items
-        self.currentIndex = selectedIndex ?? visibleRange.upperBound - 1
         self.visibleRange = visibleRange
         self.candleStyle = candleStyle
         self.layout = layout
+        self.location = location
+        self.currentIndex = selectedIndex ?? visibleRange.upperBound - 1
     }
 }
 
