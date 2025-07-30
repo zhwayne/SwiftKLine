@@ -7,13 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		9636C3CE2DABEDF700420970 /* KLine in Frameworks */ = {isa = PBXBuildFile; productRef = 9636C3CD2DABEDF700420970 /* KLine */; };
+		29DE4EC82E3A253900EA22F4 /* KLine in Frameworks */ = {isa = PBXBuildFile; productRef = 29DE4EC72E3A253900EA22F4 /* KLine */; };
 		9636C3D12DABEE0F00420970 /* SwiftyJSON in Frameworks */ = {isa = PBXBuildFile; productRef = 9636C3D02DABEE0F00420970 /* SwiftyJSON */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		9636C3BD2DABED4C00420970 /* SwiftKLineExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwiftKLineExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		9636C3CB2DABEDB400420970 /* KLine */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = KLine; path = ../KLine; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -29,8 +28,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				29DE4EC82E3A253900EA22F4 /* KLine in Frameworks */,
 				9636C3D12DABEE0F00420970 /* SwiftyJSON in Frameworks */,
-				9636C3CE2DABEDF700420970 /* KLine in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -40,7 +39,6 @@
 		9636C3B42DABED4C00420970 = {
 			isa = PBXGroup;
 			children = (
-				9636C3CB2DABEDB400420970 /* KLine */,
 				9636C3BF2DABED4C00420970 /* SwiftKLineExample */,
 				9636C3CC2DABEDF700420970 /* Frameworks */,
 				9636C3BE2DABED4C00420970 /* Products */,
@@ -82,8 +80,8 @@
 			);
 			name = SwiftKLineExample;
 			packageProductDependencies = (
-				9636C3CD2DABEDF700420970 /* KLine */,
 				9636C3D02DABEE0F00420970 /* SwiftyJSON */,
+				29DE4EC72E3A253900EA22F4 /* KLine */,
 			);
 			productName = SwiftKLineExample;
 			productReference = 9636C3BD2DABED4C00420970 /* SwiftKLineExample.app */;
@@ -115,6 +113,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				9636C3CF2DABEE0F00420970 /* XCRemoteSwiftPackageReference "SwiftyJSON" */,
+				29DE4EC62E3A253900EA22F4 /* XCLocalSwiftPackageReference "../SwiftKLine" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9636C3BE2DABED4C00420970 /* Products */;
@@ -357,6 +356,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		29DE4EC62E3A253900EA22F4 /* XCLocalSwiftPackageReference "../SwiftKLine" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../SwiftKLine;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		9636C3CF2DABEE0F00420970 /* XCRemoteSwiftPackageReference "SwiftyJSON" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -369,7 +375,7 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		9636C3CD2DABEDF700420970 /* KLine */ = {
+		29DE4EC72E3A253900EA22F4 /* KLine */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = KLine;
 		};
