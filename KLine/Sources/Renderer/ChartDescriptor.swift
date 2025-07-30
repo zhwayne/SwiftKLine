@@ -10,7 +10,7 @@ import Foundation
 @MainActor
 struct ChartDescriptor {
     
-    private(set) var groups: [RendererGroup]
+    var groups: [RendererGroup]
     let height: CGFloat
     private var layouts: [(minY: CGFloat, height: CGFloat)] = []
     
@@ -33,10 +33,6 @@ struct ChartDescriptor {
     init() {
         groups = []
         height = 0
-    }
-    
-    mutating func setViewPort(_ viewPort: CGRect, forGroupAt index: Int) {
-        groups[index].viewPort = viewPort
     }
 }
 

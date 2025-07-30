@@ -16,7 +16,10 @@ struct RendererGroup {
     let renderers: [AnyRenderer]
     let chartSection: ChartSection
     let legendSpacing: CGFloat
+    
     var viewPort: CGRect = .zero
+    var groupFrame: CGRect = .zero
+    var dataBounds: MetricBounds = .empty
     
     typealias Builder = RendererBuilder
     
@@ -34,16 +37,3 @@ struct RendererGroup {
         self.renderers = renderers()
     }
 }
-
-//extension RendererGroup {
-//    
-//    var legendFrame: CGRect {
-//        var frame = legendLayer.frame
-//        guard let string = legendLayer.string as? NSAttributedString,
-//              !string.string.isEmpty else {
-//            frame.size = .zero
-//            return .zero
-//        }
-//        return frame
-//    }
-//}

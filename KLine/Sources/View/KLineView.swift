@@ -317,10 +317,12 @@ extension KLineView {
             for renderer in renderers {
                 dataBounds.merge(other: renderer.dataBounds(context: context))
             }
+            descriptor.groups[idx].dataBounds = dataBounds
             context.layout.dataBounds = dataBounds
             
             // 计算可见区域内每个 group 所在的位置
             let groupFrame = descriptor.frameOfGroup(at: idx, rect: contentRect)
+            descriptor.groups[idx].groupFrame = groupFrame
             context.groupFrame = groupFrame
             
             // 绘制主图图例（副图图例暂由 renderer 自行处理）
@@ -366,7 +368,7 @@ extension KLineView {
                 bottom: group.padding.bottom, right: 0
             )
             let viewPort = groupFrame.inset(by: groupInset)
-            descriptor.setViewPort(viewPort, forGroupAt: idx)
+            descriptor.groups[idx].viewPort = viewPort
             context.viewPort = viewPort
 
             // 绘制图表
@@ -376,10 +378,17 @@ extension KLineView {
         }
         
         // 绘制十字线
-        if let renderer = crosshairRenderer {
-            context.groupFrame = contentRect
-            context.viewPort = contentRect
-            context.layout.dataBounds = .empty
+        if let location = selectedLocation,
+           let renderer = crosshairRenderer,
+           let groupIndex = descriptor.indexOfGroup(at: location) {
+            let group = descriptor.groups[groupIndex]
+            renderer.group = group
+            if let timelineGroup = descriptor.groups.first(where: { $0.chartSection == .timeline }) {
+                renderer.timelineGroupFrame = timelineGroup.groupFrame
+            }
+            context.groupFrame = group.groupFrame
+            context.viewPort = group.viewPort
+            context.layout.dataBounds = group.dataBounds
             renderer.draw(in: scrollView.contentView.canvas, context: context)
         }
     }
@@ -405,16 +414,11 @@ extension KLineView: CrosshairInteractionDelegate {
     
     func updateCrosshair(location: CGPoint, itemIndex: Int) {
         // 根据 location 定位当前所在的 group
-        guard let index = descriptor.indexOfGroup(at: location) else { return }
-        let group = descriptor.groups[index]
         selectedLocation = location
         selectedIndex = itemIndex
         if crosshairRenderer == nil {
             crosshairRenderer = CrosshairRenderer()
             crosshairRenderer?.install(to: scrollView.contentView.canvas)
-        }
-        if group.chartSection != .timeline {
-            crosshairRenderer?.drawableRect = group.viewPort
         }
         drawVisibleContent()
     }

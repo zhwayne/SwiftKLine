@@ -10,39 +10,113 @@ import UIKit
 final class CrosshairRenderer: Renderer {
     
     var id: some Hashable { ObjectIdentifier(CrosshairRenderer.self) }
-    private let dashLineLayer = CAShapeLayer()
     
-    var drawableRect: CGRect = .zero
+    private var styleManager: StyleManager { .shared }
+    private let feedback = UISelectionFeedbackGenerator()
+    private let dateFormatter: DateFormatter
+    private var lastLocation: CGPoint = .zero
+    private let dashLineLayer = CAShapeLayer()
+    private let pointLayer = CAShapeLayer()
+    private let klineMarkView = KLineMarkView()
+    private let dateLabel = EdgeInsetLabel()
+    private let yAxisValueLabel = EdgeInsetLabel()
+    
+    // TOTO: 2025-07-03，优化 group 的获取方式
+    var group: RendererGroup?
+    var timelineGroupFrame: CGRect = .zero
     
     init() {
         dashLineLayer.lineWidth = 1 / UIScreen.main.scale
         dashLineLayer.lineDashPattern = [2, 2]
         dashLineLayer.strokeColor = UIColor.label.cgColor
         dashLineLayer.zPosition = 1
+        pointLayer.fillColor = UIColor.label.cgColor
+        
+        dateLabel.edgeInsets = UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
+        dateLabel.backgroundColor = .label
+        dateLabel.textColor = .systemBackground
+        dateLabel.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+        dateLabel.textAlignment = .center
+        dateLabel.layer.masksToBounds = true
+        dateLabel.layer.cornerRadius = 3
+        
+        dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy/MM/dd HH:mm"
     }
     
     func install(to layer: CALayer) {
         layer.addSublayer(dashLineLayer)
+        layer.addSublayer(pointLayer)
+        layer.owningView?.addSubview(klineMarkView)
+        layer.owningView?.addSubview(dateLabel)
     }
     
     func uninstall(from layer: CALayer) {
         dashLineLayer.removeFromSuperlayer()
+        pointLayer.removeFromSuperlayer()
+        klineMarkView.removeFromSuperview()
+        dateLabel.removeFromSuperview()
     }
     
     func draw(in layer: CALayer, context: Context) {
-        guard let location = context.location else { return }
+        guard let location = context.location, let group else { return }
+        defer { lastLocation = location }
+        if lastLocation.x != location.x {
+            feedback.selectionChanged()
+        }
         // MARK: - 绘制y轴虚线
         let path = UIBezierPath()
         path.move(to: CGPoint(x: location.x, y: 0))
-        path.addLine(to: CGPoint(x: location.x, y: context.groupFrame.maxY))
+        path.addLine(to: CGPoint(x: location.x, y: layer.bounds.maxY))
         
         // MARK: - 绘制x轴虚线x
-        if drawableRect.contains(location) {
+        if group.chartSection != .timeline, group.viewPort.contains(location) {
             path.move(to: CGPoint(x: 0, y: location.y))
             path.addLine(to: CGPoint(x: layer.bounds.width, y: location.y))
         }
-        
         dashLineLayer.path = path.cgPath
+        
+        // MARK: - 绘制圆点
+        let circlePath = UIBezierPath(
+            arcCenter: location,
+            radius: 2,
+            startAngle: 0,
+            endAngle: CGFloat.pi * 2,
+            clockwise: false
+        )
+        pointLayer.path = circlePath.cgPath
+        
+        if let index = context.layout.indexInViewPort(on: location.x) {
+            let item = context.items[index]
+            
+            // MARK: - 绘制 mark view
+            klineMarkView.item = item
+            let rightSide = location.x < context.groupFrame.midX
+            let markSize = klineMarkView.systemLayoutSizeFitting(group.groupFrame.size)
+            let markX = rightSide ? context.groupFrame.width * 4 / 5 - markSize.width : 12
+            let markY = group.padding.top
+            klineMarkView.frame = CGRect(
+                x: markX,
+                y: markY,
+                width: markSize.width,
+                height: markSize.height
+            )
+            
+            // MARK: - 绘制日期时间轴
+            let date = Date(timeIntervalSince1970: TimeInterval(item.timestamp))
+            let timeString = dateFormatter.string(from: date)
+            dateLabel.text = timeString
+            let dateSize = dateLabel.systemLayoutSizeFitting(timelineGroupFrame.size)
+            let dateX = location.x - dateSize.width * 0.5
+            let dateY = timelineGroupFrame.minY
+            let dateRect = CGRect(
+                x: max(0, min(dateX, timelineGroupFrame.width - dateSize.width)),
+                y: dateY,
+                width: dateSize.width,
+                height: timelineGroupFrame.height
+            )
+            dateLabel.frame = dateRect
+        }
     }
 }
 //
