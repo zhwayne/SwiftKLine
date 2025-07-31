@@ -14,6 +14,7 @@ final class CrosshairRenderer: Renderer {
     private var styleManager: StyleManager { .shared }
     private let feedback = UISelectionFeedbackGenerator()
     private let dateFormatter: DateFormatter
+    private let yValueFormatter: NumberFormatter
     private var lastLocation: CGPoint = .zero
     private let dashLineLayer = CAShapeLayer()
     private let pointLayer = CAShapeLayer()
@@ -21,7 +22,7 @@ final class CrosshairRenderer: Renderer {
     private let dateLabel = EdgeInsetLabel()
     private let yAxisValueLabel = EdgeInsetLabel()
     
-    // TOTO: 2025-07-03，优化 group 的获取方式
+    // TOTO: 2025-07-30，优化 group 的获取方式：把 group 放进 context？？
     var group: RendererGroup?
     var timelineGroupFrame: CGRect = .zero
     
@@ -40,8 +41,21 @@ final class CrosshairRenderer: Renderer {
         dateLabel.layer.masksToBounds = true
         dateLabel.layer.cornerRadius = 3
         
+        yAxisValueLabel.edgeInsets = UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
+        yAxisValueLabel.backgroundColor = .label
+        yAxisValueLabel.textColor = .systemBackground
+        yAxisValueLabel.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+        yAxisValueLabel.textAlignment = .center
+        yAxisValueLabel.layer.masksToBounds = true
+        yAxisValueLabel.layer.cornerRadius = 3
+        
         dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy/MM/dd HH:mm"
+        
+        yValueFormatter = NumberFormatter()
+        yValueFormatter.minimumFractionDigits = 2
+        yValueFormatter.maximumFractionDigits = 2
+        yValueFormatter.numberStyle = .decimal
     }
     
     func install(to layer: CALayer) {
@@ -49,6 +63,7 @@ final class CrosshairRenderer: Renderer {
         layer.addSublayer(pointLayer)
         layer.owningView?.addSubview(klineMarkView)
         layer.owningView?.addSubview(dateLabel)
+        layer.owningView?.addSubview(yAxisValueLabel)
     }
     
     func uninstall(from layer: CALayer) {
@@ -56,6 +71,7 @@ final class CrosshairRenderer: Renderer {
         pointLayer.removeFromSuperlayer()
         klineMarkView.removeFromSuperview()
         dateLabel.removeFromSuperview()
+        yAxisValueLabel.removeFromSuperview()
     }
     
     func draw(in layer: CALayer, context: Context) {
@@ -70,7 +86,7 @@ final class CrosshairRenderer: Renderer {
         path.addLine(to: CGPoint(x: location.x, y: layer.bounds.maxY))
         
         // MARK: - 绘制x轴虚线x
-        if group.chartSection != .timeline, group.viewPort.contains(location) {
+        if group.chartSection != .timeline/*, group.viewPort.contains(location)*/ {
             path.move(to: CGPoint(x: 0, y: location.y))
             path.addLine(to: CGPoint(x: layer.bounds.width, y: location.y))
         }
@@ -117,6 +133,22 @@ final class CrosshairRenderer: Renderer {
             )
             dateLabel.frame = dateRect
         }
+        
+        // MARK: - 绘制group当前坐标对应的y轴值
+        if group.chartSection != .timeline {
+            let yValue = context.layout.value(on: location.y, viewPort: group.viewPort)
+            yAxisValueLabel.text = yValueFormatter.string(from: NSDecimalNumber(floatLiteral: yValue))
+            let yAxisValueSize = yAxisValueLabel.systemLayoutSizeFitting(group.groupFrame.size)
+            yAxisValueLabel.frame = CGRect(
+                x: group.groupFrame.width - yAxisValueSize.width - 12,
+                y: location.y - yAxisValueSize.height * 0.5,
+                width: yAxisValueSize.width,
+                height: yAxisValueSize.height
+            )
+        } else {
+            yAxisValueLabel.text = nil
+            yAxisValueLabel.frame = .zero
+        }
     }
 }
 //
@@ -133,9 +165,9 @@ final class CrosshairRenderer: Renderer {
 //    var klineItemY: CGFloat = 0
 //    var timelineY: CGFloat = 0
 //    var timelineHeight: CGFloat = 0
-//    
+//
 //    typealias Item = IndicatorData
-//    
+//
 //    init() {
 //        dateLabel.edgeInsets = UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
 //        dateLabel.backgroundColor = .label
@@ -145,7 +177,7 @@ final class CrosshairRenderer: Renderer {
 //        dateLabel.layer.masksToBounds = true
 //        dateLabel.layer.cornerRadius = 3
 //        dateLabel.layer.zPosition = 1
-//        
+//
 //        yAxisValueLabel.edgeInsets = UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
 //        yAxisValueLabel.backgroundColor = .label
 //        yAxisValueLabel.textColor = .systemBackground
@@ -154,37 +186,37 @@ final class CrosshairRenderer: Renderer {
 //        yAxisValueLabel.layer.masksToBounds = true
 //        yAxisValueLabel.layer.cornerRadius = 3
 //        yAxisValueLabel.layer.zPosition = 1
-//        
+//
 //        klineMarkView.layer.zPosition = 1
-//        
+//
 //        dateFormatter = DateFormatter()
 //        dateFormatter.dateFormat = "yyyy/MM/dd HH:mm"
-//        
+//
 //        feedback.prepare()
 //    }
-//    
+//
 //    func draw(in layer: CALayer, data: RenderData<Item>) {
 //        guard let transformer = transformer else { return }
-//        
+//
 //        let dashLineLayer = CAShapeLayer()
 //        dashLineLayer.lineWidth = 1 / UIScreen.main.scale
 //        dashLineLayer.lineDashPattern = [2, 2]
 //        dashLineLayer.strokeColor = UIColor.label.cgColor
 //        dashLineLayer.zPosition = 1
 //        layer.addSublayer(dashLineLayer)
-//        
+//
 //        let pointLayer = CAShapeLayer()
 //        pointLayer.fillColor = UIColor.label.cgColor
 //        layer.addSublayer(pointLayer)
-//        
+//
 //        if let view = layer.owningView {
 //            if dateLabel.superview == nil { view.addSubview(dateLabel) }
 //            if yAxisValueLabel.superview == nil { view.addSubview(yAxisValueLabel) }
 //            if klineMarkView.superview == nil { view.addSubview(klineMarkView) }
 //        }
-//        
+//
 //        let rect = layer.bounds
-//        
+//
 //        // 调整x轴，使其始终和蜡烛图item居中对齐
 //        let index = transformer.indexOfVisibleItem(xAxis: location.x, extend: true)!
 //        let candleHalfWidth = styleManager.candleStyle.width * 0.5
@@ -203,20 +235,20 @@ final class CrosshairRenderer: Renderer {
 //            }
 //        }
 //        lastLocationX = location.x
-//        
+//
 //        // MARK: - 绘制y轴虚线
 //        let path = UIBezierPath()
 //        path.move(to: CGPoint(x: location.x, y: 0))
 //        path.addLine(to: CGPoint(x: location.x, y: rect.height))
 //        defer { dashLineLayer.path = path.cgPath }
-//        
+//
 //        let edgeInset = UIEdgeInsets(
 //            top: transformer.axisInset.top,
 //            left: 0,
 //            bottom: transformer.axisInset.bottom,
 //            right: 0
 //        )
-//        
+//
 //        // MARK: - 绘制x轴虚线x
 //        let inMainChart = location.y > 0 && locationRect.minY < timelineY
 //        let inSubChart = locationRect.minY >= timelineY + timelineHeight
@@ -224,7 +256,7 @@ final class CrosshairRenderer: Renderer {
 //        if (inMainChart || inSubChart) {
 //            path.move(to: CGPoint(x: 0, y: location.y))
 //            path.addLine(to: CGPoint(x: rect.width, y: location.y))
-//            
+//
 //            // MARK: - 绘制圆点
 //            let circlePath = UIBezierPath(
 //                arcCenter: location,
@@ -234,10 +266,10 @@ final class CrosshairRenderer: Renderer {
 //                clockwise: false
 //            )
 //            pointLayer.path = circlePath.cgPath
-//            
+//
 //            yAxisValueLabel.isHidden = false
 //            let value = transformer.valueOf(yAxis: location.y - locationRect.minY)
-//            
+//
 //            yAxisValueLabel.text = styleManager.format(value: value)
 //            let size = yAxisValueLabel.systemLayoutSizeFitting(rect.size)
 //            yAxisValueLabel.frame = CGRect(
@@ -249,7 +281,7 @@ final class CrosshairRenderer: Renderer {
 //        } else {
 //            yAxisValueLabel.isHidden = true
 //        }
-//        
+//
 //        if index >= 0 && index < data.items.count {
 //            // MARK: - 绘制日期时间轴
 //            dateLabel.isHidden = false
@@ -266,7 +298,7 @@ final class CrosshairRenderer: Renderer {
 //                height: timelineHeight
 //            )
 //            dateLabel.frame = dateRect
-//            
+//
 //            // MARK: - Kline 详情
 //            klineMarkView.isHidden = false
 //            klineMarkView.item = data.items[index].item
