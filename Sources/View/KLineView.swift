@@ -382,9 +382,13 @@ extension KLineView {
            let renderer = crosshairRenderer,
            let groupIndex = descriptor.indexOfGroup(at: location) {
             let group = descriptor.groups[groupIndex]
-            renderer.group = group
-            if let timelineGroup = descriptor.groups.first(where: { $0.chartSection == .timeline }) {
-                renderer.timelineGroupFrame = timelineGroup.groupFrame
+            renderer.selectedGroup = group
+            for group in descriptor.groups {
+                if group.chartSection == .mainChart {
+                    renderer.candleGroup = group
+                } else if group.chartSection == .timeline {
+                    renderer.timelineGroup = group
+                }
             }
             context.groupFrame = group.groupFrame
             context.viewPort = group.viewPort

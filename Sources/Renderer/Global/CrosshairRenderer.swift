@@ -23,9 +23,10 @@ final class CrosshairRenderer: Renderer {
     private let yAxisValueLabel = EdgeInsetLabel()
     
     // TOTO: 2025-07-30，优化 group 的获取方式：把 group 放进 context？？
-    var group: RendererGroup?
-    var timelineGroupFrame: CGRect = .zero
-    
+    var selectedGroup: RendererGroup?
+    var candleGroup: RendererGroup?
+    var timelineGroup: RendererGroup?
+        
     init() {
         dashLineLayer.lineWidth = 1 / UIScreen.main.scale
         dashLineLayer.lineDashPattern = [2, 2]
@@ -75,7 +76,12 @@ final class CrosshairRenderer: Renderer {
     }
     
     func draw(in layer: CALayer, context: Context) {
-        guard let location = context.location, let group else { return }
+        guard let location = context.location,
+              let selectedGroup,
+              let candleGroup,
+              let timelineGroup else {
+            return
+        }
         defer { lastLocation = location }
         if lastLocation.x != location.x {
             feedback.selectionChanged()
@@ -86,7 +92,7 @@ final class CrosshairRenderer: Renderer {
         path.addLine(to: CGPoint(x: location.x, y: layer.bounds.maxY))
         
         // MARK: - 绘制x轴虚线x
-        if group.chartSection != .timeline/*, group.viewPort.contains(location)*/ {
+        if selectedGroup.chartSection != .timeline/*, group.viewPort.contains(location)*/ {
             path.move(to: CGPoint(x: 0, y: location.y))
             path.addLine(to: CGPoint(x: layer.bounds.width, y: location.y))
         }
@@ -107,10 +113,10 @@ final class CrosshairRenderer: Renderer {
             
             // MARK: - 绘制 mark view
             klineMarkView.item = item
-            let rightSide = location.x < context.groupFrame.midX
-            let markSize = klineMarkView.systemLayoutSizeFitting(group.groupFrame.size)
-            let markX = rightSide ? context.groupFrame.width * 4 / 5 - markSize.width : 12
-            let markY = group.padding.top
+            let rightSide = location.x < context.groupFrame.midX - 16
+            let markSize = klineMarkView.systemLayoutSizeFitting(candleGroup.groupFrame.size)
+            let markX = rightSide ? candleGroup.groupFrame.width - 88 - markSize.width : 12
+            let markY: CGFloat = candleGroup.viewPort.minY - candleGroup.padding.top * 0.5
             klineMarkView.frame = CGRect(
                 x: markX,
                 y: markY,
@@ -122,25 +128,25 @@ final class CrosshairRenderer: Renderer {
             let date = Date(timeIntervalSince1970: TimeInterval(item.timestamp))
             let timeString = dateFormatter.string(from: date)
             dateLabel.text = timeString
-            let dateSize = dateLabel.systemLayoutSizeFitting(timelineGroupFrame.size)
+            let dateSize = dateLabel.systemLayoutSizeFitting(timelineGroup.groupFrame.size)
             let dateX = location.x - dateSize.width * 0.5
-            let dateY = timelineGroupFrame.minY
+            let dateY = timelineGroup.groupFrame.minY
             let dateRect = CGRect(
-                x: max(0, min(dateX, timelineGroupFrame.width - dateSize.width)),
+                x: max(0, min(dateX, timelineGroup.groupFrame.width - dateSize.width)),
                 y: dateY,
                 width: dateSize.width,
-                height: timelineGroupFrame.height
+                height: timelineGroup.groupFrame.height
             )
             dateLabel.frame = dateRect
         }
         
         // MARK: - 绘制group当前坐标对应的y轴值
-        if group.chartSection != .timeline {
-            let yValue = context.layout.value(on: location.y, viewPort: group.viewPort)
+        if selectedGroup.chartSection != .timeline {
+            let yValue = context.layout.value(on: location.y, viewPort: selectedGroup.viewPort)
             yAxisValueLabel.text = yValueFormatter.string(from: NSDecimalNumber(floatLiteral: yValue))
-            let yAxisValueSize = yAxisValueLabel.systemLayoutSizeFitting(group.groupFrame.size)
+            let yAxisValueSize = yAxisValueLabel.systemLayoutSizeFitting(selectedGroup.groupFrame.size)
             yAxisValueLabel.frame = CGRect(
-                x: group.groupFrame.width - yAxisValueSize.width - 12,
+                x: selectedGroup.groupFrame.width - yAxisValueSize.width - 12,
                 y: location.y - yAxisValueSize.height * 0.5,
                 width: yAxisValueSize.width,
                 height: yAxisValueSize.height

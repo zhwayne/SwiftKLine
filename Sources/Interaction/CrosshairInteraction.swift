@@ -70,8 +70,7 @@ class CrosshairInteraction: NSObject, UIInteraction, UIGestureRecognizerDelegate
     }
     
     private func drawCrosshair() {
-        guard let index = layout.indexInViewPort(on: location.x),
-              let view else {
+        guard let view else {
             return
         }
         CATransaction.begin()
@@ -81,7 +80,7 @@ class CrosshairInteraction: NSObject, UIInteraction, UIGestureRecognizerDelegate
             CATransaction.commit()
         }
         
-       
+        let index = layout.indexInViewPort(on: location.x) ?? layout.itemCount - 1
         let candleHalfWidth = styleManager.candleStyle.width * 0.5
         let indexInViewPort = index - layout.visibleRange.lowerBound
         location.x = layout.minX(at: indexInViewPort) + candleHalfWidth
