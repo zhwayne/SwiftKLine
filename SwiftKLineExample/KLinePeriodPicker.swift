@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import KLine
+import SwiftKLine
 
 struct KLinePeriodPicker: View {
     

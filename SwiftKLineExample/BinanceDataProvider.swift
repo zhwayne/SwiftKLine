@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import KLine
+import SwiftKLine
 import SwiftyJSON
 
 /// 表示单个 K 线数据点。

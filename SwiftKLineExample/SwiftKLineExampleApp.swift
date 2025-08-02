@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import KLine
+import SwiftKLine
 
 @main
 struct SwiftKLineExampleApp: App {

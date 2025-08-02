@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		29DE4EC82E3A253900EA22F4 /* KLine in Frameworks */ = {isa = PBXBuildFile; productRef = 29DE4EC72E3A253900EA22F4 /* KLine */; };
+		292FF91B2E3DE92700E2ABF0 /* SwiftKLine in Frameworks */ = {isa = PBXBuildFile; productRef = 292FF91A2E3DE92700E2ABF0 /* SwiftKLine */; };
 		9636C3D12DABEE0F00420970 /* SwiftyJSON in Frameworks */ = {isa = PBXBuildFile; productRef = 9636C3D02DABEE0F00420970 /* SwiftyJSON */; };
 /* End PBXBuildFile section */
 
@@ -28,7 +28,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				29DE4EC82E3A253900EA22F4 /* KLine in Frameworks */,
+				292FF91B2E3DE92700E2ABF0 /* SwiftKLine in Frameworks */,
 				9636C3D12DABEE0F00420970 /* SwiftyJSON in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -81,7 +81,7 @@
 			name = SwiftKLineExample;
 			packageProductDependencies = (
 				9636C3D02DABEE0F00420970 /* SwiftyJSON */,
-				29DE4EC72E3A253900EA22F4 /* KLine */,
+				292FF91A2E3DE92700E2ABF0 /* SwiftKLine */,
 			);
 			productName = SwiftKLineExample;
 			productReference = 9636C3BD2DABED4C00420970 /* SwiftKLineExample.app */;
@@ -113,7 +113,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				9636C3CF2DABEE0F00420970 /* XCRemoteSwiftPackageReference "SwiftyJSON" */,
-				29DE4EC62E3A253900EA22F4 /* XCLocalSwiftPackageReference "../SwiftKLine" */,
+				292FF9192E3DE92700E2ABF0 /* XCLocalSwiftPackageReference "../SwiftKLine" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9636C3BE2DABED4C00420970 /* Products */;
@@ -357,7 +357,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		29DE4EC62E3A253900EA22F4 /* XCLocalSwiftPackageReference "../SwiftKLine" */ = {
+		292FF9192E3DE92700E2ABF0 /* XCLocalSwiftPackageReference "../SwiftKLine" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../SwiftKLine;
 		};
@@ -375,9 +375,9 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		29DE4EC72E3A253900EA22F4 /* KLine */ = {
+		292FF91A2E3DE92700E2ABF0 /* SwiftKLine */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = KLine;
+			productName = SwiftKLine;
 		};
 		9636C3D02DABEE0F00420970 /* SwiftyJSON */ = {
 			isa = XCSwiftPackageProductDependency;
