@@ -6,9 +6,14 @@
 //
 
 import SwiftUI
+import KLine
 
 @main
 struct SwiftKLineExampleApp: App {
+    
+    init() {
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()

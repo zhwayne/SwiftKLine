@@ -14,6 +14,8 @@ enum ChartSection: Sendable {
 }
 
 @MainActor public final class KLineView: UIView {
+    
+    public typealias IndicatorProvider = (Indicator) -> (any Renderer)?
 
     // MARK: - Views
     private let chartView = UIView()
@@ -35,6 +37,7 @@ enum ChartSection: Sendable {
     private var descriptor = ChartDescriptor()
     private var customRenderers = [AnyRenderer]()
     private var crosshairRenderer: CrosshairRenderer?
+    private var indiccatorProviderMap: [Indicator: IndicatorProvider] = [:]
     
     // MARK: - Data
     private var mainIndicatorTypes: [Indicator] = []
@@ -43,7 +46,7 @@ enum ChartSection: Sendable {
     private var valueStorage = ValueStorage()
     private var selectedIndex: Int?
     private var selectedLocation: CGPoint?
-    private var styleManager: StyleManager { .shared }
+    private var klineConfig: KLineConfig { .default }
     private var longPressLocation: CGPoint = .zero
     
     private var klineItemLoader: KLineItemLoader?
@@ -54,9 +57,8 @@ enum ChartSection: Sendable {
         super.init(frame: frame)
         chartView.layer.masksToBounds = true
         
-        /* 这个地方应该开放接口，让调用方决定启用哪些指标 */
-        indicatorTypeView.mainIndicators = [.ma, .ema]
-        indicatorTypeView.subIndicators = [.vol, .rsi, .macd]
+        indicatorTypeView.mainIndicators = klineConfig.indicators.filter { $0.isMain }
+        indicatorTypeView.subIndicators =  klineConfig.indicators.filter { !$0.isMain }
         
         addSubview(chartView)
         addSubview(indicatorTypeView)
@@ -96,6 +98,7 @@ enum ChartSection: Sendable {
             make.top.equalTo(8)
         }
         
+        registerRenderers()
         addInteractions()
         observeScrollViewLayoutChange()
         setupBindings()
@@ -197,7 +200,10 @@ extension KLineView {
                 CandleRenderer()
                 // 主图指标
                 for type in mainIndicatorTypes {
-                    type.makeRenderer()
+                    if let rendererProvider = indiccatorProviderMap[type],
+                       let renderer = rendererProvider(type) {
+                        renderer
+                    }
                 }
                 // 自定义主图渲染器
                 for renderer in customRenderers {
@@ -216,7 +222,10 @@ extension KLineView {
             for type in subIndicatorTypes {
                 RendererGroup(chartSection: .subChart, height: indicatorHeight) {
                     XAxisRenderer()
-                    type.makeRenderer()
+                    if let rendererProvider = indiccatorProviderMap[type],
+                       let renderer = rendererProvider(type) {
+                        renderer
+                    }
                 }
             }
         }
@@ -303,7 +312,6 @@ extension KLineView {
             valueStorage: valueStorage,
             items: klineItems,
             visibleRange: visibleRange,
-            candleStyle: styleManager.candleStyle,
             layout: layout,
             location: selectedLocation,
             selectedIndex: selectedIndex
@@ -427,89 +435,37 @@ extension KLineView: CrosshairInteractionDelegate {
         drawVisibleContent()
     }
 }
-//// MARK: - 手势处理
-//extension KLineView: UIGestureRecognizerDelegate {
-//    
-//    @objc private func handleTap(_ tap: UITapGestureRecognizer) {
-//        longPressLocation = tap.location(in: tap.view)
-//        drawCrosshair()
-//    }
-//
-//    @objc private func handleLongPress(_ longPress: UILongPressGestureRecognizer) {
-//        longPressLocation = longPress.location(in: longPress.view)
-//        switch longPress.state {
-//        case .began, .changed: drawCrosshair()
-//        default: break
-//        }
-//    }
-//    
-//    private func drawCrosshair() {
-//        // MARK: - 绘制长按图层
-//        
-//        CATransaction.begin()
-//        CATransaction.setDisableActions(false)
-//        CATransaction.setAnimationDuration(0)
-//        defer {
-//            CATransaction.commit()
-//        }
-//        
-//        var location = longPressLocation
-//        location.y = min(max(0, location.y), scrollView.contentView.bounds.height - 1)
-//        longPressLocation = location
-//        
-//        var transformer: Transformer?
-//        // 判断当前是在哪个区域
-//        if candleView.frame.contains(location) {
-//            // 主图区域
-//            transformer = candleRenderer.transformer
-//            crosshairRengerer.locationRect = candleView.frame
-//        } else if timelineView.frame.contains(location) {
-//            // 时间轴区域
-//            transformer = timelineRenderer.transformer
-//            crosshairRengerer.locationRect = timelineView.frame
-//        } else if !subRenderers.isEmpty {
-//            // 计算当前在副图区域的哪个指标上
-//            let offsetY = location.y - subIndicatorView.frame.minY
-//            let idx = min(Int(floor(offsetY / indicatorHeight)), subRenderers.count - 1)
-//            let renderer = subRenderers[idx]
-//            transformer = renderer.transformer
-//            crosshairRengerer.locationRect = CGRect(
-//                x: 0,
-//                y: subIndicatorView.frame.minY + CGFloat(idx) * indicatorHeight,
-//                width: subIndicatorView.frame.width,
-//                height: indicatorHeight
-//            )
-//        }
-//        
-//        guard let transformer = transformer else { return }
-//        
-//        let data = RenderData(
-//            items: indicatorDatas,
-//            visibleRange: scrollView.visibleRange
-//        )
-//    
-//        chartView.canvas.sublayers = nil
-//        crosshairRengerer.location = location
-//        crosshairRengerer.timelineHeight = timelineHeight
-//        crosshairRengerer.timelineY = timelineView.frame.minY
-//        crosshairRengerer.klineItemY = candleRenderer.transformer!.axisInset.top - 4
-//        crosshairRengerer.transformer = transformer
-//        crosshairRengerer.draw(in: chartView.canvas, data: data)
-//    }
-//    
-//    private func cleanLongPressContetent() {
-//        selectedData = nil
-//        chartView.canvas.sublayers = nil
-//        for view in chartView.subviews where view !== scrollView {
-//            view.removeFromSuperview()
-//        }
-//    }
-//    
-//    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-//        if touch.view is UIControl {
-//            return false
-//        }
-//        return true
-//    }
-//}
 
+extension KLineView {
+    
+    private func registerRenderers() {
+        registerRenderer(for: .ma) { indicator in
+            MARenderer(peroids: indicator.keys.compactMap({ key in
+                guard case let .ma(period) = key else { return nil }
+                return period
+            }))
+        }
+        registerRenderer(for: .ema) { indicator in
+            EMARenderer(peroids: indicator.keys.compactMap({ key in
+                guard case let .ema(period) = key else { return nil }
+                return period
+            }))
+        }
+        registerRenderer(for: .vol) { _ in
+            VOLRenderer()
+        }
+        registerRenderer(for: .rsi) { indicator in
+            RSIRenderer(peroids: indicator.keys.compactMap({ key in
+                guard case let .rsi(period) = key else { return nil }
+                return period
+            }))
+        }
+        registerRenderer(for: .macd) { _ in
+            MACDRenderer()
+        }
+    }
+    
+    public func registerRenderer(for indicator: Indicator, provider: @escaping IndicatorProvider) {
+        indiccatorProviderMap[indicator] = provider
+    }
+}

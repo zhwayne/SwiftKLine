@@ -8,24 +8,18 @@
 import UIKit
 
 final class RSIRenderer: Renderer {
-    
-    struct Configuration {
-        let period: Int
-        let style: LineStyle
-        var key: Indicator.Key { .rsi(period) }
-    }
-    
+
     private let priceFormatter = PriceFormatter()
     
-    private let configurations: [Configuration]
+    private let peroids: [Int]
     private let lineLayers: [CAShapeLayer]
     private let legendLayer = CATextLayer()
 
     var id: some Hashable { Indicator.rsi }
 
-    init(configurations: [Configuration]) {
-        self.configurations = configurations
-        lineLayers = configurations.map { _ in
+    init(peroids: [Int]) {
+        self.peroids = peroids
+        lineLayers = peroids.map { _ in
             let layer = CAShapeLayer()
             layer.lineWidth = 1
             layer.fillColor = UIColor.clear.cgColor
@@ -47,17 +41,20 @@ final class RSIRenderer: Renderer {
     
     func draw(in layer: CALayer, context: Context) {
         // 获取K线样式配置
-        let candleStyle = context.candleStyle
+        let klineConfig = KLineConfig.default
+        let candleStyle = klineConfig.candleStyle
         let layout = context.layout
         
         legendLayer.string = context.legendText
         legendLayer.frame = context.legendFrame
         
-        zip(configurations, lineLayers).forEach { config, lineLayer in
-            guard let visibleValues = context.visibleValues(forKey: config.key, valueType: Double?.self) else {
+        zip(peroids, lineLayers).forEach { period, lineLayer in
+            let key = Indicator.Key.rsi(period)
+            guard let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self) else {
                 return
             }
-            lineLayer.strokeColor = config.style.strokeColor.cgColor
+            let style = klineConfig.indicatorStyle(for: key, type: LineStyle.self)
+            lineLayer.strokeColor = style?.strokeColor.cgColor
             
             // 将MA值转换为坐标点
             let points = visibleValues.enumerated().compactMap { item -> CGPoint? in
@@ -76,16 +73,18 @@ final class RSIRenderer: Renderer {
     }
     
     func legend(context: Context) -> NSAttributedString? {
-        return configurations.reduce(NSMutableAttributedString()) { partialResult, config in
-            guard let values = context.values(forKey: config.key, valueType: Double?.self),
+        return peroids.reduce(NSMutableAttributedString()) { partialResult, period in
+            let key = Indicator.Key.rsi(period)
+            let style = KLineConfig.default.indicatorStyle(for: key, type: LineStyle.self)
+            guard let values = context.values(forKey: key, valueType: Double?.self),
                   let value = values[context.currentIndex] else {
                 return partialResult
             }
             let string = NSAttributedString(
-                string: "RSI\(config.period): \(priceFormatter.format(NSNumber(floatLiteral: value))) ",
+                string: "RSI\(period): \(priceFormatter.format(NSNumber(floatLiteral: value))) ",
                 attributes: [
-                    .foregroundColor: config.style.strokeColor.cgColor,
-                    .font: UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+                    .foregroundColor: style?.strokeColor.cgColor,
+                    .font: KLineConfig.default.legendFont
                 ]
             )
             partialResult.append(string)
@@ -94,8 +93,9 @@ final class RSIRenderer: Renderer {
     }
     
     func dataBounds(context: Context) -> MetricBounds {
-        return configurations.reduce(MetricBounds.empty) { partialResult, config in
-            let visibleValues = context.visibleValues(forKey: config.key, valueType: Double?.self)
+        return peroids.reduce(MetricBounds.empty) { partialResult, period in
+            let key = Indicator.Key.rsi(period)
+            let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self)
             guard let visibleValues = visibleValues?.compactMap({ $0 }),
                   let min = visibleValues.min(),
                   let max = visibleValues.max() else {

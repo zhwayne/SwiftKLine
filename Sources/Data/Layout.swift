@@ -29,9 +29,9 @@ import UIKit
         scrollView.contentSize = contentSize
     }
     
-    private var styleManager: StyleManager { .shared }
+    private var klineConfig: KLineConfig { .default }
     /// K线样式配置
-    private var candleStyle: CandleStyle { styleManager.candleStyle }
+    private var candleStyle: CandleStyle { klineConfig.candleStyle }
         
     /// 计算内容大小
     /// 根据K线数量和样式计算滚动视图的contentSize

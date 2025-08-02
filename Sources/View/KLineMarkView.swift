@@ -98,7 +98,7 @@ class KLineMarkView: UIView {
     
     private func update() {
         guard let item else { return }
-        let styleManager = StyleManager.shared
+        let klineConfig = KLineConfig.default
         // 时间
         dateLabel.titleLabel.text = "时间"
         let date = Date(timeIntervalSince1970: TimeInterval(item.timestamp))
@@ -126,8 +126,8 @@ class KLineMarkView: UIView {
         var prefix = changeRateString.hasPrefix("-") ? "" : "+"
         changeRateLabel.detailLabel.text =  prefix + changeRateString + "%"
         changeRateLabel.detailLabel.textColor = item.trend == .rising
-        ? styleManager.candleStyle.risingColor
-        : styleManager.candleStyle.fallingColor
+        ? klineConfig.candleStyle.risingColor
+        : klineConfig.candleStyle.fallingColor
         // 振幅
         let amplitude = ((item.highest - item.lowest) / item.lowest) * 100
         amplitudeLabel.titleLabel.text = "振幅"
@@ -135,8 +135,8 @@ class KLineMarkView: UIView {
         prefix = amplitudeString.hasPrefix("-") ? "" : "+"
         amplitudeLabel.detailLabel.text =  prefix + amplitudeString + "%"
         amplitudeLabel.detailLabel.textColor = item.trend == .rising
-        ? styleManager.candleStyle.risingColor
-        : styleManager.candleStyle.fallingColor
+        ? klineConfig.candleStyle.risingColor
+        : klineConfig.candleStyle.fallingColor
         // 成交量
         volumeLabel.titleLabel.text = "成交量"
         volumeLabel.detailLabel.text = volumeFormatter.format(item.volume as NSNumber)

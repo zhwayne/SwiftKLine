@@ -19,7 +19,7 @@ class CrosshairInteraction: NSObject, UIInteraction, UIGestureRecognizerDelegate
     weak var view: UIView?
     private let layout: Layout
     private var location: CGPoint = .zero
-    private var styleManager: StyleManager { .shared }
+    private var klineConfig: KLineConfig { .default }
     
     init(layout: Layout, delegate: CrosshairInteractionDelegate) {
         self.delegate = delegate
@@ -81,7 +81,7 @@ class CrosshairInteraction: NSObject, UIInteraction, UIGestureRecognizerDelegate
         }
         
         let index = layout.indexInViewPort(on: location.x) ?? layout.itemCount - 1
-        let candleHalfWidth = styleManager.candleStyle.width * 0.5
+        let candleHalfWidth = klineConfig.candleStyle.width * 0.5
         let indexInViewPort = index - layout.visibleRange.lowerBound
         location.x = layout.minX(at: indexInViewPort) + candleHalfWidth
         location.y = min(max(0, location.y), view.bounds.height - 1)

@@ -14,7 +14,7 @@ class PinchInteraction: NSObject, UIInteraction {
     // pinch
     private var pinchCenterX: CGFloat = 0
     private var oldScale: CGFloat = 1
-    private var styleManager: StyleManager { .shared }
+    private var klineConfig: KLineConfig { .default }
     private var scrollView: ChartScrollView? { layout.scrollView as? ChartScrollView }
     private let layout: Layout
     
@@ -52,13 +52,13 @@ class PinchInteraction: NSObject, UIInteraction {
         }
         
         let difValue = pinch.scale - oldScale
-        let candleStyle = styleManager.candleStyle
+        let candleStyle = klineConfig.candleStyle
         let newLineWidth = candleStyle.width * (difValue + 1)
         let newGap = candleStyle.gap * (difValue + 1)
         guard (1...32).contains(newLineWidth) else { return }
         
-        styleManager.candleStyle.width = newLineWidth
-        styleManager.candleStyle.gap = newGap
+        klineConfig.candleStyle.width = newLineWidth
+        klineConfig.candleStyle.gap = newGap
         oldScale = pinch.scale
         
         // 更新 contentSize

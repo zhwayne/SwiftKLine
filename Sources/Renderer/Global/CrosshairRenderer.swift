@@ -11,7 +11,7 @@ final class CrosshairRenderer: Renderer {
     
     var id: some Hashable { ObjectIdentifier(CrosshairRenderer.self) }
     
-    private var styleManager: StyleManager { .shared }
+    private var klineConfig: KLineConfig { .default }
     private let feedback = UISelectionFeedbackGenerator()
     private let dateFormatter: DateFormatter
     private let yValueFormatter: NumberFormatter
@@ -22,7 +22,6 @@ final class CrosshairRenderer: Renderer {
     private let dateLabel = EdgeInsetLabel()
     private let yAxisValueLabel = EdgeInsetLabel()
     
-    // TOTO: 2025-07-30，优化 group 的获取方式：把 group 放进 context？？
     var selectedGroup: RendererGroup?
     var candleGroup: RendererGroup?
     var timelineGroup: RendererGroup?
@@ -159,7 +158,7 @@ final class CrosshairRenderer: Renderer {
 }
 //
 //    private let feedback = UISelectionFeedbackGenerator()
-//    private var styleManager: StyleManager { .shared }
+//    private var klineConfig: klineConfig { .shared }
 //    private let dateFormatter: DateFormatter
 //    private let dateLabel = EdgeInsetLabel()
 //    private let yAxisValueLabel = EdgeInsetLabel()
@@ -225,7 +224,7 @@ final class CrosshairRenderer: Renderer {
 //
 //        // 调整x轴，使其始终和蜡烛图item居中对齐
 //        let index = transformer.indexOfVisibleItem(xAxis: location.x, extend: true)!
-//        let candleHalfWidth = styleManager.candleStyle.width * 0.5
+//        let candleHalfWidth = klineConfig.candleStyle.width * 0.5
 //        let indexInVisibaleRect = index - data.visibleRange.lowerBound
 //        location.x = transformer.xAxis(at: indexInVisibaleRect, space: .layer) + candleHalfWidth
 //        // x轴变化时反馈
@@ -276,7 +275,7 @@ final class CrosshairRenderer: Renderer {
 //            yAxisValueLabel.isHidden = false
 //            let value = transformer.valueOf(yAxis: location.y - locationRect.minY)
 //
-//            yAxisValueLabel.text = styleManager.format(value: value)
+//            yAxisValueLabel.text = klineConfig.format(value: value)
 //            let size = yAxisValueLabel.systemLayoutSizeFitting(rect.size)
 //            yAxisValueLabel.frame = CGRect(
 //                x: rect.width - size.width - 12,

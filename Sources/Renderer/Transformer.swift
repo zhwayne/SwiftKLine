@@ -33,8 +33,8 @@ import UIKit
 //    private let indices: Range<Int>
 //    
 //    private var itemWidth: CGFloat { width + gap }
-//    private var width: CGFloat { StyleManager.shared.candleStyle.width }
-//    private var gap: CGFloat { StyleManager.shared.candleStyle.gap }
+//    private var width: CGFloat { klineConfig.shared.candleStyle.width }
+//    private var gap: CGFloat { klineConfig.shared.candleStyle.gap }
 //    
 //    init(
 //        axisInset: AxisInset = .zero,

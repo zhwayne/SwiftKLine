@@ -56,7 +56,7 @@ final class PriceIndicatorRenderer: Renderer {
         let visibleItems = context.visibleItems
         let layout = context.layout
         let viewPort = context.viewPort
-        let candleStyle = context.candleStyle
+        let candleStyle =  KLineConfig.default.candleStyle
         priceLineLayer.strokeColor = style.textColor.cgColor
         highestTextLayer.foregroundColor = style.textColor.cgColor
         lowestTextLayer.foregroundColor = style.textColor.cgColor

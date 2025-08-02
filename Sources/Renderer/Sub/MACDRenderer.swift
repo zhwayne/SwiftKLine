@@ -8,27 +8,16 @@
 import UIKit
 
 final class MACDRenderer: Renderer {
-        
-    struct Configuration {
-        let shortPeriod: Int  // 短期 EMA 的周期（常用 12）
-        let longPeriod: Int   // 长期 EMA 的周期（常用 26）
-        let signalPeriod: Int // 信号线 EMA 的周期（常用 9）
-        
-        let style: MACDStyle
-        
-        var key: Indicator.Key {
-            .macd(shortPeriod, longPeriod, signalPeriod)
-        }
-    }
     
     var id: some Hashable { Indicator.macd }
     
-    private let configuration: Configuration
+    private let shortPeriod: Int = 12 // 短期 EMA 的周期（常用 12）
+    private let longPeriod: Int  = 26 // 长期 EMA 的周期（常用 26）
+    private let signalPeriod: Int = 9// 信号线 EMA 的周期（常用 9）
     
     private let lineLayer = CAShapeLayer()
     
-    init(configuration: Configuration) {
-        self.configuration = configuration
+    init() {
         // 设置线条宽度和填充色
         lineLayer.lineWidth = 1
         lineLayer.fillColor = UIColor.clear.cgColor
@@ -49,7 +38,7 @@ final class MACDRenderer: Renderer {
 
 //final class MACDRenderer: IndicatorRenderer {
 //    
-//    private var styleManager: StyleManager { .shared }
+//    private var klineConfig: klineConfig { .shared }
 //    private let lineWidth = 1 / UIScreen.main.scale
 //    var transformer: Transformer?
 //    
@@ -60,7 +49,7 @@ final class MACDRenderer: Renderer {
 //    func draw(in layer: CALayer, data: RenderData<IndicatorData>) {
 //        guard var transformer = transformer,
 //              case .macd = type.keys[0],
-//              let indicatorStyle = styleManager.indicatorStyle(for: type.keys[0], type: MACDStyle.self) else {
+//              let indicatorStyle = klineConfig.indicatorStyle(for: type.keys[0], type: MACDStyle.self) else {
 //            return
 //        }
 //        let maxValue = max(abs(transformer.dataBounds.min), abs(transformer.dataBounds.max))
@@ -68,7 +57,7 @@ final class MACDRenderer: Renderer {
 //        self.transformer = transformer
 //        
 //        let rect = transformer.viewPort
-//        let candleStyle = styleManager.candleStyle
+//        let candleStyle = klineConfig.candleStyle
 //        let visibleItems = data.visibleItems
 //        
 //        guard let item = data.selectedItem ?? visibleItems.last else { return }
@@ -162,7 +151,7 @@ final class MACDRenderer: Renderer {
 //        paragraphStyle.lineHeightMultiple = 1.1
 //        let font = UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
 //        let macdText = NSAttributedString(
-//            string: "MACD:\(styleManager.format(value: selectedValue.histogram))  ",
+//            string: "MACD:\(klineConfig.format(value: selectedValue.histogram))  ",
 //            attributes: [
 //                .foregroundColor: indicatorStyle.macdColor.cgColor,
 //                .font: font,
@@ -171,7 +160,7 @@ final class MACDRenderer: Renderer {
 //        )
 //        attrText.append(macdText)
 //        let difText = NSAttributedString(
-//            string: "DIF:\(styleManager.format(value: selectedValue.macd))  ",
+//            string: "DIF:\(klineConfig.format(value: selectedValue.macd))  ",
 //            attributes: [
 //                .foregroundColor: indicatorStyle.difColor.cgColor,
 //                .font: font,
@@ -180,7 +169,7 @@ final class MACDRenderer: Renderer {
 //        )
 //        attrText.append(difText)
 //        let deaText = NSAttributedString(
-//            string: "DEA:\(styleManager.format(value: selectedValue.signal))  ",
+//            string: "DEA:\(klineConfig.format(value: selectedValue.signal))  ",
 //            attributes: [
 //                .foregroundColor: indicatorStyle.deaColor.cgColor,
 //                .font: font,

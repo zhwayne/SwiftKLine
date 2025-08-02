@@ -42,6 +42,9 @@ final class XAxisRenderer: Renderer {
             path.addLine(to: end)
         }
         
+        path.move(to: CGPoint(x: 0, y: context.groupFrame.maxY))
+        path.addLine(to: CGPoint(x: context.groupFrame.maxX, y: context.groupFrame.maxY))
+        
         lineLayer.path = path
     }
 }

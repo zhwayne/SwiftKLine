@@ -16,8 +16,6 @@ import Foundation
     public let items: [Item]
     /// 当前可见的K线数据范围
     public let visibleRange: Range<Int>
-    /// K线样式管理器
-    public let candleStyle: CandleStyle
     /// 布局信息，包含位置计算相关的方法
     public let layout: Layout
     /// 当前长按手势坐标位置
@@ -37,7 +35,6 @@ import Foundation
         valueStorage: ValueStorage,
         items: [Item],
         visibleRange: Range<Int>,
-        candleStyle: CandleStyle,
         layout: Layout,
         location: CGPoint?,
         selectedIndex: Int?
@@ -45,7 +42,6 @@ import Foundation
         self.valueStorage = valueStorage
         self.items = items
         self.visibleRange = visibleRange
-        self.candleStyle = candleStyle
         self.layout = layout
         self.location = location
         self.currentIndex = selectedIndex ?? visibleRange.upperBound - 1

@@ -9,20 +9,14 @@ import UIKit
 
 final class VOLRenderer: Renderer {
     
-    struct Configuration {
-        var key: Indicator.Key { .vol }
-    }
-    
     private let risingLayer = CAShapeLayer()
     private let fallingLayer = CAShapeLayer()
     private let legendLayer = CATextLayer()
     private let volumeFormatter = VolumeFormatter()
-    private let configuration: Configuration
     
     var id: some Hashable { Indicator.vol }
         
-    init(configuration: Configuration = Configuration()) {
-        self.configuration = configuration
+    init() {
         risingLayer.lineWidth = 1
         risingLayer.contentsScale = UIScreen.main.scale
         risingLayer.opacity = 0.5
@@ -48,14 +42,14 @@ final class VOLRenderer: Renderer {
     }
     
     func draw(in layer: CALayer, context: Context) {
-        let candleStyle = context.candleStyle
+        let candleStyle = KLineConfig.default.candleStyle
         let layout = context.layout
         let viewPort = context.viewPort
         let visibleItems = context.visibleItems
-        risingLayer.fillColor = KLineTrend.rising.color
-        risingLayer.strokeColor = KLineTrend.rising.color
-        fallingLayer.fillColor = KLineTrend.falling.color
-        fallingLayer.strokeColor = KLineTrend.falling.color
+        risingLayer.fillColor = KLineTrend.rising.color.cgColor
+        risingLayer.strokeColor = KLineTrend.rising.color.cgColor
+        fallingLayer.fillColor = KLineTrend.falling.color.cgColor
+        fallingLayer.strokeColor = KLineTrend.falling.color.cgColor
         
         legendLayer.string = context.legendText
         legendLayer.frame = context.legendFrame
@@ -84,7 +78,7 @@ final class VOLRenderer: Renderer {
             string: "VOL: \(volumeFormatter.format(NSNumber(floatLiteral: item.volume))) ",
             attributes: [
                 .foregroundColor: UIColor.secondaryLabel.cgColor,
-                .font: UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+                .font: KLineConfig.default.legendFont
             ]
         )
         return string
