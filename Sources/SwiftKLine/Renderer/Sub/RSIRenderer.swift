@@ -12,13 +12,18 @@ final class RSIRenderer: Renderer {
     private let priceFormatter = PriceFormatter()
     
     private let peroids: [Int]
+    private let range: ClosedRange<Double>
+    private let rangeColor = UIColor.systemBlue.withAlphaComponent(0.8)
     private let lineLayers: [CAShapeLayer]
+    private let areaLayer = CAShapeLayer()
+    private let dashLayer = CAShapeLayer()
     private let legendLayer = CATextLayer()
 
     var id: some Hashable { Indicator.rsi }
 
     init(peroids: [Int]) {
         self.peroids = peroids
+        range = 30...70
         lineLayers = peroids.map { _ in
             let layer = CAShapeLayer()
             layer.lineWidth = 1
@@ -27,14 +32,22 @@ final class RSIRenderer: Renderer {
         }
         legendLayer.alignmentMode = .center
         legendLayer.contentsScale = UIScreen.main.scale
+        areaLayer.strokeColor = UIColor.clear.cgColor
+        dashLayer.lineWidth = 1
+        dashLayer.lineDashPattern = [2, 2]
+        dashLayer.fillColor = UIColor.clear.cgColor
     }
 
     func install(to layer: CALayer) {
-        layer.addSublayer(legendLayer)
+        layer.addSublayer(areaLayer)
+        layer.addSublayer(dashLayer)
         lineLayers.forEach { layer.addSublayer($0) }
+        layer.addSublayer(legendLayer)
     }
     
     func uninstall(from layer: CALayer) {
+        areaLayer.removeFromSuperlayer()
+        dashLayer.removeFromSuperlayer()
         legendLayer.removeFromSuperlayer()
         lineLayers.forEach { $0.removeFromSuperlayer() }
     }
@@ -70,6 +83,23 @@ final class RSIRenderer: Renderer {
             // 使用计算出的点创建路径并设置到图层
             lineLayer.path = points.cgPath
         }
+        
+        // 绘制超买超卖区域
+            let oby = layout.minY(for: range.upperBound, viewPort: context.viewPort)
+            let osy = layout.minY(for: range.lowerBound, viewPort: context.viewPort)
+        let minX = layout.minX(at: 0) + candleStyle.width * 0.5
+        let maxX = layout.minX(at: context.visibleRange.count - 1) + candleStyle.width * 0.5
+        let overRect = CGRect(x: minX, y: oby, width: maxX - minX, height: osy - oby)
+        areaLayer.path = CGPath(rect: overRect, transform: nil)
+        areaLayer.fillColor = rangeColor.withAlphaComponent(0.1).cgColor
+        
+        let dashPath = CGMutablePath()
+        dashPath.move(to: CGPoint(x: overRect.minX, y: overRect.minY))
+        dashPath.addLine(to: CGPoint(x: overRect.maxX, y: overRect.minY))
+        dashPath.move(to: CGPoint(x: overRect.minX, y: overRect.maxY))
+        dashPath.addLine(to: CGPoint(x: overRect.maxX, y: overRect.maxY))
+        dashLayer.path = dashPath
+        dashLayer.strokeColor = rangeColor.cgColor
     }
     
     func legend(context: Context) -> NSAttributedString? {
@@ -102,7 +132,10 @@ final class RSIRenderer: Renderer {
                 return partialResult
             }
             let bounds = MetricBounds(min: min, max: max)
-            return bounds.merging(other: partialResult)
+            let rangeBounds = MetricBounds(range: range)
+            return bounds
+                .merging(other: partialResult)
+                .merging(other: rangeBounds)
         }
     }
 }
