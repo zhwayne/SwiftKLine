@@ -28,7 +28,7 @@ enum ChartSection: Sendable {
     // MARK: - Height defines
     private let candleHeight: CGFloat = 320
     private let timelineHeight: CGFloat = 16
-    private let indicatorHeight: CGFloat = 56
+    private let indicatorHeight: CGFloat = 64
     private let indicatorTypeHeight: CGFloat = 32
     private var chartHeightConstraint: Constraint!
     private var viewHeight: CGFloat { descriptor.height + indicatorTypeHeight }
