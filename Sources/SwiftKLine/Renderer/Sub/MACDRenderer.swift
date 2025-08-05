@@ -144,7 +144,7 @@ final class MACDRenderer: Renderer {
         }
         let partialResult = NSMutableAttributedString()
         partialResult.append(NSAttributedString(
-            string: "MACD:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.histogram))) ",
+            string: "STICK:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.histogram))) ",
             attributes: [
                 .foregroundColor: style?.macdColor.cgColor,
                 .font: KLineConfig.default.legendFont
