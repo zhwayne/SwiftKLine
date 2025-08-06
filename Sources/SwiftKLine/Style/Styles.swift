@@ -31,6 +31,8 @@ import UIKit
         .ema(5): LineStyle(strokeColor: .systemOrange),
         .ema(10): LineStyle(strokeColor: .systemPink),
         .ema(20): LineStyle(strokeColor: .systemTeal),
+        // BOLL
+        .boll: LineStyle(strokeColor: .systemOrange),
         // RSI
         .rsi(6): LineStyle(strokeColor: .systemOrange),
         .rsi(12): LineStyle(strokeColor: .systemPink),

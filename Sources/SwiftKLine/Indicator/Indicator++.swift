@@ -17,6 +17,8 @@ extension Indicator {
                 return MACalculator(period: period)
             case let .ema(period):
                 return EMACalculator(period: period)
+            case .boll:
+                return BOLLCalculator()
             case let .rsi(period):
                 return RSICalculator(period: period)
             case let .macd:

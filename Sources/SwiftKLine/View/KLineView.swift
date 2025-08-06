@@ -451,6 +451,9 @@ extension KLineView {
                 return period
             }))
         }
+        registerRenderer(for: .boll) { _ in
+            BOLLRenderer()
+        }
         registerRenderer(for: .vol) { _ in
             VOLRenderer()
         }
