@@ -1,5 +1,8 @@
 一个轻量级、模块化且易于扩展的K线图表框架，专为Swift应用设计。
 
+<img src="https://github.com/user-attachments/assets/efa0309e-72c6-4d2a-8d27-60891d7bfcda" width=50%>
+
+
 # 功能特点
 
 ## 核心架构
