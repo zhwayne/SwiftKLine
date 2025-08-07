@@ -13,7 +13,7 @@ final class RSIRenderer: Renderer {
     
     private let peroids: [Int]
     private let range: ClosedRange<Double>
-    private let rangeColor = UIColor.systemBlue.withAlphaComponent(0.8)
+    private let rangeColor = UIColor.systemBlue
     private let lineLayers: [CAShapeLayer]
     private let areaLayer = CAShapeLayer()
     private let dashLayer = CAShapeLayer()
@@ -85,13 +85,13 @@ final class RSIRenderer: Renderer {
         }
         
         // 绘制超买超卖区域
-            let oby = layout.minY(for: range.upperBound, viewPort: context.viewPort)
-            let osy = layout.minY(for: range.lowerBound, viewPort: context.viewPort)
+        let oby = layout.minY(for: range.upperBound, viewPort: context.viewPort)
+        let osy = layout.minY(for: range.lowerBound, viewPort: context.viewPort)
         let minX = layout.minX(at: 0) + candleStyle.width * 0.5
         let maxX = layout.minX(at: context.visibleRange.count - 1) + candleStyle.width * 0.5
         let overRect = CGRect(x: minX, y: oby, width: maxX - minX, height: osy - oby)
         areaLayer.path = CGPath(rect: overRect, transform: nil)
-        areaLayer.fillColor = rangeColor.withAlphaComponent(0.1).cgColor
+        areaLayer.fillColor = rangeColor.withAlphaComponent(0.05).cgColor
         
         let dashPath = CGMutablePath()
         dashPath.move(to: CGPoint(x: overRect.minX, y: overRect.minY))

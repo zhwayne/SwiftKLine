@@ -57,8 +57,8 @@ enum ChartSection: Sendable {
         super.init(frame: frame)
         chartView.layer.masksToBounds = true
         
-        indicatorTypeView.mainIndicators = klineConfig.indicators.filter { $0.isMain }
-        indicatorTypeView.subIndicators =  klineConfig.indicators.filter { !$0.isMain }
+        indicatorTypeView.mainIndicators = klineConfig.indicators.filter { $0.isMain && !$0.keys.isEmpty }
+        indicatorTypeView.subIndicators =  klineConfig.indicators.filter { !$0.isMain && !$0.keys.isEmpty }
         
         addSubview(chartView)
         addSubview(indicatorTypeView)
@@ -453,6 +453,9 @@ extension KLineView {
         }
         registerRenderer(for: .boll) { _ in
             BOLLRenderer()
+        }
+        registerRenderer(for: .sar) { _ in
+            SARRenderer()
         }
         registerRenderer(for: .vol) { _ in
             VOLRenderer()

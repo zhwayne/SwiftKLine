@@ -33,6 +33,8 @@ import UIKit
         .ema(20): LineStyle(strokeColor: .systemTeal),
         // BOLL
         .boll: LineStyle(strokeColor: .systemOrange),
+        // SAR
+        .sar: LineStyle(strokeColor: .systemOrange),
         // RSI
         .rsi(6): LineStyle(strokeColor: .systemOrange),
         .rsi(12): LineStyle(strokeColor: .systemPink),

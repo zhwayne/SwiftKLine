@@ -18,11 +18,9 @@ final class VOLRenderer: Renderer {
         
     init() {
         risingLayer.lineWidth = 1
-        risingLayer.contentsScale = UIScreen.main.scale
         risingLayer.opacity = 0.5
         
         fallingLayer.lineWidth = 1
-        fallingLayer.contentsScale = UIScreen.main.scale
         fallingLayer.opacity = 0.5
         
         legendLayer.alignmentMode = .center

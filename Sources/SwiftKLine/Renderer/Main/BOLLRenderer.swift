@@ -15,7 +15,6 @@ final class BOLLRenderer: Renderer {
     private let middleLayer = CAShapeLayer()
     private let lowerLayer = CAShapeLayer()
     private let areaLayer = CAShapeLayer()
-    private let legendLayer = CATextLayer()
 
     var id: some Hashable { Indicator.boll }
 
@@ -26,7 +25,6 @@ final class BOLLRenderer: Renderer {
         middleLayer.fillColor = UIColor.clear.cgColor
         lowerLayer.lineWidth = 1
         lowerLayer.fillColor = UIColor.clear.cgColor
-        legendLayer.contentsScale = UIScreen.main.scale
         areaLayer.strokeColor = UIColor.clear.cgColor
     }
 
@@ -35,7 +33,6 @@ final class BOLLRenderer: Renderer {
         layer.addSublayer(upperLayer)
         layer.addSublayer(middleLayer)
         layer.addSublayer(lowerLayer)
-        layer.addSublayer(legendLayer)
     }
     
     func uninstall(from layer: CALayer) {
@@ -43,7 +40,6 @@ final class BOLLRenderer: Renderer {
         upperLayer.removeFromSuperlayer()
         middleLayer.removeFromSuperlayer()
         lowerLayer.removeFromSuperlayer()
-        legendLayer.removeFromSuperlayer()
     }
     
     func draw(in layer: CALayer, context: Context) {
@@ -51,9 +47,6 @@ final class BOLLRenderer: Renderer {
         let klineConfig = KLineConfig.default
         let candleStyle = klineConfig.candleStyle
         let layout = context.layout
-        
-        legendLayer.string = context.legendText
-        legendLayer.frame = context.legendFrame
         
         let key = Indicator.Key.boll
         guard let visibleValues = context.visibleValues(forKey: key, valueType: BOLLIndicatorValue?.self) else {
@@ -63,7 +56,7 @@ final class BOLLRenderer: Renderer {
         upperLayer.strokeColor = style?.strokeColor.cgColor
         middleLayer.strokeColor = style?.strokeColor.cgColor
         lowerLayer.strokeColor = style?.strokeColor.cgColor
-        areaLayer.fillColor =  style?.strokeColor.withAlphaComponent(0.1).cgColor
+        areaLayer.fillColor =  style?.strokeColor.withAlphaComponent(0.05).cgColor
         
         // 绘制上柜和下轨
         let upperPath = CGMutablePath()

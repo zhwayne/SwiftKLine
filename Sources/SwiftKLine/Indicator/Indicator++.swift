@@ -12,17 +12,13 @@ extension Indicator {
     func makeCalculators() -> [any IndicatorCalculator] {
         return keys.compactMap { key in
             switch key {
-            case .vol: return VOLCalculator()
-            case let .ma(period):
-                return MACalculator(period: period)
-            case let .ema(period):
-                return EMACalculator(period: period)
-            case .boll:
-                return BOLLCalculator()
-            case let .rsi(period):
-                return RSICalculator(period: period)
-            case let .macd:
-                return MACDCalculator()
+            case .vol:              return VOLCalculator()
+            case let .ma(period):   return MACalculator(period: period)
+            case let .ema(period):  return EMACalculator(period: period)
+            case .boll:             return BOLLCalculator()
+            case .sar:              return SARCalculator()
+            case let .rsi(period):  return RSICalculator(period: period)
+            case let .macd:         return MACDCalculator()
             }
         }
     }

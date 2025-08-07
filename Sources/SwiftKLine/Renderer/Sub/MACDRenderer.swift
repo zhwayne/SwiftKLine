@@ -29,8 +29,6 @@ final class MACDRenderer: Renderer {
         macdLayer.fillColor = UIColor.clear.cgColor
         signalLayer.lineWidth = 1
         signalLayer.fillColor = UIColor.clear.cgColor
-        
-        barLayer.contentsScale = UIScreen.main.scale
     }
     
     func install(to layer: CALayer) {
@@ -54,12 +52,6 @@ final class MACDRenderer: Renderer {
         let klineConfig = KLineConfig.default
         let candleStyle = klineConfig.candleStyle
         let layout = context.layout
-//        let maxValue = max(
-//            abs(context.layout.dataBounds.min),
-//            abs(context.layout.dataBounds.max)
-//        )
-//        let otherDataBounds = MetricBounds(min: -maxValue, max: maxValue)
-//        context.layout.dataBounds.merge(other: otherDataBounds)
         
         legendLayer.string = context.legendText
         legendLayer.frame = context.legendFrame

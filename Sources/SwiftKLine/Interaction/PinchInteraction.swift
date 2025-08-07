@@ -55,7 +55,7 @@ class PinchInteraction: NSObject, UIInteraction {
         let candleStyle = klineConfig.candleStyle
         let newLineWidth = candleStyle.width * (difValue + 1)
         let newGap = candleStyle.gap * (difValue + 1)
-        guard (1...32).contains(newLineWidth) else { return }
+        guard (2...24).contains(newLineWidth) else { return }
         
         klineConfig.candleStyle.width = newLineWidth
         klineConfig.candleStyle.gap = newGap
