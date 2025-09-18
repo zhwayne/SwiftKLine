@@ -1,0 +1,19 @@
+{
+	"name": "xcode build server",
+	"version": "0.2",
+	"bspVersion": "2.0",
+	"languages": [
+		"c",
+		"cpp",
+		"objective-c",
+		"objective-cpp",
+		"swift"
+	],
+	"argv": [
+		"/usr/local/bin/xcode-build-server"
+	],
+	"workspace": "/Users/wzh/Documents/GitHub/SwiftKLine/SwiftKLineExample.xcodeproj/project.xcworkspace",
+	"build_root": "/Users/wzh/Library/Developer/Xcode/DerivedData/SwiftKLineExample-dyvchdqkofprrdbyfisjmztxuxcy",
+	"scheme": "SwiftKLineExample",
+	"kind": "xcode"
+}

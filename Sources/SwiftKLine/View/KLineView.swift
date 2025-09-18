@@ -38,6 +38,9 @@ enum ChartSection: Sendable {
     private var customRenderers = [AnyRenderer]()
     private var crosshairRenderer: CrosshairRenderer?
     private var indiccatorProviderMap: [Indicator: IndicatorProvider] = [:]
+    private var descriptorUpdateTask: Task<Void, Never>? {
+        didSet { oldValue?.cancel() }
+    }
     
     // MARK: - Data
     private var mainIndicatorTypes: [Indicator] = []
@@ -102,11 +105,15 @@ enum ChartSection: Sendable {
         addInteractions()
         observeScrollViewLayoutChange()
         setupBindings()
-        updateDescriptor()
+        scheduleDescriptorUpdate()
     }
     
     public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        descriptorUpdateTask?.cancel()
     }
     
     private func addInteractions() {
@@ -231,66 +238,110 @@ extension KLineView {
         }
     }
     
-    private func updateDescriptor() {
-        Task(priority: .userInitiated) {
-            let oldDescriptor = descriptor
-            let newDescriptor = makeDescriptor()
-            let inserted = newDescriptor.renderers
-            let deleted = oldDescriptor.renderers
-    
-            let allTypes = mainIndicatorTypes + subIndicatorTypes
-            // 计算指标数据
-            let calculators = allTypes.flatMap { indicator in
-                return indicator.makeCalculators()
-            }
-            
-            let newValueStorage = await calculators.calculate(items: klineItems)
-            
-            inserted.forEach { renderer in
-                renderer.install(to: scrollView.contentView.canvas)
-            }
-            deleted.forEach { renderer in
-                renderer.uninstall(from: scrollView.contentView.canvas)
-            }
-
-            descriptor = newDescriptor
-            valueStorage = newValueStorage
-            invalidateIntrinsicContentSize()
-            drawVisibleContent()
+    private func scheduleDescriptorUpdate(recalculateValues: Bool = true) {
+        descriptorUpdateTask = Task(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            await self.updateDescriptor(recalculateValues: recalculateValues)
         }
+    }
+
+    @MainActor
+    private func updateDescriptor(recalculateValues: Bool = true) async {
+        guard !Task.isCancelled else { return }
+
+        if recalculateValues {
+            let calculators = (mainIndicatorTypes + subIndicatorTypes)
+                .flatMap { indicator in indicator.makeCalculators() }
+            if calculators.isEmpty {
+                valueStorage = ValueStorage()
+            } else {
+                let storage = await calculators.calculate(items: klineItems)
+                guard !Task.isCancelled else { return }
+                valueStorage = storage
+            }
+        }
+
+        var newDescriptor = makeDescriptor()
+        let oldDescriptor = descriptor
+        let transition = reconcileRenderers(from: oldDescriptor, to: &newDescriptor)
+        guard !Task.isCancelled else { return }
+
+        transition.removed.forEach { renderer in
+            renderer.uninstall(from: scrollView.contentView.canvas)
+        }
+        transition.added.forEach { renderer in
+            renderer.install(to: scrollView.contentView.canvas)
+        }
+
+        descriptor = newDescriptor
+        invalidateIntrinsicContentSize()
+        drawVisibleContent()
+    }
+
+    private func reconcileRenderers(
+        from oldDescriptor: ChartDescriptor,
+        to newDescriptor: inout ChartDescriptor
+    ) -> (added: [AnyRenderer], removed: [AnyRenderer]) {
+        var available = Dictionary(grouping: oldDescriptor.renderers) { renderer in
+            AnyHashable(renderer.id)
+        }
+        var additions = [AnyRenderer]()
+        var reused = Set<ObjectIdentifier>()
+
+        for groupIndex in newDescriptor.groups.indices {
+            var renderers = newDescriptor.groups[groupIndex].renderers
+            for rendererIndex in renderers.indices {
+                let renderer = renderers[rendererIndex]
+                let key = AnyHashable(renderer.id)
+                if var bucket = available[key], let reusedRenderer = bucket.popLast() {
+                    renderers[rendererIndex] = reusedRenderer
+                    reused.insert(ObjectIdentifier(reusedRenderer))
+                    available[key] = bucket.isEmpty ? nil : bucket
+                } else {
+                    additions.append(renderer)
+                }
+            }
+            newDescriptor.groups[groupIndex].renderers = renderers
+        }
+
+        let removals = oldDescriptor.renderers.filter { renderer in
+            !reused.contains(ObjectIdentifier(renderer))
+        }
+        return (additions, removals)
     }
     
     private func draw(items: [any KLineItem], scrollPosition: ScrollPosition) async {
-        let calculators = (mainIndicatorTypes + subIndicatorTypes).flatMap { indicator in
-            return indicator.makeCalculators()
-        }
-        let newValueStorage = await calculators.calculate(items: items)
-        valueStorage = newValueStorage
         klineItems = items
         layout.itemCount = items.count
         scrollView.scroll(to: scrollPosition)
-        updateDescriptor()
-        drawVisibleContent()
+        descriptorUpdateTask?.cancel()
+        await updateDescriptor(recalculateValues: true)
     }
     
     private func drawMainIndicator(type: Indicator) async {
+        guard !mainIndicatorTypes.contains(type) else { return }
         mainIndicatorTypes.append(type)
-        updateDescriptor()
+        descriptorUpdateTask?.cancel()
+        await updateDescriptor()
     }
     
     private func eraseMainIndicator(type: Indicator) {
-        mainIndicatorTypes.removeAll(where: { $0 == type })
-        updateDescriptor()
+        guard let index = mainIndicatorTypes.firstIndex(of: type) else { return }
+        mainIndicatorTypes.remove(at: index)
+        scheduleDescriptorUpdate()
     }
     
     private func drawSubIndicator(type: Indicator) async {
+        guard !subIndicatorTypes.contains(type) else { return }
         subIndicatorTypes.append(type)
-        updateDescriptor()
+        descriptorUpdateTask?.cancel()
+        await updateDescriptor()
     }
     
     private func eraseSubIndicator(type: Indicator) {
-        subIndicatorTypes.removeAll(where: { $0 == type })
-        updateDescriptor()
+        guard let index = subIndicatorTypes.firstIndex(of: type) else { return }
+        subIndicatorTypes.remove(at: index)
+        scheduleDescriptorUpdate()
     }
 }
 
