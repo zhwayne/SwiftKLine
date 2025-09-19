@@ -11,9 +11,10 @@ import SwiftKLine
 struct KLineSwiftUIView: View {
     
     let period: KLinePeriod
+    let mode: ChartDisplayMode
     
     var body: some View {
-        KLineRepresentable(period: period)
+        KLineRepresentable(period: period, mode: mode)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -21,21 +22,40 @@ struct KLineSwiftUIView: View {
 private struct KLineRepresentable: UIViewRepresentable {
     
     let period: KLinePeriod
+    let mode: ChartDisplayMode
     
     typealias UIViewType = KLineView
-    
+
     func makeUIView(context: Context) -> KLineView {
         let view = KLineView()
         return view
     }
-    
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func updateUIView(_ uiView: KLineView, context: Context) {
-        let provider = BinanceDataProvider(period: period)
-        uiView.setProvider(provider)
-        uiView.invalidateIntrinsicContentSize()
+        if context.coordinator.period != period {
+            let provider = BinanceDataProvider(period: period)
+            uiView.setProvider(provider)
+            uiView.invalidateIntrinsicContentSize()
+            context.coordinator.period = period
+        }
+
+        switch mode {
+        case .candlestick:
+            uiView.useCandlesticks()
+        case .timeSeries:
+            uiView.useTimeSeries()
+        }
+    }
+
+    final class Coordinator {
+        var period: KLinePeriod?
     }
 }
 
 #Preview {
-    KLineSwiftUIView(period: .fiveMinutes)
+    KLineSwiftUIView(period: .fiveMinutes, mode: .candlestick)
 }

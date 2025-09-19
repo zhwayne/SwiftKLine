@@ -38,6 +38,11 @@ enum ChartSection: Sendable {
     private var customRenderers = [AnyRenderer]()
     private var crosshairRenderer: CrosshairRenderer?
     private var indiccatorProviderMap: [Indicator: IndicatorProvider] = [:]
+    private enum MainChartContent {
+        case candlestick
+        case timeSeries
+    }
+    private var mainChartContent: MainChartContent = .candlestick
     private var descriptorUpdateTask: Task<Void, Never>? {
         didSet { oldValue?.cancel() }
     }
@@ -194,6 +199,21 @@ extension KLineView {
     }
 }
 
+// MARK: - 切换主图模式
+extension KLineView {
+    
+    public func useTimeSeries() {
+        mainChartContent = .timeSeries
+        scheduleDescriptorUpdate()
+    }
+
+    public func useCandlesticks() {
+        guard mainChartContent != .candlestick else { return }
+        mainChartContent = .candlestick
+        scheduleDescriptorUpdate()
+    }
+}
+
 // MARK: - 绘制和擦除指标
 extension KLineView {
     
@@ -201,29 +221,33 @@ extension KLineView {
         ChartDescriptor {
             // MARK: - 主图
             RendererGroup(chartSection: .mainChart, height: candleHeight, padding: (16, 12)) {
-                // X轴
                 XAxisRenderer()
-                //蜡烛图
-                CandleRenderer()
-                // 主图指标
-                for type in mainIndicatorTypes {
-                    if let rendererProvider = indiccatorProviderMap[type],
-                       let renderer = rendererProvider(type) {
+                if mainChartContent == .timeSeries {
+                    TimeSeriesRenderer(style: TimeSeriesStyle())
+                    // Y轴
+                    YAxisRenderer()
+                } else {
+                    CandleRenderer()
+                    // 主图指标
+                    for type in mainIndicatorTypes {
+                        if let rendererProvider = indiccatorProviderMap[type],
+                           let renderer = rendererProvider(type) {
+                            renderer
+                        }
+                    }
+                    // 自定义主图渲染器
+                    for renderer in customRenderers {
                         renderer
                     }
+                    // Y轴
+                    YAxisRenderer()
+                    // 价格相关
+                    PriceIndicatorRenderer(style: PriceIndicatorStyle())
                 }
-                // 自定义主图渲染器
-                for renderer in customRenderers {
-                    renderer
-                }
-                // Y轴
-                YAxisRenderer()
-                // 价格相关
-                PriceIndicatorRenderer(style: PriceIndicatorStyle())
             }
             // MARK: - Timeline
             RendererGroup(chartSection: .timeline, height: timelineHeight, padding: (0, 0)) {
-                TimelineRenderer(style: TimelineStyle())
+                TimeAxisRenderer(style: TimeAxisStyle())
             }
             // MARK: - 副图
             for type in subIndicatorTypes {

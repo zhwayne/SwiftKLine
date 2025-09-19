@@ -22,9 +22,33 @@ public struct PriceIndicatorStyle: IndicatorStyle {
     let font: UIFont = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
 }
 
-public struct TimelineStyle: IndicatorStyle {
-    let textColor: UIColor = UIColor.label.withAlphaComponent(0.7)
-    let font: UIFont = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+public struct TimeAxisStyle: IndicatorStyle {
+    let textColor: UIColor
+    let font: UIFont
+    
+    public init(
+        textColor: UIColor = UIColor.label.withAlphaComponent(0.7),
+        font: UIFont = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+    ) {
+        self.textColor = textColor
+        self.font = font
+    }
+}
+
+public struct TimeSeriesStyle: IndicatorStyle {
+    let lineColor: UIColor
+    let fillColor: UIColor
+    let borderColor: UIColor
+    
+    public init(
+        lineColor: UIColor = .systemBlue,
+        fillColor: UIColor = UIColor.systemBlue.withAlphaComponent(0.15),
+        borderColor: UIColor = .systemGray3
+    ) {
+        self.lineColor = lineColor
+        self.fillColor = fillColor
+        self.borderColor = borderColor
+    }
 }
 
 public struct MACDStyle: IndicatorStyle {

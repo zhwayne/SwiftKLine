@@ -120,6 +120,28 @@ struct RendererBuilder {
         return [AnyRenderer(expression)]
     }
     
+    static func buildExpression(_ expression: Expression?) -> Component {
+        guard let expression else { return [] }
+        return [AnyRenderer(expression)]
+    }
+    
+    static func buildExpression<R: Renderer>(_ expression: R) -> Component {
+        return [AnyRenderer(expression)]
+    }
+    
+    static func buildExpression<R: Renderer>(_ expression: R?) -> Component {
+        guard let expression else { return [] }
+        return [AnyRenderer(expression)]
+    }
+    
+    static func buildExpression(_ expression: AnyRenderer) -> Component {
+        return [expression]
+    }
+    
+    static func buildExpression(_ expression: [AnyRenderer]) -> Component {
+        return expression
+    }
+    
     /// Enables support for `if` statements that do not have an `else`.
     static func buildOptional(_ component: Component?) -> Component {
         return component ?? []

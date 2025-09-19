@@ -1,32 +1,33 @@
 //
-//  TimelineRenderer.swift
-//  KLineDemo
+//  TimeAxisRenderer.swift
+//  SwiftKLine
 //
 //  Created by iya on 2024/11/7.
 //
 
 import UIKit
 
-final class TimelineRenderer: Renderer {
+/// Responsible for drawing the horizontal time axis labels and separators.
+final class TimeAxisRenderer: Renderer {
     
-    var id: some Hashable { ObjectIdentifier(TimelineRenderer.self) }
-    private let style: TimelineStyle
+    var id: some Hashable { ObjectIdentifier(TimeAxisRenderer.self) }
+    private let style: TimeAxisStyle
     private var textLayers: [CATextLayer] = []
     private let borderLayer = CAShapeLayer()
     private let dateFormatter = DateFormatter()
     private let lineWidth = 1 / UIScreen.main.scale
     
-    init(style: TimelineStyle) {
+    init(style: TimeAxisStyle) {
         self.style = style
         dateFormatter.dateFormat = "MM-dd HH:mm"
-        textLayers = (0..<6).map({ idx in
+        textLayers = (0..<6).map { _ in
             let label = CATextLayer()
             label.font = style.font as CTFont
             label.fontSize = style.font.pointSize
             label.alignmentMode = .center
             label.contentsScale = UIScreen.main.scale
             return label
-        })
+        }
         borderLayer.lineWidth = lineWidth
         borderLayer.fillColor = UIColor.clear.cgColor
     }
@@ -56,16 +57,15 @@ final class TimelineRenderer: Renderer {
         borderPath.addLine(to: CGPoint(x: layer.bounds.maxX, y: groupFrame.maxY - lineWidth * 0.5))
         borderLayer.path = borderPath
         
-        // 时间 label 位置固定
         let labelCount = textLayers.count
         let rect = layer.bounds
         let labelWidth = rect.width / CGFloat(labelCount - 1)
         
-        for idx in (0..<labelCount) {
+        for idx in 0..<labelCount {
             let label = textLayers[idx]
-            let position = CGPoint(x: CGFloat(idx) * labelWidth, y: viewPort.midY)
+            let positionX = CGFloat(idx) * labelWidth
             
-            if let index = layout.indexInViewPort(on: position.x) {
+            if let index = layout.indexInViewPort(on: positionX), index < items.count {
                 let item = items[index]
                 let date = Date(timeIntervalSince1970: TimeInterval(item.timestamp))
                 let timeString = dateFormatter.string(from: date)
@@ -77,7 +77,7 @@ final class TimelineRenderer: Renderer {
             
             let size = label.preferredFrameSize()
             label.bounds = CGRect(x: 0, y: 0, width: labelWidth - 4, height: size.height)
-            label.position = CGPoint(x: CGFloat(idx) * labelWidth, y: viewPort.midY)
+            label.position = CGPoint(x: positionX, y: viewPort.midY)
         }
     }
 }
