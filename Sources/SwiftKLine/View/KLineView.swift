@@ -185,10 +185,15 @@ extension KLineView {
     
     public func setProvider(_ provider: some KLineItemProvider) {
         // TODO: 显示 loading
+        
+        // 取消之前的更新任务，避免旧数据的计算任务继续占用资源
+        descriptorUpdateTask?.cancel()
+        
         klineItemLoader = KLineItemLoader(provider: provider) { [weak self] page, items in
             guard let self else { return }
             if page == 0 {
-                valueStorage = ValueStorage()
+                // 第一页加载时，draw() 方法会重新计算 valueStorage
+                // 旧的 klineItems 和 valueStorage 会被自动替换和释放
                 await draw(items: items, scrollPosition: .right)
             } else {
                 let allItems = items + klineItems
@@ -270,7 +275,7 @@ extension KLineView {
     }
 
     @MainActor
-    private func updateDescriptor(recalculateValues: Bool = true) async {
+    private func updateDescriptor(recalculateValues: Bool) async {
         guard !Task.isCancelled else { return }
 
         if recalculateValues {
@@ -335,18 +340,40 @@ extension KLineView {
     }
     
     private func draw(items: [any KLineItem], scrollPosition: ScrollPosition) async {
-        klineItems = items
-        layout.itemCount = items.count
-        scrollView.scroll(to: scrollPosition)
+        // 取消之前的更新任务
         descriptorUpdateTask?.cancel()
-        await updateDescriptor(recalculateValues: true)
+        
+        // 1. 在后台准备计算所需的配置（捕获当前的指标类型）
+        let calculators = (mainIndicatorTypes + subIndicatorTypes)
+            .flatMap { indicator in indicator.makeCalculators() }
+        
+        // 2. 后台计算新的 valueStorage
+        let newValueStorage: ValueStorage
+        if calculators.isEmpty {
+            newValueStorage = ValueStorage()
+        } else {
+            newValueStorage = await calculators.calculate(items: items)
+            guard !Task.isCancelled else { return }
+        }
+        
+        // 3. 回到主线程，原子性地一次性更新所有状态
+        // 此时数据已经准备好，避免中间状态
+        klineItems = items
+        valueStorage = newValueStorage  // 旧的 valueStorage 引用计数变为 0，ARC 会自动释放
+        layout.itemCount = items.count  // 现在可以安全地触发 layoutSubviews
+        
+        // 4. 调整滚动位置
+        scrollView.scroll(to: scrollPosition)
+        
+        // 5. 更新渲染器描述符（不需要重新计算 valueStorage）
+        await updateDescriptor(recalculateValues: false)
     }
     
     private func drawMainIndicator(type: Indicator) async {
         guard !mainIndicatorTypes.contains(type) else { return }
         mainIndicatorTypes.append(type)
         descriptorUpdateTask?.cancel()
-        await updateDescriptor()
+        await updateDescriptor(recalculateValues: true)
     }
     
     private func eraseMainIndicator(type: Indicator) {
@@ -359,7 +386,7 @@ extension KLineView {
         guard !subIndicatorTypes.contains(type) else { return }
         subIndicatorTypes.append(type)
         descriptorUpdateTask?.cancel()
-        await updateDescriptor()
+        await updateDescriptor(recalculateValues: true)
     }
     
     private func eraseSubIndicator(type: Indicator) {
@@ -374,6 +401,13 @@ extension KLineView {
    
     private func drawVisibleContent() {
         guard !klineItems.isEmpty else { return }
+        
+        // 防御性检查：确保 layout.itemCount 与 klineItems.count 一致
+        // 虽然 draw() 方法已经保证了原子性更新，但这里保留检查作为额外保护
+        guard layout.itemCount == klineItems.count else {
+            return
+        }
+        
         CATransaction.begin()
         CATransaction.setDisableActions(false)
         CATransaction.setAnimationDuration(0)

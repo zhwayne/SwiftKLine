@@ -20,7 +20,7 @@ import Foundation
     public let layout: Layout
     /// 当前长按手势坐标位置
     public let location: CGPoint?
-    /// 当前长按手势坐标位置对应的item下标
+    /// 当前激活的item下标
     public let currentIndex: Int
     /// 当前组的区域
     public internal(set) var groupFrame: CGRect = .zero
@@ -52,7 +52,11 @@ import Foundation
 extension RendererContext {
     
     public var visibleItems: ArraySlice<Item> {
-        if items.isEmpty { return [] }
+        guard !items.isEmpty,
+              visibleRange.lowerBound >= 0,
+              visibleRange.upperBound <= items.count else {
+            return []
+        }
         return items[visibleRange]
     }
     
@@ -62,7 +66,18 @@ extension RendererContext {
     ///   - type: 数据类型
     /// - Returns: 可见范围内的数据切片，如果类型不匹配则返回nil
     public func visibleValues<Key: Hashable, T>(forKey key: Key, valueType: T.Type) -> ArraySlice<T>? {
-        return values(forKey: key, valueType: valueType)?[visibleRange]
+        guard let values = values(forKey: key, valueType: valueType) else {
+            return nil
+        }
+        
+        // 确保 visibleRange 在数组有效范围内
+        guard !values.isEmpty,
+              visibleRange.lowerBound >= 0,
+              visibleRange.upperBound <= values.count else {
+            return nil
+        }
+        
+        return values[visibleRange]
     }
     
     public func values<Key: Hashable, T>(forKey key: Key, valueType type: T.Type) -> Array<T>? {
