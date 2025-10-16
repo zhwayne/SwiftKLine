@@ -16,9 +16,8 @@ struct MACalculator: IndicatorCalculator {
     var id: some Hashable { Indicator.Key.ma(period) }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
-        guard period > 0 && items.count >= period else {
-            return []
-        }
+        guard period > 0 else { return Array(repeating: nil, count: items.count) }
+        guard items.count >= period else { return Array(repeating: nil, count: items.count) }
         
         var result = [Double?](repeating: nil, count: items.count)
         var sum: Double = 0

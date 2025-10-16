@@ -97,7 +97,9 @@ final class BOLLRenderer: Renderer {
     func legend(context: Context) -> NSAttributedString? {
         let key = Indicator.Key.boll
         let style = KLineConfig.default.indicatorStyle(for: key, type: LineStyle.self)
-        guard let values = context.values(forKey: key, valueType: BOLLIndicatorValue?.self),
+        guard let values = context.values(forKey: key, valueType: BOLLIndicatorValue?.self), !values.isEmpty,
+              context.currentIndex >= 0,
+              context.currentIndex < values.count,
               let value = values[context.currentIndex] else {
             return nil
         }

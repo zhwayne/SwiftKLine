@@ -65,4 +65,44 @@ final class BinanceDataProvider: KLineItemProvider {
         }
         return items
     }
+
+    // MARK: - Live Stream （Provider 自行管理连接与解码）
+    func liveStream() -> AsyncStream<Item> {
+        let path = "wss://stream.binance.com:443/ws/\(symbol.lowercased())@kline_\(period.identifier)"
+        guard let url = URL(string: path) else { return AsyncStream { $0.finish() } }
+        return AsyncStream { continuation in
+            Task {
+                let client = WebSocketClient(config: .init(url: url))
+                try? await client.connect()
+                for await msg in client.messages {
+                    switch msg {
+                    case .text(let text):
+                        guard let data = text.data(using: .utf8), let item = Self.decodeItem(from: data) else { continue }
+                        continuation.yield(item)
+                    case .data(let data):
+                        guard let item = Self.decodeItem(from: data) else { continue }
+                        continuation.yield(item)
+                    }
+                }
+                continuation.finish()
+            }
+        }
+    }
+
+    private static func decodeItem(from data: Data) -> Item? {
+        // Binance kline 结构：{"k":{ "t": startTime(ms), "o": "open", "h": "high", "l": "low", "c": "close", "v": "volume", "q": "quoteVolume" }}
+        let json = try? JSON(data: data)
+        let k = json?["k"]
+        guard let k else { return nil }
+        let ts = k["t"].intValue / 1000
+        return BinanceKLineItem(
+            opening: k["o"].doubleValue,
+            closing: k["c"].doubleValue,
+            highest: k["h"].doubleValue,
+            lowest:  k["l"].doubleValue,
+            volume:  k["v"].doubleValue,
+            value:   k["q"].doubleValue,
+            timestamp: ts
+        )
+    }
 }

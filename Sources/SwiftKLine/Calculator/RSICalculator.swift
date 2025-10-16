@@ -16,9 +16,8 @@ struct RSICalculator: IndicatorCalculator {
     var id: some Hashable { Indicator.Key.rsi(period) }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
-        guard period > 0 && items.count >= period else {
-            return []
-        }
+        guard period > 0 else { return Array(repeating: nil, count: items.count) }
+        guard items.count >= period else { return Array(repeating: nil, count: items.count) }
         
         // RSI 结果数组，前 `period` 天没有足够数据，RSI 值为 nil
         var rsiValues: [Double?] = Array(repeating: nil, count: items.count)

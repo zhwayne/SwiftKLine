@@ -29,7 +29,7 @@ struct MACDCalculator: IndicatorCalculator {
     
     func calculate(for items: [any KLineItem]) -> [MACDIndicatorValue?] {
         // 至少需要足够的数据来计算长期 EMA
-        guard items.count >= longPeriod else { return [] }
+        guard items.count >= longPeriod else { return Array(repeating: nil, count: items.count) }
         
         // 计算短期 EMA 和长期 EMA
         let shortEMA = EMACalculator(period: shortPeriod).calculate(for: items) 

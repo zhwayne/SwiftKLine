@@ -70,7 +70,9 @@ final class MARenderer: Renderer {
         return peroids.reduce(NSMutableAttributedString()) { partialResult, period in
             let key = Indicator.Key.ma(period)
             let style = KLineConfig.default.indicatorStyle(for: key, type: LineStyle.self)
-            guard let values = context.values(forKey: key, valueType: Double?.self),
+            guard let values = context.values(forKey: key, valueType: Double?.self), !values.isEmpty,
+                  context.currentIndex >= 0,
+                  context.currentIndex < values.count,
                   let value = values[context.currentIndex] else {
                 return partialResult
             }

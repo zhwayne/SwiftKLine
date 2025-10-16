@@ -55,7 +55,9 @@ final class SARRenderer: Renderer {
     func legend(context: Context) -> NSAttributedString? {
         let key = Indicator.Key.sar
         let style = KLineConfig.default.indicatorStyle(for: key, type: LineStyle.self)
-        guard let values = context.values(forKey: key, valueType: Double?.self),
+        guard let values = context.values(forKey: key, valueType: Double?.self), !values.isEmpty,
+              context.currentIndex >= 0,
+              context.currentIndex < values.count,
               let value = values[context.currentIndex] else {
             return nil
         }

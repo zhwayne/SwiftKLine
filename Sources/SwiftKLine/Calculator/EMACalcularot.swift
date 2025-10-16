@@ -16,9 +16,7 @@ struct EMACalculator: IndicatorCalculator {
     var id: some Hashable { Indicator.Key.ema(period) }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
-        guard period > 0 && items.count >= period else {
-            return []
-        }
+        guard period > 0 else { return Array(repeating: nil, count: items.count) }
 
         var emaValues: [Double?] = Array(repeating: nil, count: items.count)
         

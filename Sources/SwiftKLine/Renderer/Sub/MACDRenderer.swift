@@ -130,7 +130,9 @@ final class MACDRenderer: Renderer {
     func legend(context: Context) -> NSAttributedString? {
         let key = Indicator.Key.macd
         let style = KLineConfig.default.indicatorStyle(for: key, type: MACDStyle.self)
-        guard let values = context.values(forKey: key, valueType: MACDIndicatorValue?.self),
+        guard let values = context.values(forKey: key, valueType: MACDIndicatorValue?.self), !values.isEmpty,
+              context.currentIndex >= 0,
+              context.currentIndex < values.count,
               let value = values[context.currentIndex] else {
             return nil
         }

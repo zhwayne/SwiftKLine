@@ -39,7 +39,7 @@ public enum ConnectionStatus: Sendable, Equatable {
     case reconnecting(attempt: Int)
 }
 
-public final class WebSocketClient: Sendable {
+public final class WebSocketClient: @unchecked Sendable {
     
     public struct Configuration: Sendable {
         public let url: URL
@@ -65,6 +65,7 @@ public final class WebSocketClient: Sendable {
         var task: URLSessionWebSocketTask?
         var reconnectAttempt = 0
         var pingTask: Task<Void, Never>?
+        var session: URLSession?
         
         func updateTask(_ newTask: URLSessionWebSocketTask?) {
             task = newTask
@@ -82,6 +83,10 @@ public final class WebSocketClient: Sendable {
         func resetReconnectAttempt() {
             reconnectAttempt = 0
         }
+        
+        func setSession(_ newSession: URLSession?) {
+            session = newSession
+        }
     }
     
     private let state = State()
@@ -89,6 +94,7 @@ public final class WebSocketClient: Sendable {
     
     private let messagesContinuation: AsyncStream<WebSocketMessage>.Continuation
     private let statusContinuation: AsyncStream<ConnectionStatus>.Continuation
+    private var connectionStatus: ConnectionStatus = .disconnected
     
     public let messages: AsyncStream<WebSocketMessage>
     public let statusUpdate: AsyncStream<ConnectionStatus>
@@ -109,21 +115,20 @@ public final class WebSocketClient: Sendable {
     public func connect() async throws {
         guard await state.task == nil else { return }
         statusContinuation.yield(.connecting)
+        connectionStatus = .connecting
         
         // 创建 websocket 任务，并尝试连接
         let session = URLSession(configuration: .default)
+        await state.setSession(session)
         let task = session.webSocketTask(with: config.url)
         await state.updateTask(task)
         task.resume()
         
-        do {
-            try await performHandshake()
-            statusContinuation.yield(.connected)
-            await startPing()
-            startMessageListening()
-        } catch {
-            try await handleConnectionError(error)
-        }
+        statusContinuation.yield(.connected)
+        connectionStatus = .connected
+        await state.resetReconnectAttempt()
+        await startPing()
+        startMessageListening()
     }
     
     public func disconnect() async {
@@ -131,7 +136,12 @@ public final class WebSocketClient: Sendable {
         task.cancel(with: .goingAway, reason: nil)
         await state.updateTask(nil)
         statusContinuation.yield(.disconnected)
+        connectionStatus = .disconnected
         await stopPing()
+        if let session = await state.session {
+            session.invalidateAndCancel()
+            await state.setSession(nil)
+        }
     }
     
     public func send(message: WebSocketMessage) async throws {
@@ -155,48 +165,23 @@ public final class WebSocketClient: Sendable {
 // MARK: - 内部实现
 private extension WebSocketClient {
     
-    /// 处理握手
-    func performHandshake() async throws {
-        let task = await state.task!
-        return try await withCheckedThrowingContinuation { continuation in
-            task.receive { result in
-                switch result {
-                case .success(let success):
-                    print(success)
-                    continuation.resume()
-                case .failure(let failure):
-                    continuation.resume(throwing: failure)
-                }
-            }
-        }
-    }
-    
     func startPing() async {
         let interval = config.pingInterval
-        guard interval > 0 else { return }
+        guard interval > 0, connectionStatus == .connected else { return }
         
         let task = Task {
             while !Task.isCancelled {
-                try? await sendPing()
-                let timeInterval = TimeInterval(1_000_000_000) * config.pingInterval
-                try? await Task.sleep(nanoseconds: UInt64(timeInterval))
+                await sendPing()
+                let ns = UInt64(config.pingInterval * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: ns)
             }
         }
-        
         await state.setPingTask(task)
     }
     
-    func sendPing() async throws {
-        let task = await state.task!
-        return try await withCheckedThrowingContinuation { continuation in
-            task.sendPing { error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
-                }
-            }
-        }
+    func sendPing() async {
+        guard let task = await state.task else { return }
+        task.sendPing(pongReceiveHandler: { _ in })
     }
     
     func stopPing() async {
@@ -206,12 +191,15 @@ private extension WebSocketClient {
     
     func startMessageListening() {
         Task {
-            while let task = await state.task {
+            // 绑定当前 task，错误后退出循环，由重连逻辑重启
+            guard let task = await state.task else { return }
+            while true {
                 do {
                     let message = try await task.receive()
                     handleReceivedMessage(message)
                 } catch {
                     await handleReceiveError(error)
+                    break
                 }
             }
         }
@@ -229,18 +217,40 @@ private extension WebSocketClient {
     }
     
     func handleReceiveError(_ error: Error) async {
+        // 清理当前任务与会话
+        if let task = await state.task {
+            task.cancel(with: .abnormalClosure, reason: nil)
+        }
+        await state.updateTask(nil)
+        if let session = await state.session {
+            session.invalidateAndCancel()
+            await state.setSession(nil)
+        }
         if config.autoReconnect {
             try? await attemptReconnect(error)
         } else {
             statusContinuation.yield(.disconnected)
+            connectionStatus = .disconnected
+            messagesContinuation.finish()
         }
     }
     
     func handleConnectionError(_ error: Error) async throws {
+        // 清理当前任务与会话
+        if let task = await state.task {
+            task.cancel(with: .abnormalClosure, reason: nil)
+        }
+        await state.updateTask(nil)
+        if let session = await state.session {
+            session.invalidateAndCancel()
+            await state.setSession(nil)
+        }
         if config.autoReconnect {
             try await attemptReconnect(error)
         } else {
             statusContinuation.yield(.disconnected)
+            connectionStatus = .disconnected
+            messagesContinuation.finish()
             throw WebSocketError.connectionFailed(error)
         }
     }
@@ -253,13 +263,17 @@ private extension WebSocketClient {
         let attempt = await state.incrementReconnectAttempt()
         guard attempt <= config.maxReconnectAttempts else {
             statusContinuation.yield(.disconnected)
+            connectionStatus = .disconnected
+            messagesContinuation.finish()
             throw WebSocketError.connectionFailed(error)
         }
         
         statusContinuation.yield(.reconnecting(attempt: attempt))
+        connectionStatus = .reconnecting(attempt: attempt)
         
-        let timeInterval = TimeInterval(1_000_000_000 * min(attempt * 2, 10))
-        try? await Task.sleep(nanoseconds: UInt64(timeInterval))
+        let delaySec = Double(min(attempt * 2, 10))
+        let ns = UInt64(delaySec * 1_000_000_000)
+        try? await Task.sleep(nanoseconds: ns)
         try? await connect()
     }
 }

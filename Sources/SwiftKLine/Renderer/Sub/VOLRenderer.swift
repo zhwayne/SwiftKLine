@@ -71,7 +71,13 @@ final class VOLRenderer: Renderer {
     }
     
     func legend(context: Context) -> NSAttributedString? {
-        let item = context.items[context.currentIndex]
+        let items = context.items
+        guard !items.isEmpty,
+              context.currentIndex >= 0,
+              context.currentIndex < items.count else {
+            return nil
+        }
+        let item = items[context.currentIndex]
         let string = NSAttributedString(
             string: "VOL: \(volumeFormatter.format(NSNumber(floatLiteral: item.volume))) ",
             attributes: [

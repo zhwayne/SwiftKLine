@@ -59,6 +59,8 @@ enum ChartSection: Sendable {
     
     private var klineItemLoader: KLineItemLoader?
     private var disposeBag = Set<AnyCancellable>()
+    private var liveTask: Task<Void, Never>?
+    private var lastLiveRedrawAt: TimeInterval = 0
     
     // MARK: - Initializers
     public override init(frame: CGRect) {
@@ -119,6 +121,7 @@ enum ChartSection: Sendable {
 
     deinit {
         descriptorUpdateTask?.cancel()
+        liveTask?.cancel()
     }
     
     private func addInteractions() {
@@ -188,6 +191,7 @@ extension KLineView {
         
         // 取消之前的更新任务，避免旧数据的计算任务继续占用资源
         descriptorUpdateTask?.cancel()
+        liveTask?.cancel()
         
         klineItemLoader = KLineItemLoader(provider: provider) { [weak self] page, items in
             guard let self else { return }
@@ -201,6 +205,14 @@ extension KLineView {
             }
         }
         klineItemLoader?.loadMore()
+
+        // 启动直播订阅（方案 C）：由 Provider 提供 liveStream，合并到最后一根或追加新根
+        liveTask = Task { [weak self] in
+            guard let self else { return }
+            for await tick in provider.liveStream() {
+                await self.applyLiveTick(tick as any KLineItem)
+            }
+        }
     }
 }
 
@@ -528,6 +540,42 @@ extension KLineView {
             drawVisibleContent()
             klineItemLoader?.scrollViewDidScroll(scrollView: scrollView)
         }
+    }
+}
+
+// MARK: - Live merging (方案 C)
+private extension KLineView {
+    func applyLiveTick(_ tick: any KLineItem) async {
+        // 跨线程安全：在主线程合并
+        await MainActor.run {
+            guard !klineItems.isEmpty else {
+                klineItems.append(tick)
+                layout.itemCount = klineItems.count
+                throttleRecalculateAndRedraw()
+                return
+            }
+            let bucketSeconds = 1 // 你的 timestamp 为秒，周期对齐通过取整判断
+            if let last = klineItems.last, (last.timestamp / bucketSeconds) == (tick.timestamp / bucketSeconds) {
+                // 更新同一根（开高低收量）
+                // 由于协议不含可变属性，这里用覆盖的方式替换最后一根
+                klineItems[klineItems.count - 1] = tick
+            } else if tick.timestamp > klineItems.last!.timestamp {
+                // 进入下一根
+                klineItems.append(tick)
+                layout.itemCount = klineItems.count
+            } else {
+                // 早于最后一根，忽略（或根据需要插入修正）
+            }
+            throttleRecalculateAndRedraw()
+        }
+    }
+
+    func throttleRecalculateAndRedraw() {
+        let now = CACurrentMediaTime()
+        // 200ms 节流
+        guard now - lastLiveRedrawAt >= 0.2 else { return }
+        lastLiveRedrawAt = now
+        scheduleDescriptorUpdate(recalculateValues: true)
     }
 }
 
