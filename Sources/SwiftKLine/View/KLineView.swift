@@ -8,6 +8,7 @@
 import UIKit
 import SnapKit
 import Combine
+import Network
 
 enum ChartSection: Sendable {
     case mainChart, timeline, subChart
@@ -60,6 +61,11 @@ enum ChartSection: Sendable {
     private var disposeBag = Set<AnyCancellable>()
     private var lastLiveRedrawAt: TimeInterval = 0
     private var klineItemLoader: KLineItemLoader?
+    
+    // MARK: - Network Monitoring
+    private var networkMonitor: NWPathMonitor?
+    private var networkQueue = DispatchQueue(label: "NetworkMonitor")
+    private var isNetworkAvailable = true
 
     // MARK: - Initializers
     public override init(frame: CGRect) {
@@ -111,6 +117,7 @@ enum ChartSection: Sendable {
         addInteractions()
         observeScrollViewLayoutChange()
         setupBindings()
+        setupNetworkMonitoring()
         scheduleDescriptorUpdate()
     }
     
@@ -121,6 +128,7 @@ enum ChartSection: Sendable {
     deinit {
         descriptorUpdateTask?.cancel()
         klineItemLoader?.stop()
+        networkMonitor?.cancel()
     }
     
     private func addInteractions() {
@@ -603,6 +611,45 @@ private extension KLineView {
         guard now - lastLiveRedrawAt >= 0.2 else { return }
         lastLiveRedrawAt = now
         scheduleDescriptorUpdate(recalculateValues: true)
+    }
+}
+
+// MARK: - Network Monitoring
+extension KLineView {
+    
+    private func setupNetworkMonitoring() {
+        networkMonitor = NWPathMonitor()
+        networkMonitor?.pathUpdateHandler = { [weak self] path in
+            DispatchQueue.main.async {
+                self?.handleNetworkStatusChange(path.status == .satisfied)
+            }
+        }
+        networkMonitor?.start(queue: networkQueue)
+    }
+    
+    private func handleNetworkStatusChange(_ isAvailable: Bool) {
+        let wasAvailable = isNetworkAvailable
+        isNetworkAvailable = isAvailable
+        
+        if !wasAvailable && isAvailable {
+            // 网络从断开恢复到连接
+            handleNetworkRecovery()
+        } else if wasAvailable && !isAvailable {
+            // 网络从连接变为断开
+            handleNetworkDisconnection()
+        }
+    }
+    
+    private func handleNetworkRecovery() {
+        // 网络恢复时，触发数据补全
+        let latestTimestamp = klineItems.last?.timestamp
+        klineItemLoader?.willEnterForeground(latestTimestamp: latestTimestamp)
+    }
+    
+    private func handleNetworkDisconnection() {
+        // 网络断开时，记录当前状态
+        let latestTimestamp = klineItems.last?.timestamp
+        klineItemLoader?.didEnterBackground(latestTimestamp: latestTimestamp)
     }
 }
 
