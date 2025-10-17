@@ -71,26 +71,6 @@ extension Collection where Element == any KLineItem {
     }
 }
 
-//struct AnyKLineItem: KLineItem {
-//    var opening: Double
-//    var closing: Double
-//    var highest: Double
-//    var lowest: Double
-//    var volume: Double
-//    var value: Double
-//    var timestamp: Int
-//    
-//    init<I: KLineItem>(_ base: I) {
-//        opening = base.opening
-//        closing = base.closing
-//        highest = base.highest
-//        lowest = base.lowest
-//        volume = base.volume
-//        value = base.value
-//        timestamp = base.timestamp
-//    }
-//}
-
 extension KLineItem {
     
     var trend: KLineTrend {

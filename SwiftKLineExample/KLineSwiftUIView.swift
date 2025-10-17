@@ -37,7 +37,7 @@ private struct KLineRepresentable: UIViewRepresentable {
 
     func updateUIView(_ uiView: KLineView, context: Context) {
         if context.coordinator.period != period {
-            let provider = BinanceDataProvider(period: period)
+            let provider = BinanceDataProvider(symbol: "BTCUSDT", period: period)
             uiView.setProvider(provider)
             uiView.invalidateIntrinsicContentSize()
             context.coordinator.period = period

@@ -22,52 +22,42 @@ struct BinanceKLineItem: KLineItem {
 }
 
 final class BinanceDataProvider: KLineItemProvider {
-    typealias Item = BinanceKLineItem
-
     private let symbol: String
     private let period: KLinePeriod
     private let size = 1000
-    private lazy var endDate = Int(Date().timeIntervalSince1970) * 1000
+    private lazy var endDate = Date()
     private let session = URLSession(configuration: URLSessionConfiguration.default)
     
-    init(symbol: String = "BTCUSDT", period: KLinePeriod) {
+    init(symbol: String, period: KLinePeriod) {
         self.symbol = symbol
         self.period = period
     }
     
-    func fetchKLineItems(forPage page: Int) async throws -> [Item] {
-        // https://developers.binance.com/docs/zh-CN/binance-spot-api-docs/rest-api/market-data-endpoints#k%E7%BA%BF%E6%95%B0%E6%8D%AE
+    func fetchKLineItems(forPage page: Int) async throws -> [any KLineItem] {
+        let end = endDate.addingTimeInterval(TimeInterval(-period.seconds * size * page))
+        let start = end.addingTimeInterval(TimeInterval(-period.seconds * size))
+        return try await fetchKLineItems(from: start, to: end)
+    }
+
+    func fetchKLineItems(from start: Date, to end: Date) async throws -> [any KLineItem] {
+        let startMs = Int(start.timeIntervalSince1970 * 1000)
+        let endMs = Int(end.timeIntervalSince1970 * 1000)
         var urlComponents = URLComponents(string: "https://data-api.binance.vision/api/v3/klines")!
-        let endTime = endDate - period.seconds * size * 1000 * page
-        let startTime = endTime - period.seconds * size * 1000
         urlComponents.queryItems = [
             URLQueryItem(name: "interval", value: period.identifier),
             URLQueryItem(name: "symbol", value: symbol),
-            URLQueryItem(name: "startTime", value: "\(startTime)"),
-            URLQueryItem(name: "endTime", value: "\(endTime)"),
+            URLQueryItem(name: "startTime", value: "\(startMs)"),
+            URLQueryItem(name: "endTime", value: "\(endMs)"),
             URLQueryItem(name: "limit", value: "\(size)")
         ]
-        let url = urlComponents.url!
-        
+        guard let url = urlComponents.url else { return [] }
         let (data, _) = try await session.data(from: url)
         let json = try JSON(data: data)
-        let items = json.arrayValue.map { json in
-            let array = json.arrayValue
-            return BinanceKLineItem(
-                opening: array[1].doubleValue,
-                closing: array[4].doubleValue,
-                highest: array[2].doubleValue,
-                lowest: array[3].doubleValue,
-                volume: array[5].doubleValue,
-                value: array[7].doubleValue,
-                timestamp: array[0].intValue / 1000
-            )
-        }
-        return items
+        return Self.decodeItems(from: json)
     }
 
     // MARK: - Live Stream （Provider 自行管理连接与解码）
-    func liveStream() -> AsyncStream<Item> {
+    func liveStream() -> AsyncStream<any KLineItem> {
         let path = "wss://stream.binance.com:443/ws/\(symbol.lowercased())@kline_\(period.identifier)"
         guard let url = URL(string: path) else { return AsyncStream { $0.finish() } }
         return AsyncStream { continuation in
@@ -89,7 +79,7 @@ final class BinanceDataProvider: KLineItemProvider {
         }
     }
 
-    private static func decodeItem(from data: Data) -> Item? {
+    private static func decodeItem(from data: Data) -> (any KLineItem)? {
         // Binance kline 结构：{"k":{ "t": startTime(ms), "o": "open", "h": "high", "l": "low", "c": "close", "v": "volume", "q": "quoteVolume" }}
         let json = try? JSON(data: data)
         let k = json?["k"]
@@ -105,4 +95,20 @@ final class BinanceDataProvider: KLineItemProvider {
             timestamp: ts
         )
     }
+
+    private static func decodeItems(from json: JSON) -> [any KLineItem] {
+        json.arrayValue.map { json -> any KLineItem in
+            let array = json.arrayValue
+            return BinanceKLineItem(
+                opening: array[1].doubleValue,
+                closing: array[4].doubleValue,
+                highest: array[2].doubleValue,
+                lowest: array[3].doubleValue,
+                volume: array[5].doubleValue,
+                value: array[7].doubleValue,
+                timestamp: array[0].intValue / 1000
+            )
+        }
+    }
+
 }

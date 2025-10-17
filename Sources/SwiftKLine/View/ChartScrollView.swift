@@ -8,10 +8,6 @@
 import Foundation
 import UIKit
 
-public enum ScrollPosition {
-    case left, right, current
-}
-
 final class ChartScrollView: UIScrollView {
     final class ContentView: CanvasView { }
     
@@ -53,6 +49,10 @@ final class ChartScrollView: UIScrollView {
 }
 
 extension ChartScrollView {
+    
+    enum ScrollPosition {
+        case left, right, current
+    }
     
     func scroll(to scrollPosition: ScrollPosition) {
         
