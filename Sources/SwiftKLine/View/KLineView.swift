@@ -589,27 +589,43 @@ extension KLineView {
     }
 }
 
-// MARK: - Live merging (方案 C)
+// MARK: - Live Tick Updates
 private extension KLineView {
-    func applyLiveTick(_ tick: any KLineItem) async {
-        await MainActor.run {
-            guard !klineItems.isEmpty else {
-                klineItems = [tick]
-                layout.itemCount = 1
-                throttleRecalculateAndRedraw()
-                return
-            }
-            let bucketSeconds = 1
-            if let last = klineItems.last, (last.timestamp / bucketSeconds) == (tick.timestamp / bucketSeconds) {
-                beginLiveAnimation(to: tick, replacingCurrent: true)
-            } else if tick.timestamp > klineItems.last!.timestamp {
-                klineItems.append(tick)
-                layout.itemCount = klineItems.count
-                beginLiveAnimation(to: tick, replacingCurrent: false)
-            }
+    
+    enum LiveUpdateMode {
+        case updateExisting  // 更新当前 K 线（同一时间桶）
+        case appendNew       // 添加新 K 线（新时间桶）
+    }
+    
+    /// 应用实时行情数据
+    func applyLiveTick(_ tick: any KLineItem) {
+        guard !klineItems.isEmpty else {
+            klineItems = [tick]
+            layout.itemCount = 1
+            throttleRecalculateAndRedraw()
+            return
+        }
+        
+        let mode = determineUpdateMode(for: tick)
+        switch mode {
+        case .updateExisting:
+            animateLastKLine(to: tick, from: .existing(klineItems.last!))
+        case .appendNew:
+            klineItems.append(tick)
+            layout.itemCount = klineItems.count
+            animateLastKLine(to: tick, from: .baseline(of: tick))
         }
     }
-
+    
+    /// 确定更新模式（是更新现有 K 线还是添加新 K 线）
+    private func determineUpdateMode(for tick: any KLineItem) -> LiveUpdateMode {
+        guard let last = klineItems.last else { return .appendNew }
+        let bucketSeconds = 1
+        let isSameBucket = (last.timestamp / bucketSeconds) == (tick.timestamp / bucketSeconds)
+        return isSameBucket ? .updateExisting : .appendNew
+    }
+    
+    /// 节流重算和重绘（避免过于频繁的完整重算）
     func throttleRecalculateAndRedraw() {
         let now = CACurrentMediaTime()
         guard now - lastLiveRedrawAt >= 0.2 else { return }
@@ -618,49 +634,71 @@ private extension KLineView {
     }
 }
 
+// MARK: - K-Line Animation
 private extension KLineView {
-    func beginLiveAnimation(to tick: any KLineItem, replacingCurrent: Bool) {
+    
+    enum AnimationStartPoint {
+        case existing(any KLineItem)  // 从现有 K 线开始
+        case baseline(of: any KLineItem)  // 从基线开始
+    }
+    
+    /// 动画更新最后一根 K 线
+    func animateLastKLine(to target: any KLineItem, from startPoint: AnimationStartPoint) {
         guard !klineItems.isEmpty else { return }
         
-        let animationDuration: CFTimeInterval = 0.5
-        if liveAnimator == nil {
-            liveAnimator = Animator()
-            liveAnimator?.onFrame = { [weak self] item, progress in
-                self?.handleLiveFrame(item: item, progress: progress)
-            }
-            liveAnimator?.onCompletion = { [weak self] finalItem in
-                self?.finalizeLiveAnimation(with: finalItem)
-            }
-        }
-        let lastIndex = klineItems.count - 1
-        let fromItem: InterpolatedKLineItem
-        let toItem = InterpolatedKLineItem(copying: tick)
+        ensureAnimatorInitialized()
         
-        if replacingCurrent {
-            // 替换当前 K 线：从当前值动画到新值
-            fromItem = InterpolatedKLineItem(copying: klineItems[lastIndex])
-            klineItems[lastIndex] = tick  // 更新数据
-            liveAnimator?.animate(from: fromItem, to: toItem, duration: animationDuration)
-        } else {
-            // 新增 K 线：从基线动画到新 K 线
-            fromItem = InterpolatedKLineItem.makeBaseline(from: tick)
-            klineItems[lastIndex] = fromItem  // 先设置为基线
-            drawVisibleContent()  // 立即显示基线
-            liveAnimator?.animate(from: fromItem, to: toItem, duration: animationDuration)
+        let lastIndex = klineItems.count - 1
+        let fromItem = makeStartItem(from: startPoint)
+        let toItem = InterpolatedKLineItem(copying: target)
+        
+        // 更新数据源
+        klineItems[lastIndex] = target
+        
+        // 对于基线起点，需要先显示基线状态
+        if case .baseline = startPoint {
+            klineItems[lastIndex] = fromItem
+            drawVisibleContent()
+        }
+        
+        // 启动动画
+        liveAnimator?.animate(from: fromItem, to: toItem, duration: 0.5)
+    }
+    
+    /// 确保动画器已初始化
+    private func ensureAnimatorInitialized() {
+        guard liveAnimator == nil else { return }
+        
+        liveAnimator = Animator()
+        liveAnimator?.onFrame = { [weak self] item, _ in
+            self?.updateLastKLine(with: item)
+        }
+        liveAnimator?.onCompletion = { [weak self] finalItem in
+            self?.finalizeLastKLine(with: finalItem)
         }
     }
     
-    func handleLiveFrame(item: InterpolatedKLineItem, progress: Double) {
+    /// 创建动画起始项
+    private func makeStartItem(from startPoint: AnimationStartPoint) -> InterpolatedKLineItem {
+        switch startPoint {
+        case .existing(let item):
+            return InterpolatedKLineItem(copying: item)
+        case .baseline(let item):
+            return InterpolatedKLineItem.makeBaseline(from: item)
+        }
+    }
+    
+    /// 更新最后一根 K 线（动画帧回调）
+    private func updateLastKLine(with item: InterpolatedKLineItem) {
         guard !klineItems.isEmpty else { return }
-        let lastIndex = klineItems.count - 1
-        klineItems[lastIndex] = item
+        klineItems[klineItems.count - 1] = item
         drawVisibleContent()
     }
     
-    func finalizeLiveAnimation(with finalItem: InterpolatedKLineItem) {
+    /// 完成最后一根 K 线的更新（动画完成回调）
+    private func finalizeLastKLine(with finalItem: InterpolatedKLineItem) {
         guard !klineItems.isEmpty else { return }
-        let lastIndex = klineItems.count - 1
-        klineItems[lastIndex] = finalItem
+        klineItems[klineItems.count - 1] = finalItem
         throttleRecalculateAndRedraw()
     }
 }
@@ -757,3 +795,4 @@ extension KLineView {
         indiccatorProviderMap[indicator] = provider
     }
 }
+
