@@ -61,6 +61,7 @@ enum ChartSection: Sendable {
     private var disposeBag = Set<AnyCancellable>()
     private var lastLiveRedrawAt: TimeInterval = 0
     private var klineItemLoader: KLineItemLoader?
+    private var liveAnimator: Animator<InterpolatedKLineItem>?
     
     // MARK: - Network Monitoring
     private var networkMonitor: NWPathMonitor?
@@ -126,9 +127,12 @@ enum ChartSection: Sendable {
     }
 
     deinit {
-        descriptorUpdateTask?.cancel()
-        klineItemLoader?.stop()
-        networkMonitor?.cancel()
+        MainActor.assumeIsolated {
+            descriptorUpdateTask?.cancel()
+            klineItemLoader?.stop()
+            networkMonitor?.cancel()
+            liveAnimator?.cancel()
+        }
     }
     
     private func addInteractions() {
@@ -597,12 +601,12 @@ private extension KLineView {
             }
             let bucketSeconds = 1
             if let last = klineItems.last, (last.timestamp / bucketSeconds) == (tick.timestamp / bucketSeconds) {
-                klineItems[klineItems.count - 1] = tick
+                beginLiveAnimation(to: tick, replacingCurrent: true)
             } else if tick.timestamp > klineItems.last!.timestamp {
                 klineItems.append(tick)
                 layout.itemCount = klineItems.count
+                beginLiveAnimation(to: tick, replacingCurrent: false)
             }
-            throttleRecalculateAndRedraw()
         }
     }
 
@@ -611,6 +615,53 @@ private extension KLineView {
         guard now - lastLiveRedrawAt >= 0.2 else { return }
         lastLiveRedrawAt = now
         scheduleDescriptorUpdate(recalculateValues: true)
+    }
+}
+
+private extension KLineView {
+    func beginLiveAnimation(to tick: any KLineItem, replacingCurrent: Bool) {
+        guard !klineItems.isEmpty else { return }
+        
+        let animationDuration: CFTimeInterval = 0.5
+        if liveAnimator == nil {
+            liveAnimator = Animator()
+            liveAnimator?.onFrame = { [weak self] item, progress in
+                self?.handleLiveFrame(item: item, progress: progress)
+            }
+            liveAnimator?.onCompletion = { [weak self] finalItem in
+                self?.finalizeLiveAnimation(with: finalItem)
+            }
+        }
+        let lastIndex = klineItems.count - 1
+        let fromItem: InterpolatedKLineItem
+        let toItem = InterpolatedKLineItem(copying: tick)
+        
+        if replacingCurrent {
+            // 替换当前 K 线：从当前值动画到新值
+            fromItem = InterpolatedKLineItem(copying: klineItems[lastIndex])
+            klineItems[lastIndex] = tick  // 更新数据
+            liveAnimator?.animate(from: fromItem, to: toItem, duration: animationDuration)
+        } else {
+            // 新增 K 线：从基线动画到新 K 线
+            fromItem = InterpolatedKLineItem.makeBaseline(from: tick)
+            klineItems[lastIndex] = fromItem  // 先设置为基线
+            drawVisibleContent()  // 立即显示基线
+            liveAnimator?.animate(from: fromItem, to: toItem, duration: animationDuration)
+        }
+    }
+    
+    func handleLiveFrame(item: InterpolatedKLineItem, progress: Double) {
+        guard !klineItems.isEmpty else { return }
+        let lastIndex = klineItems.count - 1
+        klineItems[lastIndex] = item
+        drawVisibleContent()
+    }
+    
+    func finalizeLiveAnimation(with finalItem: InterpolatedKLineItem) {
+        guard !klineItems.isEmpty else { return }
+        let lastIndex = klineItems.count - 1
+        klineItems[lastIndex] = finalItem
+        throttleRecalculateAndRedraw()
     }
 }
 

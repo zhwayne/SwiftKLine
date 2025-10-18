@@ -77,4 +77,68 @@ extension KLineItem {
         if opening > closing { return .falling }
         return .rising
     }
+    
+    func asInterpolatedItem() -> InterpolatedKLineItem {
+        InterpolatedKLineItem(copying: self)
+    }
+    
+    func interpolated(to other: some KLineItem, progress: Double) -> InterpolatedKLineItem {
+        let from = InterpolatedKLineItem(copying: self)
+        let to = InterpolatedKLineItem(copying: other)
+        return InterpolatedKLineItem.interpolate(from: from, to: to, progress: progress)
+    }
+}
+
+struct InterpolatedKLineItem: KLineItem, Sendable {
+    let opening: Double
+    let closing: Double
+    let highest: Double
+    let lowest: Double
+    let volume: Double
+    let value: Double
+    let timestamp: Int
+}
+
+extension InterpolatedKLineItem {
+    static func makeBaseline(from item: any KLineItem) -> InterpolatedKLineItem {
+        InterpolatedKLineItem(
+            opening: item.opening,
+            closing: item.opening,
+            highest: item.opening,
+            lowest: item.opening,
+            volume: 0,
+            value: 0,
+            timestamp: item.timestamp
+        )
+    }
+
+    init(copying item: any KLineItem) {
+        self.init(
+            opening: item.opening,
+            closing: item.closing,
+            highest: item.highest,
+            lowest: item.lowest,
+            volume: item.volume,
+            value: item.value,
+            timestamp: item.timestamp
+        )
+    }
+}
+
+extension InterpolatedKLineItem: AnimatableValue {
+    static func interpolate(from: InterpolatedKLineItem, to: InterpolatedKLineItem, progress: Double) -> InterpolatedKLineItem {
+        let clamped = min(max(progress, 0), 1)
+        func lerp(_ a: Double, _ b: Double) -> Double {
+            a + (b - a) * clamped
+        }
+        return InterpolatedKLineItem(
+            opening: lerp(from.opening, to.opening),
+            closing: lerp(from.closing, to.closing),
+            highest: lerp(from.highest, to.highest),
+            lowest: lerp(from.lowest, to.lowest),
+            volume: lerp(from.volume, to.volume),
+            value: lerp(from.value, to.value),
+            timestamp: to.timestamp
+        )
+    }
 }
