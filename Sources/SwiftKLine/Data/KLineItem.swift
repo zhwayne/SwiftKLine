@@ -12,8 +12,8 @@ enum KLineTrend: Sendable {
     
     @MainActor var color: UIColor {
         switch self {
-        case .falling: return KLineConfig.default.candleStyle.fallingColor
-        default: return KLineConfig.default.candleStyle.risingColor
+        case .falling: return KLineConfiguration.default.candleStyle.fallingColor
+        default: return KLineConfiguration.default.candleStyle.risingColor
         }
     }
 }

@@ -29,7 +29,7 @@ import UIKit
         scrollView.contentSize = contentSize
     }
     
-    private var klineConfig: KLineConfig { .default }
+    private var klineConfig: KLineConfiguration { .default }
     /// K线样式配置
     private var candleStyle: CandleStyle { klineConfig.candleStyle }
         

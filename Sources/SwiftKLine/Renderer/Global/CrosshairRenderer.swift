@@ -11,7 +11,7 @@ final class CrosshairRenderer: Renderer {
     
     var id: some Hashable { ObjectIdentifier(CrosshairRenderer.self) }
     
-    private var klineConfig: KLineConfig { .default }
+    private var klineConfig: KLineConfiguration { .default }
     private let feedback = UISelectionFeedbackGenerator()
     private let dateFormatter: DateFormatter
     private let yValueFormatter: NumberFormatter

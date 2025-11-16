@@ -33,7 +33,7 @@ final class CandleRenderer: Renderer {
     
     func draw(in layer: CALayer, context: Context) {
         // 获取K线样式配置
-        let candleStyle = KLineConfig.default.candleStyle
+        let candleStyle = KLineConfiguration.default.candleStyle
         let layout = context.layout
         let viewPort = context.viewPort
         let visibleItems = context.visibleItems

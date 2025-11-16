@@ -49,7 +49,7 @@ final class MACDRenderer: Renderer {
         // 获取K线样式配置
         barLayer.sublayers = nil
         barLayer.frame = context.viewPort
-        let klineConfig = KLineConfig.default
+        let klineConfig = KLineConfiguration.default
         let candleStyle = klineConfig.candleStyle
         let layout = context.layout
         
@@ -129,7 +129,7 @@ final class MACDRenderer: Renderer {
     
     func legend(context: Context) -> NSAttributedString? {
         let key = Indicator.Key.macd
-        let style = KLineConfig.default.indicatorStyle(for: key, type: MACDStyle.self)
+        let style = KLineConfiguration.default.indicatorStyle(for: key, type: MACDStyle.self)
         guard let values = context.values(forKey: key, valueType: MACDIndicatorValue?.self), !values.isEmpty,
               context.currentIndex >= 0,
               context.currentIndex < values.count,
@@ -141,21 +141,21 @@ final class MACDRenderer: Renderer {
             string: "STICK:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.histogram))) ",
             attributes: [
                 .foregroundColor: style?.macdColor.cgColor,
-                .font: KLineConfig.default.legendFont
+                .font: KLineConfiguration.default.legendFont
             ]
         ))
         partialResult.append(NSAttributedString(
             string: "DIF:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.macd))) ",
             attributes: [
                 .foregroundColor: style?.difColor.cgColor,
-                .font: KLineConfig.default.legendFont
+                .font: KLineConfiguration.default.legendFont
             ]
         ))
         partialResult.append(NSAttributedString(
             string: "DEA:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.signal))) ",
             attributes: [
                 .foregroundColor: style?.deaColor.cgColor,
-                .font: KLineConfig.default.legendFont
+                .font: KLineConfiguration.default.legendFont
             ]
         ))
         return partialResult

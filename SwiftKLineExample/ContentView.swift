@@ -24,7 +24,7 @@ enum ChartDisplayMode: String, CaseIterable, Identifiable {
 
 struct ContentView: View {
     
-    @State private var period: KLinePeriod = .fiveMinutes
+    @State private var period: KLinePeriod = .oneMinute
     @State private var chartMode: ChartDisplayMode = .candlestick
     
     var body: some View {

@@ -22,6 +22,8 @@ final class TimeSeriesRenderer: Renderer {
     private var cachedViewPort: CGRect = .null
     private var cachedLayoutFrame: CGRect = .null
     private var cachedBounds: (min: Double, max: Double) = (.nan, .nan)
+    private var cachedLastVisibleTimestamp: Int?
+    private var cachedLastVisibleClosing: Double = .nan
     
     init(style: TimeSeriesStyle) {
         self.style = style
@@ -57,6 +59,16 @@ final class TimeSeriesRenderer: Renderer {
         
         let layout = context.layout
         let visibleRange = context.visibleRange
+        let visibleItems = context.visibleItems
+        let latestItem = visibleItems.last
+        let dataChanged: Bool
+        if let latestItem {
+            dataChanged =
+                cachedLastVisibleTimestamp != latestItem.timestamp ||
+                cachedLastVisibleClosing != latestItem.closing
+        } else {
+            dataChanged = cachedLastVisibleTimestamp != nil
+        }
         let viewPort = context.viewPort
         let layoutFrame = layout.frameOfVisibleRange
         let bounds = layout.dataBounds
@@ -66,13 +78,16 @@ final class TimeSeriesRenderer: Renderer {
             cachedLayoutFrame != layoutFrame ||
             cachedBounds.min.isNaN || cachedBounds.max.isNaN ||
             cachedBounds.min != bounds.min ||
-            cachedBounds.max != bounds.max
+            cachedBounds.max != bounds.max ||
+            dataChanged
         if needsPathUpdate {
             updatePaths(context: context)
             cachedVisibleRange = visibleRange
             cachedViewPort = viewPort
             cachedLayoutFrame = layoutFrame
             cachedBounds = (bounds.min, bounds.max)
+            cachedLastVisibleTimestamp = latestItem?.timestamp
+            cachedLastVisibleClosing = latestItem?.closing ?? .nan
         }
     }
     
@@ -130,7 +145,7 @@ private extension TimeSeriesRenderer {
             fillLayer.path = nil
             return
         }
-        let candleStyle = KLineConfig.default.candleStyle
+        let candleStyle = KLineConfiguration.default.candleStyle
         let linePath = CGMutablePath()
         let fillPath = CGMutablePath()
         var firstPoint: CGPoint?

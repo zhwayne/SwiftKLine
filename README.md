@@ -16,7 +16,7 @@
 
 - [x] K 线蜡烛图绘制（阳线 / 阴线）
 - [x] 手势交互（缩放、平移、十字线）
-- [x] 实时数据订阅（内置断线补数逻辑）
+- [x] 实时数据订阅
 - [x] 主指标：MA、EMA、BOLL、SAR
 - [x] 副指标：MACD、RSI、VOL
 - [x] 分时图模式
@@ -42,7 +42,7 @@ klineView.setProvider(provider)
 ```
 
 - `KLineItemProvider` 负责提供分页历史数据、按时间区间补数以及实时流。
-- 框架内置 `KLineItemLoader`，会在前后台切换时自动补齐缺失区间并恢复 WebSocket。
+- 框架内置 `KLineItemLoader`，会在前后台切换时自动补齐缺失区间。
 
 ## 创建自定义数据源
 

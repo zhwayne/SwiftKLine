@@ -16,8 +16,8 @@ enum ChartSection: Sendable {
 
 @MainActor public final class KLineView: UIView {
     
-    public typealias IndicatorProvider = (Indicator) -> (any Renderer)?
-
+    typealias IndicatorProvider = IndicatorRendererRegistry.Provider
+    
     // MARK: - Views
     private let chartView = UIView()
     private let scrollView = ChartScrollView()
@@ -38,7 +38,6 @@ enum ChartSection: Sendable {
     private var descriptor = ChartDescriptor()
     private var customRenderers = [AnyRenderer]()
     private var crosshairRenderer: CrosshairRenderer?
-    private var indiccatorProviderMap: [Indicator: IndicatorProvider] = [:]
     private enum MainChartContent {
         case candlestick
         case timeSeries
@@ -55,9 +54,9 @@ enum ChartSection: Sendable {
     private var valueStorage = ValueStorage()
     private var selectedIndex: Int?
     private var selectedLocation: CGPoint?
-    private var klineConfig: KLineConfig { .default }
+    private var klineConfig: KLineConfiguration { .default }
     private var longPressLocation: CGPoint = .zero
-
+    
     private var disposeBag = Set<AnyCancellable>()
     private var lastLiveRedrawAt: TimeInterval = 0
     private var klineItemLoader: KLineItemLoader?
@@ -66,7 +65,7 @@ enum ChartSection: Sendable {
     private var networkMonitor: NWPathMonitor?
     private var networkQueue = DispatchQueue(label: "NetworkMonitor")
     private var isNetworkAvailable = true
-
+    
     // MARK: - Initializers
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -113,7 +112,6 @@ enum ChartSection: Sendable {
             make.top.equalTo(8)
         }
         
-        registerRenderers()
         addInteractions()
         observeScrollViewLayoutChange()
         setupBindings()
@@ -124,7 +122,7 @@ enum ChartSection: Sendable {
     public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
+    
     deinit {
         descriptorUpdateTask?.cancel()
         klineItemLoader?.stop()
@@ -188,13 +186,13 @@ enum ChartSection: Sendable {
                 self?.scrollView.scroll(to: .right)
             }
             .store(in: &disposeBag)
-
+        
         NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)
             .sink { [weak self] _ in
                 self?.handleDidEnterBackground()
             }
             .store(in: &disposeBag)
-
+        
         NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
             .sink { [weak self] _ in
                 self?.handleWillEnterForeground()
@@ -212,7 +210,7 @@ extension KLineView {
         klineItems = []
         valueStorage = ValueStorage()
         lastLiveRedrawAt = 0
-
+        
         klineItemLoader = KLineItemLoader(
             provider: provider,
             snapshotHandler: { [weak self] page, items in
@@ -241,12 +239,12 @@ private extension KLineView {
         let latestTimestamp = klineItems.last?.timestamp
         klineItemLoader?.didEnterBackground(latestTimestamp: latestTimestamp)
     }
-
+    
     func handleWillEnterForeground() {
         let latestTimestamp = klineItems.last?.timestamp
         klineItemLoader?.willEnterForeground(latestTimestamp: latestTimestamp)
     }
-
+    
     func mergedItems(current: [any KLineItem], patch: [any KLineItem]) -> [any KLineItem] {
         guard !current.isEmpty else { return patch }
         var map = Dictionary(uniqueKeysWithValues: current.map { ($0.timestamp, $0) })
@@ -264,7 +262,7 @@ extension KLineView {
         mainChartContent = .timeSeries
         scheduleDescriptorUpdate()
     }
-
+    
     public func useCandlesticks() {
         guard mainChartContent != .candlestick else { return }
         mainChartContent = .candlestick
@@ -288,8 +286,7 @@ extension KLineView {
                     CandleRenderer()
                     // 主图指标
                     for type in mainIndicatorTypes {
-                        if let rendererProvider = indiccatorProviderMap[type],
-                           let renderer = rendererProvider(type) {
+                        for renderer in IndicatorRendererRegistry.shared.renderers(for: type) {
                             renderer
                         }
                     }
@@ -311,8 +308,7 @@ extension KLineView {
             for type in subIndicatorTypes {
                 RendererGroup(chartSection: .subChart, height: indicatorHeight) {
                     XAxisRenderer()
-                    if let rendererProvider = indiccatorProviderMap[type],
-                       let renderer = rendererProvider(type) {
+                    for renderer in IndicatorRendererRegistry.shared.renderers(for: type) {
                         renderer
                     }
                 }
@@ -326,11 +322,11 @@ extension KLineView {
             await self.updateDescriptor(recalculateValues: recalculateValues)
         }
     }
-
+    
     @MainActor
     private func updateDescriptor(recalculateValues: Bool) async {
         guard !Task.isCancelled else { return }
-
+        
         if recalculateValues {
             let calculators = (mainIndicatorTypes + subIndicatorTypes)
                 .flatMap { indicator in indicator.makeCalculators() }
@@ -342,24 +338,29 @@ extension KLineView {
                 valueStorage = storage
             }
         }
-
+        
         var newDescriptor = makeDescriptor()
         let oldDescriptor = descriptor
         let transition = reconcileRenderers(from: oldDescriptor, to: &newDescriptor)
         guard !Task.isCancelled else { return }
-
+        
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        CATransaction.setAnimationDuration(0)
+        defer { CATransaction.commit() }
+        
         transition.removed.forEach { renderer in
             renderer.uninstall(from: scrollView.contentView.canvas)
         }
         transition.added.forEach { renderer in
             renderer.install(to: scrollView.contentView.canvas)
         }
-
+        
         descriptor = newDescriptor
         invalidateIntrinsicContentSize()
         drawVisibleContent()
     }
-
+    
     private func reconcileRenderers(
         from oldDescriptor: ChartDescriptor,
         to newDescriptor: inout ChartDescriptor
@@ -369,7 +370,7 @@ extension KLineView {
         }
         var additions = [AnyRenderer]()
         var reused = Set<ObjectIdentifier>()
-
+        
         for groupIndex in newDescriptor.groups.indices {
             var renderers = newDescriptor.groups[groupIndex].renderers
             for rendererIndex in renderers.indices {
@@ -385,7 +386,7 @@ extension KLineView {
             }
             newDescriptor.groups[groupIndex].renderers = renderers
         }
-
+        
         let removals = oldDescriptor.renderers.filter { renderer in
             !reused.contains(ObjectIdentifier(renderer))
         }
@@ -451,7 +452,7 @@ extension KLineView {
 
 // MARK: - 绘制内容
 extension KLineView {
-   
+    
     private func drawVisibleContent() {
         guard !klineItems.isEmpty else { return }
         
@@ -462,7 +463,7 @@ extension KLineView {
         }
         
         CATransaction.begin()
-        CATransaction.setDisableActions(false)
+        CATransaction.setDisableActions(true)
         CATransaction.setAnimationDuration(0)
         defer { CATransaction.commit() }
         
@@ -540,7 +541,7 @@ extension KLineView {
             let viewPort = groupFrame.inset(by: groupInset)
             descriptor.groups[idx].viewPort = viewPort
             context.viewPort = viewPort
-
+            
             // 绘制图表
             for renderer in renderers {
                 renderer.draw(in: scrollView.contentView.canvas, context: context)
@@ -573,7 +574,12 @@ extension KLineView {
     private func observeScrollViewLayoutChange() {
         scrollView.onLayoutChanged = { [weak self] scrollView in
             guard let self else { return }
+            
             if crosshairRenderer != nil {
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                CATransaction.setAnimationDuration(0)
+                defer { CATransaction.commit() }
                 selectedIndex = nil
                 selectedLocation = nil
                 crosshairRenderer?.uninstall(from: self.scrollView.contentView.canvas)
@@ -585,13 +591,17 @@ extension KLineView {
     }
 }
 
-// MARK: - Live merging (方案 C)
+// MARK: - Live merging
 private extension KLineView {
     func applyLiveTick(_ tick: any KLineItem) async {
         await MainActor.run {
+            let shouldStickToRightEdge = scrollView.isNearRightEdge
             guard !klineItems.isEmpty else {
                 klineItems = [tick]
                 layout.itemCount = 1
+                if shouldStickToRightEdge {
+                    scrollView.scroll(to: .right)
+                }
                 throttleRecalculateAndRedraw()
                 return
             }
@@ -601,11 +611,14 @@ private extension KLineView {
             } else if tick.timestamp > klineItems.last!.timestamp {
                 klineItems.append(tick)
                 layout.itemCount = klineItems.count
+                if shouldStickToRightEdge {
+                    scrollView.scroll(to: .right)
+                }
             }
             throttleRecalculateAndRedraw()
         }
     }
-
+    
     func throttleRecalculateAndRedraw() {
         let now = CACurrentMediaTime()
         guard now - lastLiveRedrawAt >= 0.2 else { return }
@@ -660,6 +673,10 @@ extension KLineView: CrosshairInteractionDelegate {
         selectedLocation = location
         selectedIndex = itemIndex
         if crosshairRenderer == nil {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            CATransaction.setAnimationDuration(0)
+            defer { CATransaction.commit() }
             crosshairRenderer = CrosshairRenderer()
             crosshairRenderer?.install(to: scrollView.contentView.canvas)
         }
@@ -669,40 +686,7 @@ extension KLineView: CrosshairInteractionDelegate {
 
 extension KLineView {
     
-    private func registerRenderers() {
-        registerRenderer(for: .ma) { indicator in
-            MARenderer(peroids: indicator.keys.compactMap({ key in
-                guard case let .ma(period) = key else { return nil }
-                return period
-            }))
-        }
-        registerRenderer(for: .ema) { indicator in
-            EMARenderer(peroids: indicator.keys.compactMap({ key in
-                guard case let .ema(period) = key else { return nil }
-                return period
-            }))
-        }
-        registerRenderer(for: .boll) { _ in
-            BOLLRenderer()
-        }
-        registerRenderer(for: .sar) { _ in
-            SARRenderer()
-        }
-        registerRenderer(for: .vol) { _ in
-            VOLRenderer()
-        }
-        registerRenderer(for: .rsi) { indicator in
-            RSIRenderer(peroids: indicator.keys.compactMap({ key in
-                guard case let .rsi(period) = key else { return nil }
-                return period
-            }))
-        }
-        registerRenderer(for: .macd) { _ in
-            MACDRenderer()
-        }
-    }
-    
-    public func registerRenderer(for indicator: Indicator, provider: @escaping IndicatorProvider) {
-        indiccatorProviderMap[indicator] = provider
+    public static func registerRenderer(for indicator: Indicator, provider: @escaping (Indicator) -> (some Renderer)) {
+        IndicatorRendererRegistry.shared.register(for: indicator, provider: provider)
     }
 }
