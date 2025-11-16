@@ -11,7 +11,7 @@ final class CrosshairRenderer: Renderer {
     
     var id: some Hashable { ObjectIdentifier(CrosshairRenderer.self) }
     
-    private var klineConfig: KLineConfig { .default }
+    private var klineConfig: KLineConfiguration { .default }
     private let feedback = UISelectionFeedbackGenerator()
     private let dateFormatter: DateFormatter
     private let yValueFormatter: NumberFormatter
@@ -81,6 +81,10 @@ final class CrosshairRenderer: Renderer {
               let timelineGroup else {
             return
         }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        CATransaction.setAnimationDuration(0)
+        defer { CATransaction.commit() }
         defer { lastLocation = location }
         if lastLocation.x != location.x {
             feedback.selectionChanged()

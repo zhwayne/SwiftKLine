@@ -38,7 +38,7 @@ final class MARenderer: Renderer {
     
     func draw(in layer: CALayer, context: Context) {
         // 获取K线样式配置
-        let klineConfig = KLineConfig.default
+        let klineConfig = KLineConfiguration.default
         let candleStyle = klineConfig.candleStyle
         let layout = context.layout
         
@@ -69,7 +69,7 @@ final class MARenderer: Renderer {
     func legend(context: Context) -> NSAttributedString? {
         return peroids.reduce(NSMutableAttributedString()) { partialResult, period in
             let key = Indicator.Key.ma(period)
-            let style = KLineConfig.default.indicatorStyle(for: key, type: LineStyle.self)
+            let style = KLineConfiguration.default.indicatorStyle(for: key, type: LineStyle.self)
             guard let values = context.values(forKey: key, valueType: Double?.self), !values.isEmpty,
                   context.currentIndex >= 0,
                   context.currentIndex < values.count,
@@ -80,7 +80,7 @@ final class MARenderer: Renderer {
                 string: "MA\(period): \(priceFormatter.format(NSNumber(floatLiteral: value))) ",
                 attributes: [
                     .foregroundColor: style?.strokeColor.cgColor,
-                    .font: KLineConfig.default.legendFont
+                    .font: KLineConfiguration.default.legendFont
                 ]
             )
             partialResult.append(string)

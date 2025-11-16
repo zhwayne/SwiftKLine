@@ -12,6 +12,7 @@ final class ChartScrollView: UIScrollView {
     final class ContentView: CanvasView { }
     
     private var oldContentWidth: CGFloat = 0
+    private let rightEdgeTolerance: CGFloat = 2
     
     override var contentSize: CGSize {
         didSet { oldContentWidth = oldValue.width }
@@ -54,6 +55,12 @@ extension ChartScrollView {
         case left, right, current
     }
     
+    var isNearRightEdge: Bool {
+        guard contentSize.width > 0 else { return true }
+        let maxOffset = max(-contentInset.left, contentSize.width - bounds.width + contentInset.right)
+        return maxOffset - contentOffset.x <= rightEdgeTolerance
+    }
+    
     func scroll(to scrollPosition: ScrollPosition) {
         
         var offsetX: CGFloat = 0
@@ -72,7 +79,9 @@ extension ChartScrollView {
         }
         
         // 设置新的 contentOffset，确保不超出范围
-        contentOffset.x = offsetX
+        let minOffset = -contentInset.left
+        let maxOffset = max(minOffset, contentSize.width - frame.width + contentInset.right)
+        contentOffset.x = min(max(offsetX, minOffset), maxOffset)
         oldContentWidth = contentSize.width
     }
 }

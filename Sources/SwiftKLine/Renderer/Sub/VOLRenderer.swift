@@ -40,7 +40,7 @@ final class VOLRenderer: Renderer {
     }
     
     func draw(in layer: CALayer, context: Context) {
-        let candleStyle = KLineConfig.default.candleStyle
+        let candleStyle = KLineConfiguration.default.candleStyle
         let layout = context.layout
         let viewPort = context.viewPort
         let visibleItems = context.visibleItems
@@ -82,7 +82,7 @@ final class VOLRenderer: Renderer {
             string: "VOL: \(volumeFormatter.format(NSNumber(floatLiteral: item.volume))) ",
             attributes: [
                 .foregroundColor: UIColor.secondaryLabel.cgColor,
-                .font: KLineConfig.default.legendFont
+                .font: KLineConfiguration.default.legendFont
             ]
         )
         return string

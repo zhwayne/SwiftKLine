@@ -30,7 +30,7 @@ final class SARRenderer: Renderer {
     
     func draw(in layer: CALayer, context: Context) {
         // 获取K线样式配置
-        let klineConfig = KLineConfig.default
+        let klineConfig = KLineConfiguration.default
         let candleStyle = klineConfig.candleStyle
         let layout = context.layout
 
@@ -38,7 +38,7 @@ final class SARRenderer: Renderer {
         guard let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self) else {
             return
         }
-        let style = KLineConfig.default.indicatorStyle(for: key, type: LineStyle.self)
+        let style = KLineConfiguration.default.indicatorStyle(for: key, type: LineStyle.self)
         rectLayer.strokeColor = style?.strokeColor.cgColor
         
         let path = CGMutablePath()
@@ -54,7 +54,7 @@ final class SARRenderer: Renderer {
     
     func legend(context: Context) -> NSAttributedString? {
         let key = Indicator.Key.sar
-        let style = KLineConfig.default.indicatorStyle(for: key, type: LineStyle.self)
+        let style = KLineConfiguration.default.indicatorStyle(for: key, type: LineStyle.self)
         guard let values = context.values(forKey: key, valueType: Double?.self), !values.isEmpty,
               context.currentIndex >= 0,
               context.currentIndex < values.count,
@@ -66,7 +66,7 @@ final class SARRenderer: Renderer {
             string: "\(key.description):\(priceFormatter.format(NSDecimalNumber(floatLiteral: value))) ",
             attributes: [
                 .foregroundColor: style?.strokeColor,
-                .font: KLineConfig.default.legendFont
+                .font: KLineConfiguration.default.legendFont
             ]
         ))
         return partialResult

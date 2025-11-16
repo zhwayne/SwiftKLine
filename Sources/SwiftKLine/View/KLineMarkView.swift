@@ -98,7 +98,7 @@ class KLineMarkView: UIView {
     
     private func update() {
         guard let item else { return }
-        let klineConfig = KLineConfig.default
+        let klineConfig = KLineConfiguration.default
         // 时间
         dateLabel.titleLabel.text = "时间"
         let date = Date(timeIntervalSince1970: TimeInterval(item.timestamp))

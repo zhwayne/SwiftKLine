@@ -14,7 +14,7 @@ class PinchInteraction: NSObject, UIInteraction {
     // pinch
     private var pinchCenterX: CGFloat = 0
     private var oldScale: CGFloat = 1
-    private var klineConfig: KLineConfig { .default }
+    private var klineConfig: KLineConfiguration { .default }
     private var scrollView: ChartScrollView? { layout.scrollView as? ChartScrollView }
     private let layout: Layout
     

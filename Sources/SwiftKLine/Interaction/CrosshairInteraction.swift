@@ -19,7 +19,7 @@ class CrosshairInteraction: NSObject, UIInteraction, UIGestureRecognizerDelegate
     weak var view: UIView?
     private let layout: Layout
     private var location: CGPoint = .zero
-    private var klineConfig: KLineConfig { .default }
+    private var klineConfig: KLineConfiguration { .default }
     
     init(layout: Layout, delegate: CrosshairInteractionDelegate) {
         self.delegate = delegate
@@ -74,11 +74,9 @@ class CrosshairInteraction: NSObject, UIInteraction, UIGestureRecognizerDelegate
             return
         }
         CATransaction.begin()
-        CATransaction.setDisableActions(false)
+        CATransaction.setDisableActions(true)
         CATransaction.setAnimationDuration(0)
-        defer {
-            CATransaction.commit()
-        }
+        defer { CATransaction.commit() }
         
         let index = layout.indexInViewPort(on: location.x) ?? layout.itemCount - 1
         let candleHalfWidth = klineConfig.candleStyle.width * 0.5

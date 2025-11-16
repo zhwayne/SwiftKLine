@@ -16,9 +16,9 @@ import UIKit
     fileprivate init() { }
 }
 
-@MainActor final public class KLineConfig {
+@MainActor final public class KLineConfiguration {
     
-    public static let `default` = KLineConfig()
+    public static let `default` = KLineConfiguration()
     
     private init() { }
     
