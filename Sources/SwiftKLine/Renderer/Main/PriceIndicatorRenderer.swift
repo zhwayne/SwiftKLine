@@ -107,7 +107,7 @@ final class PriceIndicatorRenderer: Renderer {
         
         // MARK: - 最新价指示
         if let item = context.items.last {
-            let dataBounds = context.visibleItems.dataBounds
+            let dataBounds = context.layout.dataBounds
             let minY = layout.minY(for: dataBounds.max, viewPort: viewPort)
             let maxY = layout.minY(for: dataBounds.min, viewPort: viewPort)
             let rect = CGRectMake(0, viewPort.minY, layer.bounds.width, viewPort.height)
