@@ -1,3 +1,5 @@
+![SwiftKLine](https://socialify.git.ci/zhwayne/SwiftKLine/image?description=1&font=KoHo&language=1&name=1&owner=1&pattern=Circuit+Board&theme=Auto)
+
 一个轻量级、模块化且易于扩展的 K 线图表框架，专为 Swift 应用设计。
 
 <img src="https://github.com/user-attachments/assets/efa0309e-72c6-4d2a-8d27-60891d7bfcda" width=50%>
