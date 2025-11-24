@@ -24,7 +24,7 @@ enum ChartSection: Sendable {
     private let legendLabel = UILabel()
     private var indicatorTypeView = IndicatorTypeView()
     private let watermarkLabel = UILabel()
-    private lazy var layout = Layout(scrollView: scrollView)
+    private lazy var layout = KLineLayout(scrollView: scrollView)
     
     // MARK: - Height defines
     private let candleHeight: CGFloat = 320

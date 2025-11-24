@@ -17,7 +17,7 @@ import Foundation
     /// 当前可见的K线数据范围
     public let visibleRange: Range<Int>
     /// 布局信息，包含位置计算相关的方法
-    public let layout: Layout
+    public let layout: KLineLayout
     /// 当前长按手势坐标位置
     public let location: CGPoint?
     /// 当前激活的item下标
@@ -35,7 +35,7 @@ import Foundation
         valueStorage: ValueStorage,
         items: [Item],
         visibleRange: Range<Int>,
-        layout: Layout,
+        layout: KLineLayout,
         location: CGPoint?,
         selectedIndex: Int?
     ) {

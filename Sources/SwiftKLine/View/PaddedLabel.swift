@@ -1,5 +1,5 @@
 //
-//  EdgeInsetLabel.swift
+//  PaddedLabel.swift
 //  SwiftKLine
 //
 //  Created by iya on 2025/3/29.
@@ -7,7 +7,7 @@
 
 import UIKit
 
-class EdgeInsetLabel: UILabel {
+class PaddedLabel: UILabel {
     var edgeInsets = UIEdgeInsets.zero
     
     override func textRect(

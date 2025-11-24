@@ -19,8 +19,8 @@ final class CrosshairRenderer: Renderer {
     private let dashLineLayer = CAShapeLayer()
     private let pointLayer = CAShapeLayer()
     private let klineMarkView = KLineMarkView()
-    private let dateLabel = EdgeInsetLabel()
-    private let yAxisValueLabel = EdgeInsetLabel()
+    private let dateLabel = PaddedLabel()
+    private let yAxisValueLabel = PaddedLabel()
     
     var selectedGroup: RendererGroup?
     var candleGroup: RendererGroup?
@@ -160,8 +160,8 @@ final class CrosshairRenderer: Renderer {
 //    private let feedback = UISelectionFeedbackGenerator()
 //    private var klineConfig: klineConfig { .shared }
 //    private let dateFormatter: DateFormatter
-//    private let dateLabel = EdgeInsetLabel()
-//    private let yAxisValueLabel = EdgeInsetLabel()
+//    private let dateLabel = PaddedLabel()
+//    private let yAxisValueLabel = PaddedLabel()
 //    private let klineMarkView = KLineMarkView()
 //    private var lastLocationX: CGFloat = 0
 //    var location: CGPoint = .zero

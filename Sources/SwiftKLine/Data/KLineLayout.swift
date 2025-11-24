@@ -1,5 +1,5 @@
 //
-//  Layout.swift
+//  KLineLayout.swift
 //  SwiftKLine
 //
 //  Created by iya on 2025/4/19.
@@ -8,7 +8,7 @@
 import UIKit
 
 /// 负责处理K线图布局相关的计算
-@MainActor public final class Layout {
+@MainActor public final class KLineLayout {
     /// 承载K线图的滚动视图
     let scrollView: UIScrollView
     
@@ -86,7 +86,7 @@ import UIKit
     }
 }
 
-extension Layout {
+extension KLineLayout {
 //    public enum CoordinateSpace {
 //        case global, local
 //    }
@@ -125,7 +125,7 @@ extension Layout {
     }
 }
 
-extension Layout {
+extension KLineLayout {
     
     /// // 将数据值映射到图表高度上的位置。
     /// - Parameters:
@@ -155,7 +155,7 @@ extension Layout {
     }
 }
 
-extension Layout {
+extension KLineLayout {
     
     func niceValues(in viewPort: CGRect, groupFrame: CGRect) -> [(value: Double, y: CGFloat)] {
         let (stepSize, _) = determineNiceGridSteps(maxLines: 7)
