@@ -77,7 +77,7 @@ final class EMARenderer: Renderer {
             let string = NSAttributedString(
                 string: "EMA\(period): \(priceFormatter.format(NSNumber(floatLiteral: value))) ",
                 attributes: [
-                    .foregroundColor: style?.strokeColor.cgColor,
+                    .foregroundColor: style?.strokeColor,
                     .font: context.configuration.legendFont
                 ]
             )

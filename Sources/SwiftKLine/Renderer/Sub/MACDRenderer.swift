@@ -140,21 +140,21 @@ final class MACDRenderer: Renderer {
         partialResult.append(NSAttributedString(
             string: "STICK:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.histogram))) ",
             attributes: [
-                .foregroundColor: style?.macdColor.cgColor,
+                .foregroundColor: style?.macdColor,
                 .font: context.configuration.legendFont
             ]
         ))
         partialResult.append(NSAttributedString(
             string: "DIF:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.macd))) ",
             attributes: [
-                .foregroundColor: style?.difColor.cgColor,
+                .foregroundColor: style?.difColor,
                 .font: context.configuration.legendFont
             ]
         ))
         partialResult.append(NSAttributedString(
             string: "DEA:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.signal))) ",
             attributes: [
-                .foregroundColor: style?.deaColor.cgColor,
+                .foregroundColor: style?.deaColor,
                 .font: context.configuration.legendFont
             ]
         ))

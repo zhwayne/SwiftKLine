@@ -83,7 +83,7 @@ final class VOLRenderer: Renderer {
         let string = NSAttributedString(
             string: "VOL: \(volumeFormatter.format(NSNumber(floatLiteral: item.volume))) ",
             attributes: [
-                .foregroundColor: UIColor.secondaryLabel.cgColor,
+                .foregroundColor: UIColor.secondaryLabel,
                 .font: context.configuration.legendFont
             ]
         )

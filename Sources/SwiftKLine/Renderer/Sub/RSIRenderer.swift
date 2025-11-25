@@ -115,7 +115,7 @@ final class RSIRenderer: Renderer {
             let string = NSAttributedString(
                 string: "RSI\(period): \(priceFormatter.format(NSNumber(floatLiteral: value))) ",
                 attributes: [
-                    .foregroundColor: style?.strokeColor.cgColor,
+                    .foregroundColor: style?.strokeColor,
                     .font: context.configuration.legendFont
                 ]
             )
