@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os.lock
 
 /// A thread-safe key-value storage system that can store values of any type.
 ///
@@ -19,11 +20,10 @@ import Foundation
 /// let answer: Int? = storage.getValue(forKey: "answer", type: Int.self)
 /// ```
 final class ValueStorage: @unchecked Sendable {
-    // 性能优化：使用 NSLock 替代 DispatchQueue，减少线程同步开销
-    private let lock = NSLock()
+    // 使用 os_unfair_lock 获取更低的加锁开销
+    private var lock = os_unfair_lock_s()
     
     // 性能优化：使用轻量级的类型包装，避免 as? 的运行时开销
-    // 只存储类型 ID，不使用协议虚表
     private struct TypedValue {
         let typeID: ObjectIdentifier
         let value: Any
@@ -51,9 +51,10 @@ final class ValueStorage: @unchecked Sendable {
     /// Checks if a value exists for the given key (thread-safe)
     /// - Parameter key: The key to check
     /// - Returns: `true` if a value exists for the key, `false` otherwise
+    @inline(__always)
     func hasKey<Key: Hashable>(_ key: Key) -> Bool {
-        lock.withLock {
-            storage.keys.contains(key)
+        withLock {
+            storage[key] != nil
         }
     }
 
@@ -61,8 +62,9 @@ final class ValueStorage: @unchecked Sendable {
     /// - Parameters:
     ///   - value: The value to store (can be any type)
     ///   - key: The key to associate with the value
+    @inline(__always)
     func set<Key: Hashable, Value>(value: Value, forKey key: Key) {
-        lock.withLock {
+        withLock {
             self.storage[key] = TypedValue(value)
         }
     }
@@ -72,35 +74,33 @@ final class ValueStorage: @unchecked Sendable {
     ///   - key: The key to look up
     ///   - type: The expected type of the value
     /// - Returns: The stored value if it exists and matches the expected type, otherwise nil
+    @inline(__always)
     func getValue<Key: Hashable, Value>(forKey key: Key, type: Value.Type) -> Value? {
-        lock.withLock {
+        withLock {
             storage[key]?.get(as: Value.self)
         }
     }
 
     /// Removes the value for the given key (thread-safe, synchronous)
     /// - Parameter key: The key whose value should be removed
+    @inline(__always)
     func remove<Key: Hashable>(forKey key: Key) {
-        lock.withLock {
+        withLock {
             self.storage.removeValue(forKey: key)
         }
     }
 
-    /// Merges the contents of another ValueStorage into this one (thread-safe, synchronous)
-    /// - Parameter other: The ValueStorage whose contents should be merged
-    /// - Note: If there are duplicate keys, the values from `other` will overwrite existing values
-    func merge(_ other: ValueStorage) {
-        lock.withLock {
-            other.lock.withLock {
-                self.storage.merge(other.storage) { $1 }
-            }
+    /// Returns the number of stored key-value pairs
+    var count: Int {
+        withLock {
+            storage.count
         }
     }
     
-    /// Returns the number of stored key-value pairs
-    var count: Int {
-        lock.withLock {
-            storage.count
-        }
+    @inline(__always)
+    private func withLock<T>(_ body: () throws -> T) rethrows -> T {
+        os_unfair_lock_lock(&lock)
+        defer { os_unfair_lock_unlock(&lock) }
+        return try body()
     }
 }
