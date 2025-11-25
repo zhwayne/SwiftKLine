@@ -27,7 +27,8 @@ private struct KLineRepresentable: UIViewRepresentable {
     typealias UIViewType = KLineView
 
     func makeUIView(context: Context) -> KLineView {
-        let view = KLineView()
+        let config = KLineConfiguration.themed(.midnight)
+        let view = KLineView(configuration: config)
         return view
     }
 

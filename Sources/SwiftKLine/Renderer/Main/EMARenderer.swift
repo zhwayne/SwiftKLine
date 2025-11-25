@@ -36,7 +36,7 @@ final class EMARenderer: Renderer {
     
     func draw(in layer: CALayer, context: Context) {
         // 获取K线样式配置
-        let klineConfig = KLineConfiguration.default
+        let klineConfig = context.configuration
         let candleStyle = klineConfig.candleStyle
         let layout = context.layout
         
@@ -67,7 +67,7 @@ final class EMARenderer: Renderer {
     func legend(context: Context) -> NSAttributedString? {
         return peroids.reduce(NSMutableAttributedString()) { partialResult, period in
             let key = Indicator.Key.ema(period)
-            let style = KLineConfiguration.default.indicatorStyle(for: key, type: LineStyle.self)
+            let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
             guard let values = context.values(forKey: key, valueType: Double?.self), !values.isEmpty,
                   context.currentIndex >= 0,
                   context.currentIndex < values.count,
@@ -78,7 +78,7 @@ final class EMARenderer: Renderer {
                 string: "EMA\(period): \(priceFormatter.format(NSNumber(floatLiteral: value))) ",
                 attributes: [
                     .foregroundColor: style?.strokeColor.cgColor,
-                    .font: KLineConfiguration.default.legendFont
+                    .font: context.configuration.legendFont
                 ]
             )
             partialResult.append(string)
@@ -100,4 +100,3 @@ final class EMARenderer: Renderer {
         }
     }
 }
-

@@ -49,7 +49,7 @@ final class MACDRenderer: Renderer {
         // 获取K线样式配置
         barLayer.sublayers = nil
         barLayer.frame = context.viewPort
-        let klineConfig = KLineConfiguration.default
+        let klineConfig = context.configuration
         let candleStyle = klineConfig.candleStyle
         let layout = context.layout
         
@@ -77,7 +77,7 @@ final class MACDRenderer: Renderer {
             shape.path = path
             
             var isFillMode = true
-            var color = KLineTrend.rising.color.cgColor
+            var color = KLineTrend.rising.color(using: klineConfig).cgColor
             if idx > 0, let previousValue = visibleValues[visibleValues.startIndex.advanced(by: idx - 1)] {
                 if value.histogram > 0 && value.histogram < previousValue.histogram {
                     isFillMode = false
@@ -85,7 +85,7 @@ final class MACDRenderer: Renderer {
                     isFillMode = false
                 }
                 if value.histogram < 0 {
-                    color = KLineTrend.falling.color.cgColor
+                    color = KLineTrend.falling.color(using: klineConfig).cgColor
                 }
             }
             
@@ -129,7 +129,7 @@ final class MACDRenderer: Renderer {
     
     func legend(context: Context) -> NSAttributedString? {
         let key = Indicator.Key.macd
-        let style = KLineConfiguration.default.indicatorStyle(for: key, type: MACDStyle.self)
+        let style = context.configuration.indicatorStyle(for: key, type: MACDStyle.self)
         guard let values = context.values(forKey: key, valueType: MACDIndicatorValue?.self), !values.isEmpty,
               context.currentIndex >= 0,
               context.currentIndex < values.count,
@@ -141,21 +141,21 @@ final class MACDRenderer: Renderer {
             string: "STICK:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.histogram))) ",
             attributes: [
                 .foregroundColor: style?.macdColor.cgColor,
-                .font: KLineConfiguration.default.legendFont
+                .font: context.configuration.legendFont
             ]
         ))
         partialResult.append(NSAttributedString(
             string: "DIF:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.macd))) ",
             attributes: [
                 .foregroundColor: style?.difColor.cgColor,
-                .font: KLineConfiguration.default.legendFont
+                .font: context.configuration.legendFont
             ]
         ))
         partialResult.append(NSAttributedString(
             string: "DEA:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.signal))) ",
             attributes: [
                 .foregroundColor: style?.deaColor.cgColor,
-                .font: KLineConfiguration.default.legendFont
+                .font: context.configuration.legendFont
             ]
         ))
         return partialResult

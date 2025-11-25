@@ -27,22 +27,18 @@ public enum Indicator: String, CaseIterable, Sendable {
 // TODO: 需要能动态配置每个 indicator 下对应的 key
 extension Indicator {
     
-    private final class KeyStorage {
-        var keyMap: [Indicator: [Indicator.Key]] =  [
-            .ma:    [.ma(5), .ma(10), .ma(20)],
-            .ema:   [.ema(5), .ema(10), .ema(20)],
-            .boll:  [.boll],
-            .sar:   [.sar],
-            .vol:   [.vol],
-            .rsi:   [.rsi(6), .rsi(12), .rsi(24)],
-            .macd:  [.macd]
-        ]
-    }
-    
-    nonisolated(unsafe) private static let storage = KeyStorage()
-    
-    var keys: [Key] {
-        Self.storage.keyMap[self] ?? []
+    static let defaultKeyMap: [Indicator: [Indicator.Key]] = [
+        .ma:    [.ma(5), .ma(10), .ma(20)],
+        .ema:   [.ema(5), .ema(10), .ema(20)],
+        .boll:  [.boll],
+        .sar:   [.sar],
+        .vol:   [.vol],
+        .rsi:   [.rsi(6), .rsi(12), .rsi(24)],
+        .macd:  [.macd]
+    ]
+
+    var defaultKeys: [Key] {
+        Self.defaultKeyMap[self] ?? []
     }
 }
 

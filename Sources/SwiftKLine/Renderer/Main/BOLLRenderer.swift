@@ -44,7 +44,7 @@ final class BOLLRenderer: Renderer {
     
     func draw(in layer: CALayer, context: Context) {
         // 获取K线样式配置
-        let klineConfig = KLineConfiguration.default
+        let klineConfig = context.configuration
         let candleStyle = klineConfig.candleStyle
         let layout = context.layout
         
@@ -52,7 +52,7 @@ final class BOLLRenderer: Renderer {
         guard let visibleValues = context.visibleValues(forKey: key, valueType: BOLLIndicatorValue?.self) else {
             return
         }
-        let style = KLineConfiguration.default.indicatorStyle(for: key, type: LineStyle.self)
+        let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
         upperLayer.strokeColor = style?.strokeColor.cgColor
         middleLayer.strokeColor = style?.strokeColor.cgColor
         lowerLayer.strokeColor = style?.strokeColor.cgColor
@@ -96,7 +96,7 @@ final class BOLLRenderer: Renderer {
     
     func legend(context: Context) -> NSAttributedString? {
         let key = Indicator.Key.boll
-        let style = KLineConfiguration.default.indicatorStyle(for: key, type: LineStyle.self)
+        let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
         guard let values = context.values(forKey: key, valueType: BOLLIndicatorValue?.self), !values.isEmpty,
               context.currentIndex >= 0,
               context.currentIndex < values.count,
@@ -108,21 +108,21 @@ final class BOLLRenderer: Renderer {
             string: "BOLL:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.middle))) ",
             attributes: [
                 .foregroundColor: style?.strokeColor,
-                .font: KLineConfiguration.default.legendFont
+                .font: context.configuration.legendFont
             ]
         ))
         partialResult.append(NSAttributedString(
             string: "UB:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.upper))) ",
             attributes: [
                 .foregroundColor: style?.strokeColor,
-                .font: KLineConfiguration.default.legendFont
+                .font: context.configuration.legendFont
             ]
         ))
         partialResult.append(NSAttributedString(
             string: "LB:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.lower))) ",
             attributes: [
                 .foregroundColor: style?.strokeColor,
-                .font: KLineConfiguration.default.legendFont
+                .font: context.configuration.legendFont
             ]
         ))
         return partialResult

@@ -33,14 +33,16 @@ final class CandleRenderer: Renderer {
     
     func draw(in layer: CALayer, context: Context) {
         // 获取K线样式配置
-        let candleStyle = KLineConfiguration.default.candleStyle
+        let candleStyle = context.configuration.candleStyle
         let layout = context.layout
         let viewPort = context.viewPort
         let visibleItems = context.visibleItems
-        risingLayer.fillColor = KLineTrend.rising.color.cgColor
-        risingLayer.strokeColor = KLineTrend.rising.color.cgColor
-        fallingLayer.fillColor = KLineTrend.falling.color.cgColor
-        fallingLayer.strokeColor = KLineTrend.falling.color.cgColor
+        let risingColor = KLineTrend.rising.color(using: context.configuration)
+        let fallingColor = KLineTrend.falling.color(using: context.configuration)
+        risingLayer.fillColor = risingColor.cgColor
+        risingLayer.strokeColor = risingColor.cgColor
+        fallingLayer.fillColor = fallingColor.cgColor
+        fallingLayer.strokeColor = fallingColor.cgColor
         
         let upPath = CGMutablePath()
         let downPath = CGMutablePath()

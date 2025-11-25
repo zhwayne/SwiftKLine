@@ -9,8 +9,8 @@ import Foundation
 
 extension Indicator {
     
-    func makeCalculators() -> [any IndicatorCalculator] {
-        return keys.compactMap { key in
+    @MainActor func makeCalculators(configuration: KLineConfiguration) -> [any IndicatorCalculator] {
+        configuration.indicatorKeys(for: self).compactMap { key in
             switch key {
             case .vol:              return VOLCalculator()
             case let .ma(period):   return MACalculator(period: period)

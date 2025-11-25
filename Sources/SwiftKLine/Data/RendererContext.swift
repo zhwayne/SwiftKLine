@@ -5,7 +5,7 @@
 //  Created by iya on 2025/4/19.
 //
 
-import Foundation
+import UIKit
 
 /// 渲染器上下文
 /// 包含渲染K线图所需的所有上下文信息
@@ -14,6 +14,8 @@ import Foundation
     let valueStorage: ValueStorage
     /// K线数据数组
     public let items: [Item]
+    /// 样式配置
+    public let configuration: KLineConfiguration
     /// 当前可见的K线数据范围
     public let visibleRange: Range<Int>
     /// 布局信息，包含位置计算相关的方法
@@ -34,6 +36,7 @@ import Foundation
     init(
         valueStorage: ValueStorage,
         items: [Item],
+        configuration: KLineConfiguration,
         visibleRange: Range<Int>,
         layout: KLineLayout,
         location: CGPoint?,
@@ -41,6 +44,7 @@ import Foundation
     ) {
         self.valueStorage = valueStorage
         self.items = items
+        self.configuration = configuration
         self.visibleRange = visibleRange
         self.layout = layout
         self.location = location

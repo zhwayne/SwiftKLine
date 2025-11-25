@@ -40,14 +40,16 @@ final class VOLRenderer: Renderer {
     }
     
     func draw(in layer: CALayer, context: Context) {
-        let candleStyle = KLineConfiguration.default.candleStyle
+        let candleStyle = context.configuration.candleStyle
         let layout = context.layout
         let viewPort = context.viewPort
         let visibleItems = context.visibleItems
-        risingLayer.fillColor = KLineTrend.rising.color.cgColor
-        risingLayer.strokeColor = KLineTrend.rising.color.cgColor
-        fallingLayer.fillColor = KLineTrend.falling.color.cgColor
-        fallingLayer.strokeColor = KLineTrend.falling.color.cgColor
+        let risingColor = KLineTrend.rising.color(using: context.configuration)
+        let fallingColor = KLineTrend.falling.color(using: context.configuration)
+        risingLayer.fillColor = risingColor.cgColor
+        risingLayer.strokeColor = risingColor.cgColor
+        fallingLayer.fillColor = fallingColor.cgColor
+        fallingLayer.strokeColor = fallingColor.cgColor
         
         legendLayer.string = context.legendText
         legendLayer.frame = context.legendFrame
@@ -82,7 +84,7 @@ final class VOLRenderer: Renderer {
             string: "VOL: \(volumeFormatter.format(NSNumber(floatLiteral: item.volume))) ",
             attributes: [
                 .foregroundColor: UIColor.secondaryLabel.cgColor,
-                .font: KLineConfiguration.default.legendFont
+                .font: context.configuration.legendFont
             ]
         )
         return string

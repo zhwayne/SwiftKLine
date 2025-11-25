@@ -19,11 +19,12 @@ class CrosshairInteraction: NSObject, UIInteraction, UIGestureRecognizerDelegate
     weak var view: UIView?
     private let layout: KLineLayout
     private var location: CGPoint = .zero
-    private var klineConfig: KLineConfiguration { .default }
+    private let klineConfig: KLineConfiguration
     
-    init(layout: KLineLayout, delegate: CrosshairInteractionDelegate) {
+    init(layout: KLineLayout, delegate: CrosshairInteractionDelegate, configuration: KLineConfiguration) {
         self.delegate = delegate
         self.layout = layout
+        self.klineConfig = configuration
     }
     
     func willMove(to view: UIView?) { }

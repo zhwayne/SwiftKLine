@@ -41,6 +41,7 @@ class KLineMarkView: UIView {
         didSet { update() }
     }
     
+    private let configuration: KLineConfiguration
     private let stackView = UIStackView()
     private let dateLabel = ItemLabel()
     private let openingLabel = ItemLabel()
@@ -56,8 +57,9 @@ class KLineMarkView: UIView {
     private let volumeFormatter = VolumeFormatter()
     private let priceFormatter = PriceFormatter()
     
-    override init(frame: CGRect) {
-        super.init(frame: frame)
+    init(configuration: KLineConfiguration) {
+        self.configuration = configuration
+        super.init(frame: .zero)
         // TODO: 根据周期改变format
         dateFormatter.dateFormat = "MM/dd HH:mm"
         
@@ -92,13 +94,17 @@ class KLineMarkView: UIView {
         stackView.addArrangedSubview(valueLabel)
     }
     
+    override convenience init(frame: CGRect) {
+        self.init(configuration: KLineConfiguration())
+    }
+    
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
     private func update() {
         guard let item else { return }
-        let klineConfig = KLineConfiguration.default
+        let klineConfig = configuration
         // 时间
         dateLabel.titleLabel.text = "时间"
         let date = Date(timeIntervalSince1970: TimeInterval(item.timestamp))
@@ -142,6 +148,6 @@ class KLineMarkView: UIView {
         volumeLabel.detailLabel.text = volumeFormatter.format(item.volume as NSNumber)
         // 成交额
         valueLabel.titleLabel.text = "成交额"
-        valueLabel.detailLabel.text = volumeFormatter.format(item.volume as NSNumber)
+        valueLabel.detailLabel.text = volumeFormatter.format(item.value as NSNumber)
     }
 }

@@ -14,12 +14,13 @@ class PinchInteraction: NSObject, UIInteraction {
     // pinch
     private var pinchCenterX: CGFloat = 0
     private var oldScale: CGFloat = 1
-    private var klineConfig: KLineConfiguration { .default }
+    private let klineConfig: KLineConfiguration
     private var scrollView: ChartScrollView? { layout.scrollView as? ChartScrollView }
     private let layout: KLineLayout
     
-    init(layout: KLineLayout) {
+    init(layout: KLineLayout, configuration: KLineConfiguration) {
         self.layout = layout
+        self.klineConfig = configuration
     }
 
     func willMove(to view: UIView?) {

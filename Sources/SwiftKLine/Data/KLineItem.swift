@@ -10,10 +10,10 @@ import UIKit
 enum KLineTrend: Sendable {
     case rising, falling
     
-    @MainActor var color: UIColor {
+    @MainActor func color(using configuration: KLineConfiguration) -> UIColor {
         switch self {
-        case .falling: return KLineConfiguration.default.candleStyle.fallingColor
-        default: return KLineConfiguration.default.candleStyle.risingColor
+        case .falling: return configuration.candleStyle.fallingColor
+        case .rising: return configuration.candleStyle.risingColor
         }
     }
 }

@@ -24,13 +24,15 @@ enum ChartSection: Sendable {
     private let legendLabel = UILabel()
     private var indicatorTypeView = IndicatorTypeView()
     private let watermarkLabel = UILabel()
-    private lazy var layout = KLineLayout(scrollView: scrollView)
+    private lazy var layout = KLineLayout(scrollView: scrollView, configuration: klineConfig)
+    private let klineConfig: KLineConfiguration
+    private var layoutMetrics: LayoutMetrics { klineConfig.layoutMetrics }
     
     // MARK: - Height defines
-    private let candleHeight: CGFloat = 320
-    private let timelineHeight: CGFloat = 16
-    private let indicatorHeight: CGFloat = 64
-    private let indicatorTypeHeight: CGFloat = 32
+    private var candleHeight: CGFloat { layoutMetrics.mainChartHeight }
+    private var timelineHeight: CGFloat { layoutMetrics.timelineHeight }
+    private var indicatorHeight: CGFloat { layoutMetrics.indicatorHeight }
+    private var indicatorTypeHeight: CGFloat { layoutMetrics.indicatorSelectorHeight }
     private var chartHeightConstraint: Constraint!
     private var viewHeight: CGFloat { descriptor.height + indicatorTypeHeight }
     
@@ -54,7 +56,6 @@ enum ChartSection: Sendable {
     private var valueStorage = ValueStorage()
     private var selectedIndex: Int?
     private var selectedLocation: CGPoint?
-    private var klineConfig: KLineConfiguration { .default }
     private var longPressLocation: CGPoint = .zero
     
     private var disposeBag = Set<AnyCancellable>()
@@ -67,18 +68,23 @@ enum ChartSection: Sendable {
     private var isNetworkAvailable = true
     
     // MARK: - Initializers
-    public override init(frame: CGRect) {
+    public init(frame: CGRect = .zero, configuration: KLineConfiguration = KLineConfiguration()) {
+        self.klineConfig = configuration
         super.init(frame: frame)
         chartView.layer.masksToBounds = true
-        
-        indicatorTypeView.mainIndicators = klineConfig.indicators.filter { $0.isMain && !$0.keys.isEmpty }
-        indicatorTypeView.subIndicators =  klineConfig.indicators.filter { !$0.isMain && !$0.keys.isEmpty }
+        let availableMain = klineConfig.indicators.filter { $0.isMain && !$0.defaultKeys.isEmpty }
+        let availableSub = klineConfig.indicators.filter { !$0.isMain && !$0.defaultKeys.isEmpty }
+        indicatorTypeView.mainIndicators = availableMain
+        indicatorTypeView.subIndicators = availableSub
+        mainIndicatorTypes = klineConfig.defaultMainIndicators
+        subIndicatorTypes = klineConfig.defaultSubIndicators
+        indicatorTypeView.setSelectedIndicators(main: mainIndicatorTypes, sub: subIndicatorTypes)
         
         addSubview(chartView)
         addSubview(indicatorTypeView)
         
         watermarkLabel.textAlignment = .center
-        watermarkLabel.text = "Created by iyabb"
+        watermarkLabel.text = klineConfig.watermarkText
         watermarkLabel.textColor = .tertiarySystemFill
         watermarkLabel.font = .systemFont(ofSize: 32, weight: .bold)
         watermarkLabel.layer.zPosition = -1
@@ -116,6 +122,7 @@ enum ChartSection: Sendable {
         observeScrollViewLayoutChange()
         setupBindings()
         setupNetworkMonitoring()
+        updateDescriptorAndDrawContent()
         scheduleDescriptorUpdate()
     }
     
@@ -130,9 +137,9 @@ enum ChartSection: Sendable {
     }
     
     private func addInteractions() {
-        let pinchInteraction = PinchInteraction(layout: layout)
+        let pinchInteraction = PinchInteraction(layout: layout, configuration: klineConfig)
         chartView.addInteraction(pinchInteraction)
-        let crosshairInteraction = CrosshairInteraction(layout: layout, delegate: self)
+        let crosshairInteraction = CrosshairInteraction(layout: layout, delegate: self, configuration: klineConfig)
         chartView.addInteraction(crosshairInteraction)
     }
     
@@ -286,7 +293,7 @@ extension KLineView {
                     CandleRenderer()
                     // 主图指标
                     for type in mainIndicatorTypes {
-                        for renderer in IndicatorRendererRegistry.shared.renderers(for: type) {
+                        for renderer in IndicatorRendererRegistry.shared.renderers(for: type, configuration: klineConfig) {
                             renderer
                         }
                     }
@@ -308,7 +315,7 @@ extension KLineView {
             for type in subIndicatorTypes {
                 RendererGroup(chartSection: .subChart, height: indicatorHeight) {
                     XAxisRenderer()
-                    for renderer in IndicatorRendererRegistry.shared.renderers(for: type) {
+                    for renderer in IndicatorRendererRegistry.shared.renderers(for: type, configuration: klineConfig) {
                         renderer
                     }
                 }
@@ -329,7 +336,7 @@ extension KLineView {
         
         if recalculateValues {
             let calculators = (mainIndicatorTypes + subIndicatorTypes)
-                .flatMap { indicator in indicator.makeCalculators() }
+                .flatMap { indicator in indicator.makeCalculators(configuration: klineConfig) }
             if calculators.isEmpty {
                 valueStorage = ValueStorage()
             } else {
@@ -339,10 +346,13 @@ extension KLineView {
             }
         }
         
+        updateDescriptorAndDrawContent()
+    }
+    
+    private func updateDescriptorAndDrawContent() {
         var newDescriptor = makeDescriptor()
         let oldDescriptor = descriptor
         let transition = reconcileRenderers(from: oldDescriptor, to: &newDescriptor)
-        guard !Task.isCancelled else { return }
         
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -399,7 +409,7 @@ extension KLineView {
         
         // 1. 在后台准备计算所需的配置（捕获当前的指标类型）
         let calculators = (mainIndicatorTypes + subIndicatorTypes)
-            .flatMap { indicator in indicator.makeCalculators() }
+            .flatMap { indicator in indicator.makeCalculators(configuration: klineConfig) }
         
         // 2. 后台计算新的 valueStorage
         let newValueStorage: ValueStorage
@@ -474,6 +484,7 @@ extension KLineView {
         let context = RendererContext(
             valueStorage: valueStorage,
             items: klineItems,
+            configuration: klineConfig,
             visibleRange: visibleRange,
             layout: layout,
             location: selectedLocation,
@@ -677,7 +688,7 @@ extension KLineView: CrosshairInteractionDelegate {
             CATransaction.setDisableActions(true)
             CATransaction.setAnimationDuration(0)
             defer { CATransaction.commit() }
-            crosshairRenderer = CrosshairRenderer()
+            crosshairRenderer = CrosshairRenderer(configuration: klineConfig)
             crosshairRenderer?.install(to: scrollView.contentView.canvas)
         }
         drawVisibleContent()
@@ -686,7 +697,10 @@ extension KLineView: CrosshairInteractionDelegate {
 
 extension KLineView {
     
-    public static func registerRenderer(for indicator: Indicator, provider: @escaping (Indicator) -> (some Renderer)) {
+    public static func registerRenderer(
+        for indicator: Indicator,
+        provider: @escaping (Indicator, KLineConfiguration) -> (some Renderer)
+    ) {
         IndicatorRendererRegistry.shared.register(for: indicator, provider: provider)
     }
 }

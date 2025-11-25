@@ -31,6 +31,8 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
     private let erasePublisher = PassthroughSubject<(ChartSection, Indicator), Never>()
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Int, SectionItem>!
+    private var selectedMainIndicators = Set<Indicator>()
+    private var selectedSubIndicators = Set<Indicator>()
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -92,40 +94,76 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
     }
     
     private func reloadData() {
-        // 配置主图指标
+
         var snapshot = NSDiffableDataSourceSnapshot<Int, SectionItem>()
-        snapshot.appendSections([0])
+        snapshot.appendSections([0, 1, 2])
         snapshot.appendItems(mainIndicators.map({ .main($0) }), toSection: 0)
-        dataSource.apply(snapshot)
-        
-        // 分割线
-        snapshot.appendSections([1])
         snapshot.appendItems([.separator], toSection: 1)
-        dataSource.apply(snapshot)
-        
-        // 配置副图指标
-        snapshot.appendSections([2])
         snapshot.appendItems(subIndicators.map({ .sub($0) }), toSection: 2)
         dataSource.apply(snapshot)
+        applySelection(for: .mainChart)
+        applySelection(for: .subChart)
+    }
+    
+    func setSelectedIndicators(main: [Indicator], sub: [Indicator]) {
+        selectedMainIndicators = Set(main).intersection(mainIndicators)
+        selectedSubIndicators = Set(sub).intersection(subIndicators)
+        applySelection(for: .mainChart)
+        applySelection(for: .subChart)
+    }
+    
+    private func applySelection(for section: ChartSection) {
+        guard let collectionView else { return }
+        let sectionIndex = section == .mainChart ? 0 : 2
+        let items = dataSource.snapshot().itemIdentifiers(inSection: sectionIndex)
+        let selectedSet = section == .mainChart ? selectedMainIndicators : selectedSubIndicators
+        for (idx, item) in items.enumerated() {
+            switch (section, item) {
+            case (.mainChart, .main(let indicator)):
+                let indexPath = IndexPath(item: idx, section: sectionIndex)
+                if selectedSet.contains(indicator) {
+                    collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
+                } else {
+                    collectionView.deselectItem(at: indexPath, animated: false)
+                }
+            case (.subChart, .sub(let indicator)):
+                let indexPath = IndexPath(item: idx, section: sectionIndex)
+                if selectedSet.contains(indicator) {
+                    collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
+                } else {
+                    collectionView.deselectItem(at: indexPath, animated: false)
+                }
+            default:
+                continue
+            }
+        }
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         let snapshot = dataSource.snapshot()
         let type = snapshot.itemIdentifiers(inSection: indexPath.section)[indexPath.item]
         switch type {
-        case let .main(type): drawPublisher.send((.mainChart, type))
-        case let .sub(type): drawPublisher.send((.subChart, type))
+        case let .main(type):
+            selectedMainIndicators.insert(type)
+            drawPublisher.send((.mainChart, type))
+        case let .sub(type):
+            selectedSubIndicators.insert(type)
+            drawPublisher.send((.subChart, type))
         default: break
         }
-        dataSource.apply(snapshot)
+
     }
     
     func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
         let snapshot = dataSource.snapshot()
         let type = snapshot.itemIdentifiers(inSection: indexPath.section)[indexPath.item]
         switch type {
-        case let .main(type): erasePublisher.send((.mainChart, type))
-        case let .sub(type): erasePublisher.send((.subChart, type))
+        case let .main(type):
+            selectedMainIndicators.remove(type)
+            erasePublisher.send((.mainChart, type))
+        case let .sub(type):
+            selectedSubIndicators.remove(type)
+            erasePublisher.send((.subChart, type))
         default: break
         }
     }
@@ -149,7 +187,9 @@ private class IndicatorCell: UICollectionViewCell {
         label.font = .systemFont(ofSize: 12)
         label.textColor = .systemGray2
         label.textAlignment = .center
+        label.lineBreakMode = .byClipping
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
+        label.setContentHuggingPriority(.required, for: .horizontal)
         
         contentView.addSubview(label)
         label.snp.makeConstraints { make in
@@ -170,6 +210,20 @@ private class IndicatorCell: UICollectionViewCell {
             ? .systemFont(ofSize: 12, weight: .medium)
             : .systemFont(ofSize: 12)
         }
+    }
+    
+    override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
+        setNeedsLayout()
+        layoutIfNeeded()
+        let attributes = super.preferredLayoutAttributesFitting(layoutAttributes)
+        let targetSize = CGSize(width: UIView.noIntrinsicMetric, height: layoutAttributes.size.height)
+        let size = contentView.systemLayoutSizeFitting(
+            targetSize,
+            withHorizontalFittingPriority: .defaultLow,
+            verticalFittingPriority: .required
+        )
+        attributes.size = CGSize(width: ceil(size.width), height: ceil(size.height))
+        return attributes
     }
 }
 

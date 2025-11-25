@@ -20,16 +20,18 @@ import UIKit
     /// 当前可见范围内的数值范围
     public internal(set)
     var dataBounds: MetricBounds = .empty
+    
+    private let klineConfig: KLineConfiguration
         
-    init(scrollView: UIScrollView) {
+    init(scrollView: UIScrollView, configuration: KLineConfiguration) {
         self.scrollView = scrollView
+        self.klineConfig = configuration
     }
     
     func updateContentSize() {
         scrollView.contentSize = contentSize
     }
     
-    private var klineConfig: KLineConfiguration { .default }
     /// K线样式配置
     private var candleStyle: CandleStyle { klineConfig.candleStyle }
         

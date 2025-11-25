@@ -145,7 +145,7 @@ private extension TimeSeriesRenderer {
             fillLayer.path = nil
             return
         }
-        let candleStyle = KLineConfiguration.default.candleStyle
+        let candleStyle = context.configuration.candleStyle
         let linePath = CGMutablePath()
         let fillPath = CGMutablePath()
         var firstPoint: CGPoint?
