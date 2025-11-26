@@ -7,7 +7,7 @@
 
 import UIKit
 
-@MainActor public struct CandleStyle {
+public struct CandleStyle {
     public let risingColor: UIColor
     public let fallingColor: UIColor
     public internal(set) var width: CGFloat
@@ -26,7 +26,7 @@ import UIKit
     }
 }
 
-@MainActor public struct LayoutMetrics {
+public struct LayoutMetrics {
     public let mainChartHeight: CGFloat
     public let timelineHeight: CGFloat
     public let indicatorHeight: CGFloat
@@ -57,10 +57,10 @@ import UIKit
     public internal(set) var candleStyle: CandleStyle
     public let legendFont: UIFont
     public let watermarkText: String?
+    public let layoutMetrics: LayoutMetrics
     public let indicators: [Indicator]
     public let defaultMainIndicators: [Indicator]
     public let defaultSubIndicators: [Indicator]
-    public let layoutMetrics: LayoutMetrics
     
     private var indicatorStyleRegistry: [Indicator.Key: any IndicatorStyle]
     private var indicatorKeyOverrides: [Indicator: [Indicator.Key]]
@@ -69,20 +69,20 @@ import UIKit
         candleStyle: CandleStyle = CandleStyle(),
         legendFont: UIFont = UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
         watermarkText: String? = "Created by iyabb",
-        indicators: [Indicator] = Indicator.allCases,
-        defaultMainIndicators: [Indicator] = [.ma, .boll],
-        defaultSubIndicators: [Indicator] = [.macd, .vol],
         layoutMetrics: LayoutMetrics = LayoutMetrics(),
+        indicators: [Indicator] = Indicator.allCases,
+        defaultMainIndicators: [Indicator] = [],
+        defaultSubIndicators: [Indicator] = [],
         indicatorStyleRegistry: [Indicator.Key: any IndicatorStyle]? = nil,
         indicatorKeyOverrides: [Indicator: [Indicator.Key]] = [:]
     ) {
         self.candleStyle = candleStyle
         self.legendFont = legendFont
         self.watermarkText = watermarkText
+        self.layoutMetrics = layoutMetrics
         self.indicators = indicators
         self.defaultMainIndicators = defaultMainIndicators
         self.defaultSubIndicators = defaultSubIndicators
-        self.layoutMetrics = layoutMetrics
         self.indicatorStyleRegistry = indicatorStyleRegistry ?? Self.makeDefaultIndicatorStyles()
         self.indicatorKeyOverrides = indicatorKeyOverrides
     }

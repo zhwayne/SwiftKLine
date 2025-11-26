@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum Indicator: String, CaseIterable, Sendable {
+public enum Indicator: String, CaseIterable, Sendable, Codable {
     case ma     = "MA"
     case ema    = "EMA"
     case boll   = "BOLL"

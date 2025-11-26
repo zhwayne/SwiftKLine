@@ -26,6 +26,7 @@ enum ChartSection: Sendable {
     private let watermarkLabel = UILabel()
     private lazy var layout = KLineLayout(scrollView: scrollView, configuration: klineConfig)
     private let klineConfig: KLineConfiguration
+    private var indicatorSelectionStore: IndicatorSelectionStore?
     private var layoutMetrics: LayoutMetrics { klineConfig.layoutMetrics }
     
     // MARK: - Height defines
@@ -57,6 +58,7 @@ enum ChartSection: Sendable {
     private var selectedIndex: Int?
     private var selectedLocation: CGPoint?
     private var longPressLocation: CGPoint = .zero
+    public var indicatorSelectionDidChange: ((IndicatorSelectionState) -> Void)?
     
     private var disposeBag = Set<AnyCancellable>()
     private var lastLiveRedrawAt: TimeInterval = 0
@@ -68,16 +70,24 @@ enum ChartSection: Sendable {
     private var isNetworkAvailable = true
     
     // MARK: - Initializers
-    public init(frame: CGRect = .zero, configuration: KLineConfiguration = KLineConfiguration()) {
+    public init(
+        frame: CGRect = .zero,
+        configuration: KLineConfiguration = KLineConfiguration(),
+        indicatorSelectionStore: IndicatorSelectionStore? = UserDefaultsIndicatorSelectionStore()
+    ) {
         self.klineConfig = configuration
+        self.indicatorSelectionStore = indicatorSelectionStore
         super.init(frame: frame)
         chartView.layer.masksToBounds = true
         let availableMain = klineConfig.indicators.filter { $0.isMain && !$0.defaultKeys.isEmpty }
         let availableSub = klineConfig.indicators.filter { !$0.isMain && !$0.defaultKeys.isEmpty }
         indicatorTypeView.mainIndicators = availableMain
         indicatorTypeView.subIndicators = availableSub
-        mainIndicatorTypes = klineConfig.defaultMainIndicators
-        subIndicatorTypes = klineConfig.defaultSubIndicators
+        let persistedState = normalizedSelectionState(indicatorSelectionStore?.load())
+        let normalizedMain = persistedState.mainIndicators
+        let normalizedSub = persistedState.subIndicators
+        mainIndicatorTypes = normalizedMain.isEmpty ? klineConfig.defaultMainIndicators : normalizedMain
+        subIndicatorTypes = normalizedSub.isEmpty ? klineConfig.defaultSubIndicators : normalizedSub
         indicatorTypeView.setSelectedIndicators(main: mainIndicatorTypes, sub: subIndicatorTypes)
         
         addSubview(chartView)
@@ -436,6 +446,7 @@ extension KLineView {
     private func drawMainIndicator(type: Indicator) async {
         guard !mainIndicatorTypes.contains(type) else { return }
         mainIndicatorTypes.append(type)
+        saveIndicatorSelection()
         descriptorUpdateTask?.cancel()
         await updateDescriptor(recalculateValues: true)
     }
@@ -443,12 +454,14 @@ extension KLineView {
     private func eraseMainIndicator(type: Indicator) {
         guard let index = mainIndicatorTypes.firstIndex(of: type) else { return }
         mainIndicatorTypes.remove(at: index)
+        saveIndicatorSelection()
         scheduleDescriptorUpdate()
     }
     
     private func drawSubIndicator(type: Indicator) async {
         guard !subIndicatorTypes.contains(type) else { return }
         subIndicatorTypes.append(type)
+        saveIndicatorSelection()
         descriptorUpdateTask?.cancel()
         await updateDescriptor(recalculateValues: true)
     }
@@ -456,7 +469,46 @@ extension KLineView {
     private func eraseSubIndicator(type: Indicator) {
         guard let index = subIndicatorTypes.firstIndex(of: type) else { return }
         subIndicatorTypes.remove(at: index)
+        saveIndicatorSelection()
         scheduleDescriptorUpdate()
+    }
+    
+    public func resetIndicatorsToDefault() {
+        mainIndicatorTypes = klineConfig.defaultMainIndicators
+        subIndicatorTypes = klineConfig.defaultSubIndicators
+        indicatorSelectionStore?.reset()
+        indicatorTypeView.setSelectedIndicators(main: mainIndicatorTypes, sub: subIndicatorTypes)
+        saveIndicatorSelection()
+        scheduleDescriptorUpdate()
+    }
+    
+    private func saveIndicatorSelection() {
+        let normalized = normalizedSelectionState(
+            IndicatorSelectionState(
+                mainIndicators: mainIndicatorTypes,
+                subIndicators: subIndicatorTypes
+            )
+        )
+        indicatorSelectionStore?.save(state: normalized)
+        indicatorSelectionDidChange?(normalized)
+    }
+    
+    private func normalizedSelectionState(_ state: IndicatorSelectionState?) -> IndicatorSelectionState {
+        let availableMain = Set(indicatorTypeView.mainIndicators)
+        let availableSub = Set(indicatorTypeView.subIndicators)
+        let main = deduplicatedIndicators(state?.mainIndicators ?? [], validSet: availableMain)
+        let sub = deduplicatedIndicators(state?.subIndicators ?? [], validSet: availableSub)
+        return IndicatorSelectionState(mainIndicators: main, subIndicators: sub)
+    }
+    
+    private func deduplicatedIndicators(_ indicators: [Indicator], validSet: Set<Indicator>) -> [Indicator] {
+        var seen = Set<Indicator>()
+        var result: [Indicator] = []
+        for indicator in indicators where validSet.contains(indicator) && !seen.contains(indicator) {
+            result.append(indicator)
+            seen.insert(indicator)
+        }
+        return result
     }
 }
 

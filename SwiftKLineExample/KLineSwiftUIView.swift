@@ -28,7 +28,8 @@ private struct KLineRepresentable: UIViewRepresentable {
 
     func makeUIView(context: Context) -> KLineView {
         let config = KLineConfiguration.themed(.midnight)
-        let view = KLineView(configuration: config)
+        let store = UserDefaultsIndicatorSelectionStore()
+        let view = KLineView(configuration: config, indicatorSelectionStore: store)
         return view
     }
 
