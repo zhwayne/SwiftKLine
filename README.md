@@ -18,7 +18,7 @@
 - [x] K 线蜡烛图绘制（阳线 / 阴线）
 - [x] 手势交互（缩放、平移、十字线）
 - [x] 实时数据订阅
-- [x] 主指标：MA、EMA、BOLL、SAR
+- [x] 主指标：MA、EMA、WMA、BOLL、SAR
 - [x] 副指标：MACD、RSI、VOL
 - [x] 分时图模式
 - [x] 自定义渲染器

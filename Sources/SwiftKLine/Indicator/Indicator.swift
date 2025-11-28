@@ -10,6 +10,7 @@ import Foundation
 public enum Indicator: String, CaseIterable, Sendable, Codable {
     case ma     = "MA"
     case ema    = "EMA"
+    case wma    = "WMA"
     case boll   = "BOLL"
     case sar    = "SAR"
     case vol    = "VOL"
@@ -18,7 +19,7 @@ public enum Indicator: String, CaseIterable, Sendable, Codable {
     
     var isMain: Bool {
         switch self {
-        case .ma, .ema, .boll, .sar: return true
+        case .ma, .ema, .wma, .boll, .sar: return true
         default: return false
         }
     }
@@ -30,6 +31,7 @@ extension Indicator {
     static let defaultKeyMap: [Indicator: [Indicator.Key]] = [
         .ma:    [.ma(5), .ma(10), .ma(20)],
         .ema:   [.ema(5), .ema(10), .ema(20)],
+        .wma:   [.wma(5), .wma(10), .wma(20)],
         .boll:  [.boll],
         .sar:   [.sar],
         .vol:   [.vol],
@@ -47,6 +49,7 @@ extension Indicator {
     public enum Key: Hashable, Sendable, CustomStringConvertible {
         case ma(_ period: Int)
         case ema(_ period: Int)
+        case wma(_ period: Int)
         case boll
         case sar
         case vol
@@ -57,6 +60,7 @@ extension Indicator {
             switch self {
             case let .ma(period):   return "MA(\(period))"
             case let .ema(period):  return "EMA(\(period))"
+            case let .wma(period):  return "WMA(\(period))"
             case .boll: return "BOLL"
             case .sar: return "SAR(0.02,0.2)"
             case .vol:  return "VOL"

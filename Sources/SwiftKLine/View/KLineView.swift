@@ -125,7 +125,7 @@ enum ChartSection: Sendable {
         scrollView.contentView.addSubview(legendLabel)
         legendLabel.snp.makeConstraints { make in
             make.left.equalTo(12)
-            make.width.equalToSuperview().multipliedBy(0.8)
+            make.width.equalToSuperview().multipliedBy(0.85)
             make.top.equalTo(8)
         }
         

@@ -51,6 +51,14 @@ extension IndicatorRendererRegistry {
             guard !periods.isEmpty else { return nil }
             return EMARenderer(peroids: periods)
         }
+        register(for: .wma) { indicator, configuration in
+            let periods = configuration.indicatorKeys(for: indicator).compactMap { key -> Int? in
+                guard case let .wma(period) = key else { return nil }
+                return period
+            }
+            guard !periods.isEmpty else { return nil }
+            return WMARenderer(periods: periods)
+        }
         register(for: .boll) { _, _ in
             BOLLRenderer()
         }
