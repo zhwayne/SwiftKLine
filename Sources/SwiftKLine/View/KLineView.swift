@@ -58,6 +58,7 @@ enum ChartSection: Sendable {
     private var selectedIndex: Int?
     private var selectedLocation: CGPoint?
     private var longPressLocation: CGPoint = .zero
+    private var bucketDuration: Int?
     public var indicatorSelectionDidChange: ((IndicatorSelectionState) -> Void)?
     
     private var disposeBag = Set<AnyCancellable>()
@@ -227,6 +228,7 @@ extension KLineView {
         klineItems = []
         valueStorage = ValueStorage()
         lastLiveRedrawAt = 0
+        bucketDuration = nil
         
         klineItemLoader = KLineItemLoader(
             provider: provider,
@@ -269,6 +271,34 @@ private extension KLineView {
             map[item.timestamp] = item
         }
         return map.values.sorted { $0.timestamp < $1.timestamp }
+    }
+    
+    func updateBucketDurationIfNeeded(with items: [any KLineItem]) {
+        guard bucketDuration == nil else { return }
+        let timestamps = items.map(\.timestamp).sorted()
+        guard timestamps.count >= 2 else { return }
+        var minDiff: Int?
+        for index in 1..<timestamps.count {
+            let diff = timestamps[index] - timestamps[index - 1]
+            guard diff > 0 else { continue }
+            minDiff = min(minDiff ?? diff, diff)
+        }
+        bucketDuration = minDiff
+    }
+    
+    func bucketStart(for timestamp: Int) -> Int {
+        guard let bucketDuration, bucketDuration > 0 else { return timestamp }
+        return (timestamp / bucketDuration) * bucketDuration
+    }
+    
+    func indexOfBucket(for timestamp: Int) -> Int? {
+        let target = bucketStart(for: timestamp)
+        return klineItems.firstIndex { bucketStart(for: $0.timestamp) == target }
+    }
+    
+    func insertionIndexForBucket(_ timestamp: Int) -> Int {
+        let target = bucketStart(for: timestamp)
+        return klineItems.firstIndex { bucketStart(for: $0.timestamp) > target } ?? klineItems.endIndex
     }
 }
 
@@ -430,6 +460,7 @@ extension KLineView {
             guard !Task.isCancelled else { return }
         }
         
+        updateBucketDurationIfNeeded(with: items)
         // 3. 回到主线程，原子性地一次性更新所有状态
         // 此时数据已经准备好，避免中间状态
         klineItems = items
@@ -658,6 +689,8 @@ extension KLineView {
 private extension KLineView {
     func applyLiveTick(_ tick: any KLineItem) async {
         await MainActor.run {
+            updateBucketDurationIfNeeded(with: klineItems + [tick])
+            
             let shouldStickToRightEdge = scrollView.isNearRightEdge
             guard !klineItems.isEmpty else {
                 klineItems = [tick]
@@ -668,16 +701,19 @@ private extension KLineView {
                 throttleRecalculateAndRedraw()
                 return
             }
-            let bucketSeconds = 1
-            if let last = klineItems.last, (last.timestamp / bucketSeconds) == (tick.timestamp / bucketSeconds) {
-                klineItems[klineItems.count - 1] = tick
-            } else if tick.timestamp > klineItems.last!.timestamp {
-                klineItems.append(tick)
+            
+            if let existingIndex = indexOfBucket(for: tick.timestamp) {
+                klineItems[existingIndex] = tick
+            } else {
+                let insertIndex = insertionIndexForBucket(tick.timestamp)
+                let didAppendToTail = insertIndex == klineItems.endIndex
+                klineItems.insert(tick, at: insertIndex)
                 layout.itemCount = klineItems.count
-                if shouldStickToRightEdge {
+                if shouldStickToRightEdge && didAppendToTail {
                     scrollView.scroll(to: .right)
                 }
             }
+            
             throttleRecalculateAndRedraw()
         }
     }
