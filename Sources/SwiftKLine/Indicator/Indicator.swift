@@ -68,5 +68,10 @@ extension Indicator {
             case let .macd: return "MACD(12,26,9)"
             }
         }
+        
+        // TODO: 用指标 key 的窗口长度来决定增量重算时需要覆盖的过渡区
+        var lookback: Int? {
+            return nil
+        }
     }
 }

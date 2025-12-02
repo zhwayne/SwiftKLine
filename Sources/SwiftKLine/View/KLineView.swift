@@ -54,6 +54,7 @@ enum ChartSection: Sendable {
     private var mainIndicatorTypes: [Indicator] = []
     private var subIndicatorTypes: [Indicator] = []
     private var klineItems: [any KLineItem] = []
+    private let indicatorValueCache = IndicatorValueCache()
     private var valueStorage = ValueStorage()
     private var selectedIndex: Int?
     private var selectedLocation: CGPoint?
@@ -227,6 +228,7 @@ extension KLineView {
         klineItemLoader = nil
         klineItems = []
         valueStorage = ValueStorage()
+        Task { await indicatorValueCache.reset() }
         lastLiveRedrawAt = 0
         bucketDuration = nil
         
@@ -363,29 +365,16 @@ extension KLineView {
         }
     }
     
-    private func scheduleDescriptorUpdate(recalculateValues: Bool = true) {
+    private func scheduleDescriptorUpdate() {
         descriptorUpdateTask = Task(priority: .userInitiated) { [weak self] in
             guard let self else { return }
-            await self.updateDescriptor(recalculateValues: recalculateValues)
+            await self.updateDescriptor()
         }
     }
     
     @MainActor
-    private func updateDescriptor(recalculateValues: Bool) async {
+    private func updateDescriptor() async {
         guard !Task.isCancelled else { return }
-        
-        if recalculateValues {
-            let calculators = (mainIndicatorTypes + subIndicatorTypes)
-                .flatMap { indicator in indicator.makeCalculators(configuration: klineConfig) }
-            if calculators.isEmpty {
-                valueStorage = ValueStorage()
-            } else {
-                let storage = await calculators.calculate(items: klineItems)
-                guard !Task.isCancelled else { return }
-                valueStorage = storage
-            }
-        }
-        
         updateDescriptorAndDrawContent()
     }
     
@@ -444,34 +433,18 @@ extension KLineView {
     }
     
     private func draw(items: [any KLineItem], scrollPosition: ChartScrollView.ScrollPosition) async {
-        // 取消之前的更新任务
         descriptorUpdateTask?.cancel()
         
-        // 1. 在后台准备计算所需的配置（捕获当前的指标类型）
-        let calculators = (mainIndicatorTypes + subIndicatorTypes)
-            .flatMap { indicator in indicator.makeCalculators(configuration: klineConfig) }
-        
-        // 2. 后台计算新的 valueStorage
-        let newValueStorage: ValueStorage
-        if calculators.isEmpty {
-            newValueStorage = ValueStorage()
-        } else {
-            newValueStorage = await calculators.calculate(items: items)
-            guard !Task.isCancelled else { return }
-        }
+        let change = dataChange(from: klineItems, to: items)
+        let keys = currentIndicatorKeys()
+        valueStorage = await rebuildIndicatorValues(keys: keys, items: items, change: change)
         
         updateBucketDurationIfNeeded(with: items)
-        // 3. 回到主线程，原子性地一次性更新所有状态
-        // 此时数据已经准备好，避免中间状态
         klineItems = items
-        valueStorage = newValueStorage  // 旧的 valueStorage 引用计数变为 0，ARC 会自动释放
-        layout.itemCount = items.count  // 现在可以安全地触发 layoutSubviews
+        layout.itemCount = items.count
         
-        // 4. 调整滚动位置
         scrollView.scroll(to: scrollPosition)
-        
-        // 5. 更新渲染器描述符（不需要重新计算 valueStorage）
-        await updateDescriptor(recalculateValues: false)
+        await updateDescriptor()
     }
     
     private func drawMainIndicator(type: Indicator) async {
@@ -479,13 +452,20 @@ extension KLineView {
         mainIndicatorTypes.append(type)
         saveIndicatorSelection()
         descriptorUpdateTask?.cancel()
-        await updateDescriptor(recalculateValues: true)
+        let keys = klineConfig.indicatorKeys(for: type)
+        valueStorage = await rebuildIndicatorValues(keys: keys, items: klineItems, change: .reset)
+        await updateDescriptor()
     }
     
     private func eraseMainIndicator(type: Indicator) {
         guard let index = mainIndicatorTypes.firstIndex(of: type) else { return }
         mainIndicatorTypes.remove(at: index)
         saveIndicatorSelection()
+        Task { [weak self] in
+            guard let self else { return }
+            await indicatorValueCache.remove(keys: klineConfig.indicatorKeys(for: type))
+            self.valueStorage = await indicatorValueCache.valueStorage
+        }
         scheduleDescriptorUpdate()
     }
     
@@ -494,13 +474,20 @@ extension KLineView {
         subIndicatorTypes.append(type)
         saveIndicatorSelection()
         descriptorUpdateTask?.cancel()
-        await updateDescriptor(recalculateValues: true)
+        let keys = klineConfig.indicatorKeys(for: type)
+        valueStorage = await rebuildIndicatorValues(keys: keys, items: klineItems, change: .reset)
+        await updateDescriptor()
     }
     
     private func eraseSubIndicator(type: Indicator) {
         guard let index = subIndicatorTypes.firstIndex(of: type) else { return }
         subIndicatorTypes.remove(at: index)
         saveIndicatorSelection()
+        Task { [weak self] in
+            guard let self else { return }
+            await indicatorValueCache.remove(keys: klineConfig.indicatorKeys(for: type))
+            self.valueStorage = await indicatorValueCache.valueStorage
+        }
         scheduleDescriptorUpdate()
     }
     
@@ -510,7 +497,12 @@ extension KLineView {
         indicatorSelectionStore?.reset()
         indicatorTypeView.setSelectedIndicators(main: mainIndicatorTypes, sub: subIndicatorTypes)
         saveIndicatorSelection()
-        scheduleDescriptorUpdate()
+        let keys = currentIndicatorKeys()
+        Task(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            self.valueStorage = await self.rebuildIndicatorValues(keys: keys, items: self.klineItems, change: .reset)
+            await self.updateDescriptor()
+        }
     }
     
     private func saveIndicatorSelection() {
@@ -540,6 +532,96 @@ extension KLineView {
             seen.insert(indicator)
         }
         return result
+    }
+    
+    private func currentIndicatorKeys() -> [Indicator.Key] {
+        var seen = Set<Indicator.Key>()
+        var keys: [Indicator.Key] = []
+        for indicator in (mainIndicatorTypes + subIndicatorTypes) {
+            for key in klineConfig.indicatorKeys(for: indicator) where !seen.contains(key) {
+                seen.insert(key)
+                keys.append(key)
+            }
+        }
+        return keys
+    }
+    
+    private func rebuildIndicatorValues(
+        keys: [Indicator.Key],
+        items: [any KLineItem],
+        change: IndicatorValueChange
+    ) async -> ValueStorage {
+        guard !keys.isEmpty else {
+            await indicatorValueCache.reset()
+            return await indicatorValueCache.valueStorage
+        }
+        return await indicatorValueCache.rebuild(
+            keys: keys,
+            items: items,
+            change: change
+        )
+    }
+    
+    private func dataChange(
+        from oldItems: [any KLineItem],
+        to newItems: [any KLineItem]
+    ) -> IndicatorValueChange {
+        guard !oldItems.isEmpty else { return .reset }
+        let oldCount = oldItems.count
+        let newCount = newItems.count
+        
+        if newCount > oldCount {
+            let suffix = newItems.suffix(oldCount)
+            if suffix.elementsEqual(oldItems, by: areItemsEqual) {
+                return .prepend(count: newCount - oldCount)
+            }
+            let prefix = newItems.prefix(oldCount)
+            if prefix.elementsEqual(oldItems, by: areItemsEqual) {
+                return .append(count: newCount - oldCount)
+            }
+        }
+        
+        if let range = diffRange(old: oldItems, new: newItems) {
+            return .patch(range: range)
+        }
+        return .none
+    }
+    
+    private func diffRange(
+        old: [any KLineItem],
+        new: [any KLineItem]
+    ) -> Range<Int>? {
+        let minCount = Swift.min(old.count, new.count)
+        var firstDiff: Int?
+        var lastDiff: Int?
+        
+        for index in 0..<minCount {
+            if !areItemsEqual(old[index], new[index]) {
+                firstDiff = firstDiff ?? index
+                lastDiff = index
+            }
+        }
+        
+        if new.count != old.count {
+            firstDiff = firstDiff ?? minCount
+            let upper = Swift.max(old.count, new.count) - 1
+            lastDiff = max(lastDiff ?? firstDiff ?? 0, upper)
+        }
+        
+        if let firstDiff, let lastDiff {
+            return firstDiff..<(lastDiff + 1)
+        }
+        return nil
+    }
+    
+    private func areItemsEqual(_ lhs: any KLineItem, _ rhs: any KLineItem) -> Bool {
+        lhs.timestamp == rhs.timestamp &&
+        lhs.opening == rhs.opening &&
+        lhs.closing == rhs.closing &&
+        lhs.highest == rhs.highest &&
+        lhs.lowest == rhs.lowest &&
+        lhs.volume == rhs.volume &&
+        lhs.value == rhs.value
     }
 }
 
@@ -688,41 +770,49 @@ extension KLineView {
 // MARK: - Live merging
 private extension KLineView {
     func applyLiveTick(_ tick: any KLineItem) async {
-        await MainActor.run {
-            updateBucketDurationIfNeeded(with: klineItems + [tick])
-            
-            let shouldStickToRightEdge = scrollView.isNearRightEdge
-            guard !klineItems.isEmpty else {
-                klineItems = [tick]
-                layout.itemCount = 1
-                if shouldStickToRightEdge {
-                    scrollView.scroll(to: .right)
-                }
-                throttleRecalculateAndRedraw()
-                return
+        updateBucketDurationIfNeeded(with: klineItems + [tick])
+        
+        let shouldStickToRightEdge = scrollView.isNearRightEdge
+        var change: IndicatorValueChange = .reset
+        
+        if klineItems.isEmpty {
+            klineItems = [tick]
+            layout.itemCount = 1
+            change = .append(count: 1)
+            if shouldStickToRightEdge {
+                scrollView.scroll(to: .right)
             }
-            
-            if let existingIndex = indexOfBucket(for: tick.timestamp) {
-                klineItems[existingIndex] = tick
-            } else {
-                let insertIndex = insertionIndexForBucket(tick.timestamp)
-                let didAppendToTail = insertIndex == klineItems.endIndex
-                klineItems.insert(tick, at: insertIndex)
-                layout.itemCount = klineItems.count
-                if shouldStickToRightEdge && didAppendToTail {
-                    scrollView.scroll(to: .right)
-                }
-            }
-            
-            throttleRecalculateAndRedraw()
+            throttleRecalculateAndRedraw(change: change)
+            return
         }
+        
+        if let existingIndex = indexOfBucket(for: tick.timestamp) {
+            klineItems[existingIndex] = tick
+            change = .patch(range: existingIndex..<(existingIndex + 1))
+        } else {
+            let insertIndex = insertionIndexForBucket(tick.timestamp)
+            let didAppendToTail = insertIndex == klineItems.endIndex
+            klineItems.insert(tick, at: insertIndex)
+            layout.itemCount = klineItems.count
+            change = didAppendToTail ? .append(count: 1) : .patch(range: insertIndex..<(insertIndex + 1))
+            if shouldStickToRightEdge && didAppendToTail {
+                scrollView.scroll(to: .right)
+            }
+        }
+        
+        throttleRecalculateAndRedraw(change: change)
     }
     
-    func throttleRecalculateAndRedraw() {
+    func throttleRecalculateAndRedraw(change: IndicatorValueChange) {
         let now = CACurrentMediaTime()
         guard now - lastLiveRedrawAt >= 0.2 else { return }
         lastLiveRedrawAt = now
-        scheduleDescriptorUpdate(recalculateValues: true)
+        let keys = currentIndicatorKeys()
+        Task(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            self.valueStorage = await self.rebuildIndicatorValues(keys: keys, items: self.klineItems, change: change)
+            await self.updateDescriptor()
+        }
     }
 }
 
