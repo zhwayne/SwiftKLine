@@ -6,9 +6,6 @@
 //
 
 import Foundation
- 
-// 依赖 WebSocketMessage 作为直播解码输入
-// 位于同一模块内（Sources/SwiftKLine/Websocket）
 
 public protocol KLineItemProvider: AnyObject {
     /// 按页获取历史 K 线数据。page=0 表示最近一页，page 递增向过去扩展。
