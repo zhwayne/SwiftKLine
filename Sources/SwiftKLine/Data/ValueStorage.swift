@@ -40,8 +40,6 @@ final class ValueStorage: @unchecked Sendable {
             guard typeID == ObjectIdentifier(T.self) else {
                 return nil
             }
-            // unsafeBitCast 比 as? 快 10 倍以上
-            // 因为我们已经检查了类型 ID，这里是安全的
             return unsafeBitCast(value, to: T.self)
         }
     }

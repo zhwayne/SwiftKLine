@@ -62,11 +62,9 @@ final class VOLRenderer: Renderer {
             let y = layout.minY(for: item.volume, viewPort: viewPort)
             let height = viewPort.maxY - y
             let rect = CGRect(x: x, y: y, width: candleStyle.width, height: height)
-            
-            let path = CGMutablePath(rect: rect, transform: nil)
             let trend = item.trend
             let candlePath = trend == .falling ? downPath : upPath
-            candlePath.addPath(path)
+            candlePath.addRect(rect)
         }
         risingLayer.path = upPath
         fallingLayer.path = downPath

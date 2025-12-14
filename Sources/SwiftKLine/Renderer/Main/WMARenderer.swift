@@ -48,15 +48,21 @@ final class WMARenderer: Renderer {
             let style = klineConfig.indicatorStyle(for: key, type: LineStyle.self)
             lineLayer.strokeColor = style?.strokeColor.cgColor
             
-            let points = visibleValues.enumerated().compactMap { item -> CGPoint? in
-                let (idx, value) = (item.offset, item.element)
-                guard let value else { return nil }
+            let path = CGMutablePath()
+            var hasStartPoint = false
+            for (idx, value) in visibleValues.enumerated() {
+                guard let value else { continue }
                 let x = layout.minX(at: idx) + candleStyle.width * 0.5
                 let y = layout.minY(for: value, viewPort: context.viewPort)
-                return CGPoint(x: x, y: y)
+                let point = CGPoint(x: x, y: y)
+                if hasStartPoint {
+                    path.addLine(to: point)
+                } else {
+                    path.move(to: point)
+                    hasStartPoint = true
+                }
             }
-            
-            lineLayer.path = points.cgPath
+            lineLayer.path = path
         }
     }
     

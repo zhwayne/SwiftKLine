@@ -57,8 +57,6 @@ final class CandleRenderer: Renderer {
             let h = abs(openY - closeY)
             
             let rect = CGRect(x: x, y: y, width: candleStyle.width, height: h)
-            let path = CGMutablePath()
-            path.addRect(rect)
             
             // 计算最高价和最低价的 y 坐标
             let highY = layout.minY(for: item.highest, viewPort: viewPort)
@@ -68,14 +66,13 @@ final class CandleRenderer: Renderer {
             let highestPoint = CGPoint(x: centerX, y: highY)
             let lowestPoint = CGPoint(x: centerX, y: lowY)
             
-            path.move(to: highestPoint)
-            path.addLine(to: CGPoint(x: centerX, y: y))
-            path.move(to: lowestPoint)
-            path.addLine(to: CGPoint(x: centerX, y: y + h))
-            
             let trend = item.trend
             let candlePath = trend == .falling ? downPath : upPath
-            candlePath.addPath(path)
+            candlePath.addRect(rect)
+            candlePath.move(to: highestPoint)
+            candlePath.addLine(to: CGPoint(x: centerX, y: y))
+            candlePath.move(to: lowestPoint)
+            candlePath.addLine(to: CGPoint(x: centerX, y: y + h))
         }
         risingLayer.path = upPath
         fallingLayer.path = downPath

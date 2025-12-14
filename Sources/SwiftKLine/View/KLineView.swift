@@ -573,10 +573,126 @@ extension KLineView {
             location: selectedLocation,
             selectedIndex: selectedIndex
         )
-        
+
+        let crosshairLocation = selectedLocation
+        let hasCrosshair = crosshairRenderer != nil && crosshairLocation != nil
+
+        func makeLegendText(for renderers: [AnyRenderer]) -> NSMutableAttributedString {
+            let legendText = NSMutableAttributedString()
+            for renderer in renderers {
+                guard let string = renderer.legend(context: context) else { continue }
+                if !legendText.string.isEmpty {
+                    legendText.append(NSAttributedString(string: "\n"))
+                }
+                legendText.append(string)
+            }
+            return legendText
+        }
+
+        func configureLegend(for group: RendererGroup, groupFrame: CGRect) -> CGFloat {
+            let legendText = makeLegendText(for: group.renderers)
+            guard !legendText.string.isEmpty else {
+                if group.chartSection == .mainChart {
+                    legendLabel.attributedText = nil
+                }
+                context.legendText = nil
+                context.legendFrame = .zero
+                return 0
+            }
+
+            context.legendText = legendText
+            if group.chartSection == .mainChart {
+                legendLabel.attributedText = legendText
+                legendLabel.sizeToFit()
+                let legendFrame = legendLabel.frame
+                context.legendFrame = legendFrame
+                return legendFrame.maxY
+            }
+
+            let boundingRect = legendText.boundingRect(
+                with: CGSize(width: groupFrame.width * 0.8, height: groupFrame.height),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                context: nil
+            )
+            context.legendFrame = CGRect(
+                x: 12, y: groupFrame.minY + group.padding.top,
+                width: boundingRect.width, height: boundingRect.height
+            )
+            return boundingRect.height + group.legendSpacing
+        }
+
+        func configureCrosshairRenderer(_ renderer: CrosshairRenderer) {
+            for group in descriptor.groups {
+                if group.chartSection == .mainChart {
+                    renderer.candleGroup = group
+                } else if group.chartSection == .timeline {
+                    renderer.timelineGroup = group
+                }
+            }
+        }
+
+        @discardableResult
+        func drawCrosshairIfPossible(at location: CGPoint) -> Bool {
+            guard let renderer = crosshairRenderer,
+                  let groupIndex = descriptor.indexOfGroup(at: location) else {
+                return false
+            }
+
+            let group = descriptor.groups[groupIndex]
+            guard !group.groupFrame.isEmpty, !group.viewPort.isEmpty else { return false }
+
+            renderer.selectedGroup = group
+            configureCrosshairRenderer(renderer)
+            context.groupFrame = group.groupFrame
+            context.viewPort = group.viewPort
+            context.layout.dataBounds = group.dataBounds
+            renderer.draw(in: scrollView.contentView.canvas, context: context)
+            return true
+        }
+
+        if hasCrosshair,
+           let location = crosshairLocation,
+           let groupIndex = descriptor.indexOfGroup(at: location) {
+            let groupFrame = descriptor.frameOfGroup(at: groupIndex, rect: contentRect)
+            descriptor.groups[groupIndex].groupFrame = groupFrame
+
+            if !descriptor.groups[groupIndex].viewPort.isEmpty {
+                if let timelineGroupIndex = descriptor.groups.firstIndex(where: { $0.chartSection == .timeline }) {
+                    let groupFrame = descriptor.frameOfGroup(at: timelineGroupIndex, rect: contentRect)
+                    descriptor.groups[timelineGroupIndex].groupFrame = groupFrame
+                    let group = descriptor.groups[timelineGroupIndex]
+                    let groupInset = UIEdgeInsets(
+                        top: group.padding.top, left: 0,
+                        bottom: group.padding.bottom, right: 0
+                    )
+                    descriptor.groups[timelineGroupIndex].viewPort = groupFrame.inset(by: groupInset)
+                }
+
+                if let mainGroupIndex = descriptor.groups.firstIndex(where: { $0.chartSection == .mainChart }) {
+                    let groupFrame = descriptor.frameOfGroup(at: mainGroupIndex, rect: contentRect)
+                    descriptor.groups[mainGroupIndex].groupFrame = groupFrame
+                    context.groupFrame = groupFrame
+                    context.layout.dataBounds = descriptor.groups[mainGroupIndex].dataBounds
+
+                    let group = descriptor.groups[mainGroupIndex]
+                    let viewPortOffsetY = configureLegend(for: group, groupFrame: groupFrame)
+                    let groupInset = UIEdgeInsets(
+                        top: group.padding.top + viewPortOffsetY, left: 0,
+                        bottom: group.padding.bottom, right: 0
+                    )
+                    let viewPort = groupFrame.inset(by: groupInset)
+                    descriptor.groups[mainGroupIndex].viewPort = viewPort
+                }
+
+                if drawCrosshairIfPossible(at: location) {
+                    return
+                }
+            }
+        }
+
         for (idx, group) in descriptor.groups.enumerated() {
             let renderers = group.renderers
-            
+
             var dataBounds: MetricBounds = .empty
             // 计算可见区域内数据范围
             for renderer in renderers {
@@ -584,49 +700,15 @@ extension KLineView {
             }
             descriptor.groups[idx].dataBounds = dataBounds
             context.layout.dataBounds = dataBounds
-            
+
             // 计算可见区域内每个 group 所在的位置
             let groupFrame = descriptor.frameOfGroup(at: idx, rect: contentRect)
             descriptor.groups[idx].groupFrame = groupFrame
             context.groupFrame = groupFrame
-            
-            // 绘制主图图例（副图图例暂由 renderer 自行处理）
-            var viewPortOffsetY: CGFloat = 0
-            let legendText = NSMutableAttributedString()
-            for renderer in renderers {
-                if let string = renderer.legend(context: context) {
-                    if !legendText.string.isEmpty {
-                        legendText.append(NSAttributedString(string: "\n"))
-                    }
-                    legendText.append(string)
-                }
-            }
-            if legendText.string.isEmpty {
-                if group.chartSection == .mainChart {
-                    legendLabel.attributedText = nil
-                }
-            } else {
-                context.legendText = legendText
-                if group.chartSection == .mainChart {
-                    legendLabel.attributedText = legendText
-                    legendLabel.sizeToFit()
-                    let legendFrame = legendLabel.frame
-                    viewPortOffsetY = legendFrame.maxY
-                    context.legendFrame = legendFrame
-                } else {
-                    let boundingRect = legendText.boundingRect(
-                        with: CGSize(width: groupFrame.width * 0.8, height: groupFrame.height),
-                        options: [.usesLineFragmentOrigin, .usesFontLeading],
-                        context: nil
-                    )
-                    viewPortOffsetY = boundingRect.height + group.legendSpacing
-                    context.legendFrame = CGRect(
-                        x: 12, y: groupFrame.minY + group.padding.top,
-                        width: boundingRect.width, height: boundingRect.height
-                    )
-                }
-            }
-            
+
+            // 绘制图例
+            let viewPortOffsetY = configureLegend(for: group, groupFrame: groupFrame)
+
             // 计算 viewPort
             let groupInset = UIEdgeInsets(
                 top: group.padding.top + viewPortOffsetY, left: 0,
@@ -635,30 +717,15 @@ extension KLineView {
             let viewPort = groupFrame.inset(by: groupInset)
             descriptor.groups[idx].viewPort = viewPort
             context.viewPort = viewPort
-            
+
             // 绘制图表
             for renderer in renderers {
                 renderer.draw(in: scrollView.contentView.canvas, context: context)
             }
         }
         
-        // 绘制十字线
-        if let location = selectedLocation,
-           let renderer = crosshairRenderer,
-           let groupIndex = descriptor.indexOfGroup(at: location) {
-            let group = descriptor.groups[groupIndex]
-            renderer.selectedGroup = group
-            for group in descriptor.groups {
-                if group.chartSection == .mainChart {
-                    renderer.candleGroup = group
-                } else if group.chartSection == .timeline {
-                    renderer.timelineGroup = group
-                }
-            }
-            context.groupFrame = group.groupFrame
-            context.viewPort = group.viewPort
-            context.layout.dataBounds = group.dataBounds
-            renderer.draw(in: scrollView.contentView.canvas, context: context)
+        if hasCrosshair, let location = crosshairLocation {
+            drawCrosshairIfPossible(at: location)
         }
     }
 }
