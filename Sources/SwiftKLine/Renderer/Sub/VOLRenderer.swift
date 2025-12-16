@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class VOLRenderer: Renderer {
+final class VOLRenderer: Renderer, LegendUpdatable {
     
     private let risingLayer = CAShapeLayer()
     private let fallingLayer = CAShapeLayer()
@@ -51,14 +51,15 @@ final class VOLRenderer: Renderer {
         fallingLayer.fillColor = fallingColor.cgColor
         fallingLayer.strokeColor = fallingColor.cgColor
         
-        legendLayer.string = context.legendText
-        legendLayer.frame = context.legendFrame
+        updateLegend(context: context)
         
         let upPath = CGMutablePath()
         let downPath = CGMutablePath()
+        let itemWidth = candleStyle.width + candleStyle.gap
+        let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         for (idx, item) in visibleItems.enumerated() {
             // 计算 x 坐标
-            let x = layout.minX(at: idx)
+            let x = CGFloat(idx) * itemWidth + visibleMinX
             let y = layout.minY(for: item.volume, viewPort: viewPort)
             let height = viewPort.maxY - y
             let rect = CGRect(x: x, y: y, width: candleStyle.width, height: height)
@@ -68,6 +69,11 @@ final class VOLRenderer: Renderer {
         }
         risingLayer.path = upPath
         fallingLayer.path = downPath
+    }
+
+    func updateLegend(context: Context) {
+        legendLayer.string = context.legendText
+        legendLayer.frame = context.legendFrame
     }
     
     func legend(context: Context) -> NSAttributedString? {

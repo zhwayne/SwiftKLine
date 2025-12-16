@@ -41,10 +41,14 @@ final class SARRenderer: Renderer {
         let style = klineConfig.indicatorStyle(for: key, type: LineStyle.self)
         rectLayer.strokeColor = style?.strokeColor.cgColor
         
+        let itemWidth = candleStyle.width + candleStyle.gap
+        let candleHalfWidth = candleStyle.width * 0.5
+        let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
+
         let path = CGMutablePath()
         for (idx, value) in visibleValues.enumerated() {
             guard let value else { continue }
-            let x = layout.minX(at: idx) + candleStyle.width * 0.5
+            let x = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
             let y = layout.minY(for: value, viewPort: context.viewPort)
             let rect = CGRect(x: x - 2, y: y - 2, width: 4, height: 4)
             path.addRect(rect)
@@ -75,11 +79,19 @@ final class SARRenderer: Renderer {
     func dataBounds(context: Context) -> MetricBounds {
         let key = Indicator.Key.sar
         let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self)
-        guard let visibleValues = visibleValues?.compactMap({ $0 }),
-              let min = visibleValues.min(),
-              let max = visibleValues.max() else {
+        guard let visibleValues else {
             return .empty
         }
-        return MetricBounds(min: min, max: max)
+        var minValue = Double.greatestFiniteMagnitude
+        var maxValue = -Double.greatestFiniteMagnitude
+        var hasValue = false
+        for value in visibleValues {
+            guard let value else { continue }
+            hasValue = true
+            minValue = Swift.min(minValue, value)
+            maxValue = Swift.max(maxValue, value)
+        }
+        guard hasValue else { return .empty }
+        return MetricBounds(min: minValue, max: maxValue)
     }
 }

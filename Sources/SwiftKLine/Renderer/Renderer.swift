@@ -32,6 +32,11 @@ extension Renderer {
     }
 }
 
+@MainActor
+protocol LegendUpdatable: AnyObject {
+    func updateLegend(context: RendererContext<any KLineItem>)
+}
+
 final class AnyRenderer: Renderer {
         
     private let _id: () -> AnyHashable

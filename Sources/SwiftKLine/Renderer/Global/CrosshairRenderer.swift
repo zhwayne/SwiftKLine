@@ -86,7 +86,7 @@ final class CrosshairRenderer: Renderer {
             feedback.selectionChanged()
         }
         // MARK: - 绘制y轴虚线
-        let path = UIBezierPath()
+        let path = CGMutablePath()
         path.move(to: CGPoint(x: location.x, y: 0))
         path.addLine(to: CGPoint(x: location.x, y: layer.bounds.maxY))
         
@@ -95,17 +95,11 @@ final class CrosshairRenderer: Renderer {
             path.move(to: CGPoint(x: 0, y: location.y))
             path.addLine(to: CGPoint(x: layer.bounds.width, y: location.y))
         }
-        dashLineLayer.path = path.cgPath
+        dashLineLayer.path = path
         
         // MARK: - 绘制圆点
-        let circlePath = UIBezierPath(
-            arcCenter: location,
-            radius: 2,
-            startAngle: 0,
-            endAngle: CGFloat.pi * 2,
-            clockwise: false
-        )
-        pointLayer.path = circlePath.cgPath
+        let pointRect = CGRect(x: location.x - 2, y: location.y - 2, width: 4, height: 4)
+        pointLayer.path = CGPath(ellipseIn: pointRect, transform: nil)
         
         if let index = context.layout.indexInViewPort(on: location.x) {
             let item = context.items[index]

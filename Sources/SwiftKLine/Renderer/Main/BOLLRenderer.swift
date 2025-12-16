@@ -58,6 +58,10 @@ final class BOLLRenderer: Renderer {
         lowerLayer.strokeColor = style?.strokeColor.cgColor
         areaLayer.fillColor =  style?.strokeColor.withAlphaComponent(0.05).cgColor
         
+        let itemWidth = candleStyle.width + candleStyle.gap
+        let candleHalfWidth = candleStyle.width * 0.5
+        let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
+
         // 绘制上柜和下轨
         let upperPath = CGMutablePath()
         let middlePath = CGMutablePath()
@@ -65,7 +69,7 @@ final class BOLLRenderer: Renderer {
         let areaPath = CGMutablePath()
         for (idx, value) in visibleValues.enumerated() {
             guard let value else { continue }
-            let x = layout.minX(at: idx) + candleStyle.width * 0.5
+            let x = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
             let upperY = layout.minY(for: value.upper, viewPort: context.viewPort)
             let middleY = layout.minY(for: value.middle, viewPort: context.viewPort)
             let lowerY = layout.minY(for: value.lower, viewPort: context.viewPort)
@@ -84,7 +88,7 @@ final class BOLLRenderer: Renderer {
         for (idx, value) in visibleValues.enumerated().reversed() {
             guard let value else { continue }
             let lowerY = layout.minY(for: value.lower, viewPort: context.viewPort)
-            let x = layout.minX(at: idx) + candleStyle.width * 0.5
+            let x = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
             areaPath.addLine(to: CGPoint(x: x, y: lowerY))
         }
         areaPath.closeSubpath()
@@ -131,14 +135,21 @@ final class BOLLRenderer: Renderer {
     func dataBounds(context: Context) -> MetricBounds {
         let key = Indicator.Key.boll
         let visibleValues = context.visibleValues(forKey: key, valueType: BOLLIndicatorValue?.self)
-        guard let visibleValues = visibleValues?.compactMap({ $0 }) else {
+        guard let visibleValues else {
             return .empty
         }
-        let mins = visibleValues.map(\.min)
-        let maxies = visibleValues.map(\.max)
-        guard let min = mins.min(), let max = maxies.max() else {
+        var minValue = Double.greatestFiniteMagnitude
+        var maxValue = -Double.greatestFiniteMagnitude
+        var hasValue = false
+        for value in visibleValues {
+            guard let value else { continue }
+            hasValue = true
+            minValue = Swift.min(minValue, value.min)
+            maxValue = Swift.max(maxValue, value.max)
+        }
+        guard hasValue else {
             return .empty
         }
-        return MetricBounds(min: min, max: max)
+        return MetricBounds(min: minValue, max: maxValue)
     }
 }

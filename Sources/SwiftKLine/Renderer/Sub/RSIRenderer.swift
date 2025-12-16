@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class RSIRenderer: Renderer {
+final class RSIRenderer: Renderer, LegendUpdatable {
 
     private let priceFormatter = PriceFormatter()
     
@@ -58,8 +58,11 @@ final class RSIRenderer: Renderer {
         let candleStyle = klineConfig.candleStyle
         let layout = context.layout
         
-        legendLayer.string = context.legendText
-        legendLayer.frame = context.legendFrame
+        updateLegend(context: context)
+
+        let candleHalfWidth = candleStyle.width * 0.5
+        let itemWidth = candleStyle.width + candleStyle.gap
+        let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         
         zip(peroids, lineLayers).forEach { period, lineLayer in
             let key = Indicator.Key.rsi(period)
@@ -73,7 +76,7 @@ final class RSIRenderer: Renderer {
             var hasStartPoint = false
             for (idx, value) in visibleValues.enumerated() {
                 guard let value else { continue }
-                let x = layout.minX(at: idx) + candleStyle.width * 0.5
+                let x = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
                 let y = layout.minY(for: value, viewPort: context.viewPort)
                 let point = CGPoint(x: x, y: y)
                 if hasStartPoint {
@@ -89,8 +92,8 @@ final class RSIRenderer: Renderer {
         // 绘制超买超卖区域
         let oby = layout.minY(for: range.upperBound, viewPort: context.viewPort)
         let osy = layout.minY(for: range.lowerBound, viewPort: context.viewPort)
-        let minX = layout.minX(at: 0) + candleStyle.width * 0.5
-        let maxX = layout.minX(at: context.visibleRange.count - 1) + candleStyle.width * 0.5
+        let minX = visibleMinX + candleHalfWidth
+        let maxX = CGFloat(context.visibleRange.count - 1) * itemWidth + visibleMinX + candleHalfWidth
         let overRect = CGRect(x: minX, y: oby, width: maxX - minX, height: osy - oby)
         areaLayer.path = CGPath(rect: overRect, transform: nil)
         areaLayer.fillColor = rangeColor.withAlphaComponent(0.05).cgColor
@@ -102,6 +105,11 @@ final class RSIRenderer: Renderer {
         dashPath.addLine(to: CGPoint(x: overRect.maxX, y: overRect.maxY))
         dashLayer.path = dashPath
         dashLayer.strokeColor = rangeColor.cgColor
+    }
+
+    func updateLegend(context: Context) {
+        legendLayer.string = context.legendText
+        legendLayer.frame = context.legendFrame
     }
     
     func legend(context: Context) -> NSAttributedString? {
@@ -127,19 +135,26 @@ final class RSIRenderer: Renderer {
     }
     
     func dataBounds(context: Context) -> MetricBounds {
-        return peroids.reduce(MetricBounds.empty) { partialResult, period in
+        var bounds = MetricBounds.empty
+        for period in peroids {
             let key = Indicator.Key.rsi(period)
-            let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self)
-            guard let visibleValues = visibleValues?.compactMap({ $0 }),
-                  let min = visibleValues.min(),
-                  let max = visibleValues.max() else {
-                return partialResult
+            guard let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self) else {
+                continue
             }
-            let bounds = MetricBounds(min: min, max: max)
-            let rangeBounds = MetricBounds(range: range)
-            return bounds
-                .merging(other: partialResult)
-                .merging(other: rangeBounds)
+            var minValue = Double.greatestFiniteMagnitude
+            var maxValue = -Double.greatestFiniteMagnitude
+            var hasValue = false
+            for value in visibleValues {
+                guard let value else { continue }
+                hasValue = true
+                minValue = Swift.min(minValue, value)
+                maxValue = Swift.max(maxValue, value)
+            }
+            if hasValue {
+                bounds.merge(other: MetricBounds(min: minValue, max: maxValue))
+            }
         }
+        bounds.merge(other: MetricBounds(range: range))
+        return bounds
     }
 }

@@ -146,12 +146,15 @@ private extension TimeSeriesRenderer {
             return
         }
         let candleStyle = context.configuration.candleStyle
+        let candleHalfWidth = candleStyle.width * 0.5
+        let itemWidth = candleStyle.width + candleStyle.gap
+        let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         let linePath = CGMutablePath()
         let fillPath = CGMutablePath()
         var firstPoint: CGPoint?
         var lastPoint: CGPoint?
         for (idx, item) in visibleItems.enumerated() {
-            let centerX = layout.minX(at: idx) + candleStyle.width * 0.5
+            let centerX = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
             let priceY = layout.minY(for: item.closing, viewPort: viewPort)
             let point = CGPoint(x: centerX, y: priceY)
             if let _ = firstPoint {

@@ -46,9 +46,12 @@ final class CandleRenderer: Renderer {
         
         let upPath = CGMutablePath()
         let downPath = CGMutablePath()
+        let candleHalfWidth = candleStyle.width * 0.5
+        let itemWidth = candleStyle.width + candleStyle.gap
+        let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         for (idx, item) in visibleItems.enumerated() {
             // 计算 x 坐标
-            let x = context.layout.minX(at: idx)
+            let x = CGFloat(idx) * itemWidth + visibleMinX
             
             // 计算开盘价和收盘价的 y 坐标
             let openY = layout.minY(for: item.opening, viewPort: viewPort)
@@ -62,7 +65,7 @@ final class CandleRenderer: Renderer {
             let highY = layout.minY(for: item.highest, viewPort: viewPort)
             let lowY = layout.minY(for: item.lowest, viewPort: viewPort)
             
-            let centerX = candleStyle.width / 2 + x
+            let centerX = x + candleHalfWidth
             let highestPoint = CGPoint(x: centerX, y: highY)
             let lowestPoint = CGPoint(x: centerX, y: lowY)
             

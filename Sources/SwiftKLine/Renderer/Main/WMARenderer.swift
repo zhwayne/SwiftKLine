@@ -39,6 +39,9 @@ final class WMARenderer: Renderer {
         let klineConfig = context.configuration
         let candleStyle = klineConfig.candleStyle
         let layout = context.layout
+        let candleHalfWidth = candleStyle.width * 0.5
+        let itemWidth = candleStyle.width + candleStyle.gap
+        let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         
         zip(periods, lineLayers).forEach { period, lineLayer in
             let key = Indicator.Key.wma(period)
@@ -52,7 +55,7 @@ final class WMARenderer: Renderer {
             var hasStartPoint = false
             for (idx, value) in visibleValues.enumerated() {
                 guard let value else { continue }
-                let x = layout.minX(at: idx) + candleStyle.width * 0.5
+                let x = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
                 let y = layout.minY(for: value, viewPort: context.viewPort)
                 let point = CGPoint(x: x, y: y)
                 if hasStartPoint {
@@ -89,16 +92,25 @@ final class WMARenderer: Renderer {
     }
     
     func dataBounds(context: Context) -> MetricBounds {
-        return periods.reduce(MetricBounds.empty) { partialResult, period in
+        var bounds = MetricBounds.empty
+        for period in periods {
             let key = Indicator.Key.wma(period)
-            let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self)
-            guard let visibleValues = visibleValues?.compactMap({ $0 }),
-                  let min = visibleValues.min(),
-                  let max = visibleValues.max() else {
-                return partialResult
+            guard let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self) else {
+                continue
             }
-            let bounds = MetricBounds(min: min, max: max)
-            return bounds.merging(other: partialResult)
+            var minValue = Double.greatestFiniteMagnitude
+            var maxValue = -Double.greatestFiniteMagnitude
+            var hasValue = false
+            for value in visibleValues {
+                guard let value else { continue }
+                hasValue = true
+                minValue = Swift.min(minValue, value)
+                maxValue = Swift.max(maxValue, value)
+            }
+            if hasValue {
+                bounds.merge(other: MetricBounds(min: minValue, max: maxValue))
+            }
         }
+        return bounds
     }
 }

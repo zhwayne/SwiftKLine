@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class MACDRenderer: Renderer {
+final class MACDRenderer: Renderer, LegendUpdatable {
     
     var id: some Hashable { Indicator.macd }
     
@@ -70,14 +70,17 @@ final class MACDRenderer: Renderer {
         let candleStyle = klineConfig.candleStyle
         let layout = context.layout
         
-        legendLayer.string = context.legendText
-        legendLayer.frame = context.legendFrame
+        updateLegend(context: context)
         
         let key = Indicator.Key.macd
         guard let visibleValues = context.visibleValues(forKey: key, valueType: MACDIndicatorValue?.self) else {
             return
         }
         let style = klineConfig.indicatorStyle(for: key, type: MACDStyle.self)
+
+        let itemWidth = candleStyle.width + candleStyle.gap
+        let candleHalfWidth = candleStyle.width * 0.5
+        let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
 
         let risingColor = KLineTrend.rising.color(using: klineConfig).cgColor
         let fallingColor = KLineTrend.falling.color(using: klineConfig).cgColor
@@ -108,7 +111,7 @@ final class MACDRenderer: Renderer {
             }
             
             let histogram = value.histogram
-            let x = layout.minX(at: idx) - context.viewPort.minX
+            let x = CGFloat(idx) * itemWidth + visibleMinX - context.viewPort.minX
             let yTop = layout.minY(for: max(histogram, 0), viewPort: barLayer.bounds)
             let yBottom = layout.minY(for: min(histogram, 0), viewPort: barLayer.bounds)
             let height = max(yBottom - yTop, 0)
@@ -146,13 +149,13 @@ final class MACDRenderer: Renderer {
         let drawLine: (CAShapeLayer, UIColor?, (MACDIndicatorValue) -> Double) -> Void = { lineLayer, color, extractor in
             lineLayer.strokeColor = color?.cgColor
             
-            let path = UIBezierPath()
+            let path = CGMutablePath()
             var hasStartPoint = false
             for (idx, value) in visibleValues.enumerated() {
                 guard let value else { continue }
                 let yValue = extractor(value)
                 // 计算 x 坐标
-                let x = layout.minX(at: idx) + candleStyle.width * 0.5
+                let x = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
                 let y = layout.minY(for: yValue, viewPort: context.viewPort)
                 let point = CGPoint(x: x, y: y)
                 
@@ -164,11 +167,16 @@ final class MACDRenderer: Renderer {
                 }
             }
             
-            lineLayer.path = path.cgPath
+            lineLayer.path = path
         }
         
         drawLine(macdLayer, style?.macdColor, { $0.macd })
         drawLine(signalLayer, style?.deaColor, { $0.signal })
+    }
+
+    func updateLegend(context: Context) {
+        legendLayer.string = context.legendText
+        legendLayer.frame = context.legendFrame
     }
     
     func legend(context: Context) -> NSAttributedString? {
@@ -208,16 +216,22 @@ final class MACDRenderer: Renderer {
     func dataBounds(context: Context) -> MetricBounds {
         let key = Indicator.Key.macd
         let visibleValues = context.visibleValues(forKey: key, valueType: MACDIndicatorValue?.self)
-        guard let visibleValues = visibleValues?.compactMap({ $0 }) else {
+        guard let visibleValues else {
             return .empty
         }
-        let mins = visibleValues.map(\.min)
-        let maxies = visibleValues.map(\.max)
-        guard let min = mins.min(), let max = maxies.max() else {
+        var minValue = Double.greatestFiniteMagnitude
+        var maxValue = -Double.greatestFiniteMagnitude
+        var hasValue = false
+        for value in visibleValues {
+            guard let value else { continue }
+            hasValue = true
+            minValue = Swift.min(minValue, value.min)
+            maxValue = Swift.max(maxValue, value.max)
+        }
+        guard hasValue else {
             return .empty
         }
-        let maxValue = Swift.max(abs(min), abs(max))
-        let bounds = MetricBounds(min: -maxValue, max: maxValue)
-        return bounds
+        let symmetricMax = Swift.max(abs(minValue), abs(maxValue))
+        return MetricBounds(min: -symmetricMax, max: symmetricMax)
     }
 }

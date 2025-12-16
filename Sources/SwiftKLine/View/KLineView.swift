@@ -41,6 +41,19 @@ enum ChartSection: Sendable {
     private var descriptor = ChartDescriptor()
     private var customRenderers = [AnyRenderer]()
     private var crosshairRenderer: CrosshairRenderer?
+    
+    private struct ColorAppearanceSignature: Equatable {
+        let userInterfaceStyle: UIUserInterfaceStyle
+        let accessibilityContrast: UIAccessibilityContrast
+        let displayScale: CGFloat
+        
+        init(traitCollection: UITraitCollection) {
+            userInterfaceStyle = traitCollection.userInterfaceStyle
+            accessibilityContrast = traitCollection.accessibilityContrast
+            displayScale = traitCollection.displayScale
+        }
+    }
+    private var lastFullDrawColorSignature: ColorAppearanceSignature?
     private enum MainChartContent {
         case candlestick
         case timeSeries
@@ -574,8 +587,12 @@ extension KLineView {
             selectedIndex: selectedIndex
         )
 
+        let currentColorSignature = ColorAppearanceSignature(traitCollection: traitCollection)
         let crosshairLocation = selectedLocation
-        let hasCrosshair = crosshairRenderer != nil && crosshairLocation != nil
+        let hasCrosshairRenderer = crosshairRenderer != nil
+        let canUseCrosshairFastPath = hasCrosshairRenderer
+            && crosshairLocation != nil
+            && lastFullDrawColorSignature == currentColorSignature
 
         func makeLegendText(for renderers: [AnyRenderer]) -> NSMutableAttributedString {
             let legendText = NSMutableAttributedString()
@@ -650,44 +667,26 @@ extension KLineView {
             return true
         }
 
-        if hasCrosshair,
+        if hasCrosshairRenderer, let location = crosshairLocation {
+            defer { _ = drawCrosshairIfPossible(at: location) }
+        }
+
+        if canUseCrosshairFastPath,
            let location = crosshairLocation,
-           let groupIndex = descriptor.indexOfGroup(at: location) {
-            let groupFrame = descriptor.frameOfGroup(at: groupIndex, rect: contentRect)
-            descriptor.groups[groupIndex].groupFrame = groupFrame
+           let selectedGroupIndex = descriptor.indexOfGroup(at: location),
+           !descriptor.groups[selectedGroupIndex].viewPort.isEmpty {
+            for idx in descriptor.groups.indices {
+                let groupFrame = descriptor.frameOfGroup(at: idx, rect: contentRect)
+                descriptor.groups[idx].groupFrame = groupFrame
+                context.groupFrame = groupFrame
 
-            if !descriptor.groups[groupIndex].viewPort.isEmpty {
-                if let timelineGroupIndex = descriptor.groups.firstIndex(where: { $0.chartSection == .timeline }) {
-                    let groupFrame = descriptor.frameOfGroup(at: timelineGroupIndex, rect: contentRect)
-                    descriptor.groups[timelineGroupIndex].groupFrame = groupFrame
-                    let group = descriptor.groups[timelineGroupIndex]
-                    let groupInset = UIEdgeInsets(
-                        top: group.padding.top, left: 0,
-                        bottom: group.padding.bottom, right: 0
-                    )
-                    descriptor.groups[timelineGroupIndex].viewPort = groupFrame.inset(by: groupInset)
-                }
-
-                if let mainGroupIndex = descriptor.groups.firstIndex(where: { $0.chartSection == .mainChart }) {
-                    let groupFrame = descriptor.frameOfGroup(at: mainGroupIndex, rect: contentRect)
-                    descriptor.groups[mainGroupIndex].groupFrame = groupFrame
-                    context.groupFrame = groupFrame
-                    context.layout.dataBounds = descriptor.groups[mainGroupIndex].dataBounds
-
-                    let group = descriptor.groups[mainGroupIndex]
-                    let viewPortOffsetY = configureLegend(for: group, groupFrame: groupFrame)
-                    let groupInset = UIEdgeInsets(
-                        top: group.padding.top + viewPortOffsetY, left: 0,
-                        bottom: group.padding.bottom, right: 0
-                    )
-                    let viewPort = groupFrame.inset(by: groupInset)
-                    descriptor.groups[mainGroupIndex].viewPort = viewPort
-                }
-
-                if drawCrosshairIfPossible(at: location) {
-                    return
+                let group = descriptor.groups[idx]
+                _ = configureLegend(for: group, groupFrame: groupFrame)
+                for renderer in group.renderers {
+                    (renderer.base as? LegendUpdatable)?.updateLegend(context: context)
                 }
             }
+            return
         }
 
         for (idx, group) in descriptor.groups.enumerated() {
@@ -723,10 +722,8 @@ extension KLineView {
                 renderer.draw(in: scrollView.contentView.canvas, context: context)
             }
         }
-        
-        if hasCrosshair, let location = crosshairLocation {
-            drawCrosshairIfPossible(at: location)
-        }
+
+        lastFullDrawColorSignature = currentColorSignature
     }
 }
 
