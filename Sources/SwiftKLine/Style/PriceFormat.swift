@@ -18,6 +18,8 @@ struct PriceFormatter: NumberFormatting {
     var minimumFractionDigits = 2
     
     func format(_ number: NSNumber) -> String {
+        let value = number.doubleValue
+        guard value.isFinite else { return "--" }
         var integer = number.intValue
         var digits = 0
         while integer != 0 {
@@ -27,7 +29,7 @@ struct PriceFormatter: NumberFormatting {
         let formatter = NumberFormatter()
         formatter.maximumSignificantDigits = max(maximumSignificantDigits, digits + minimumFractionDigits)
         formatter.numberStyle = .decimal
-        return formatter.string(from: number)!
+        return formatter.string(from: number) ?? "\(number)"
     }
 }
 
@@ -37,11 +39,11 @@ struct VolumeFormatter: NumberFormatting {
         var units = ["K", "M", "B", "T"]
         var unit = ""
         var value = number.doubleValue
-        while value >= 1000, units.count > 0 {
+        while value >= 1000, !units.isEmpty {
             value /= 1000
             unit = units.removeFirst()
         }
         let formatter = PriceFormatter()
-        return formatter.format(number) + unit
+        return formatter.format(NSNumber(value: value)) + unit
     }
 }

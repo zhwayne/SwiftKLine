@@ -126,23 +126,33 @@ class KLineMarkView: UIView {
         changeAmountLabel.titleLabel.text = "涨跌额"
         changeAmountLabel.detailLabel.text = priceFormatter.format(changeAmount as NSNumber)
         // 涨跌幅
-        let changeRate = (changeAmount / item.opening) * 100
         changeRateLabel.titleLabel.text = "涨跌幅"
-        let changeRateString = priceFormatter.format(changeRate as NSNumber)
-        var prefix = changeRateString.hasPrefix("-") ? "" : "+"
-        changeRateLabel.detailLabel.text =  prefix + changeRateString + "%"
-        changeRateLabel.detailLabel.textColor = item.trend == .rising
-        ? klineConfig.candleStyle.risingColor
-        : klineConfig.candleStyle.fallingColor
+        if item.opening != 0 {
+            let changeRate = (changeAmount / item.opening) * 100
+            let changeRateString = priceFormatter.format(changeRate as NSNumber)
+            var prefix = changeRateString.hasPrefix("-") ? "" : "+"
+            changeRateLabel.detailLabel.text = prefix + changeRateString + "%"
+            changeRateLabel.detailLabel.textColor = item.trend == .rising
+            ? klineConfig.candleStyle.risingColor
+            : klineConfig.candleStyle.fallingColor
+        } else {
+            changeRateLabel.detailLabel.text = "--"
+            changeRateLabel.detailLabel.textColor = .secondaryLabel
+        }
         // 振幅
-        let amplitude = ((item.highest - item.lowest) / item.lowest) * 100
         amplitudeLabel.titleLabel.text = "振幅"
-        let amplitudeString = priceFormatter.format(amplitude as NSNumber)
-        prefix = amplitudeString.hasPrefix("-") ? "" : "+"
-        amplitudeLabel.detailLabel.text =  prefix + amplitudeString + "%"
-        amplitudeLabel.detailLabel.textColor = item.trend == .rising
-        ? klineConfig.candleStyle.risingColor
-        : klineConfig.candleStyle.fallingColor
+        if item.lowest != 0 {
+            let amplitude = ((item.highest - item.lowest) / item.lowest) * 100
+            let amplitudeString = priceFormatter.format(amplitude as NSNumber)
+            let prefix = amplitudeString.hasPrefix("-") ? "" : "+"
+            amplitudeLabel.detailLabel.text = prefix + amplitudeString + "%"
+            amplitudeLabel.detailLabel.textColor = item.trend == .rising
+            ? klineConfig.candleStyle.risingColor
+            : klineConfig.candleStyle.fallingColor
+        } else {
+            amplitudeLabel.detailLabel.text = "--"
+            amplitudeLabel.detailLabel.textColor = .secondaryLabel
+        }
         // 成交量
         volumeLabel.titleLabel.text = "成交量"
         volumeLabel.detailLabel.text = volumeFormatter.format(item.volume as NSNumber)
