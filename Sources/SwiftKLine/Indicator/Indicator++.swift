@@ -9,18 +9,11 @@ import Foundation
 
 extension Indicator {
     
+    /// 兼容层：外部仍通过 `Indicator` 拿 calculators，
+    /// 内部实现统一转发到 `IndicatorCatalog`。
     @MainActor func makeCalculators(configuration: KLineConfiguration) -> [any IndicatorCalculator] {
-        configuration.indicatorKeys(for: self).compactMap { key in
-            switch key {
-            case .vol:              return VOLCalculator()
-            case let .ma(period):   return MACalculator(period: period)
-            case let .ema(period):  return EMACalculator(period: period)
-            case let .wma(period):  return WMACalculator(period: period)
-            case .boll:             return BOLLCalculator()
-            case .sar:              return SARCalculator()
-            case let .rsi(period):  return RSICalculator(period: period)
-            case let .macd:         return MACDCalculator()
-            }
-        }
+        IndicatorCatalog
+            .spec(for: self)?
+            .makeCalculators(configuration: configuration) ?? []
     }
 }

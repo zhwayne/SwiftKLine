@@ -10,13 +10,19 @@ import UIKit
 /// 移动平均线(MA)渲染器
 /// 负责计算和绘制K线图上的移动平均线
 final class MARenderer: Renderer {
+    private struct ID: Hashable {
+        let indicator: Indicator
+        let periods: [Int]
+    }
 
     private let priceFormatter = PriceFormatter()
     
     private let peroids: [Int]
     private let lineLayers: [CAShapeLayer]
 
-    var id: some Hashable { Indicator.ma }
+    var id: some Hashable {
+        ID(indicator: .ma, periods: peroids)
+    }
 
     init(peroids: [Int]) {
         self.peroids = peroids
@@ -47,7 +53,7 @@ final class MARenderer: Renderer {
         
         zip(peroids, lineLayers).forEach { period, lineLayer in
             let key = Indicator.Key.ma(period)
-            guard let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self) else {
+            guard let visibleValues = context.visibleScalarValues(for: key) else {
                 return
             }
             let style = klineConfig.indicatorStyle(for: key, type: LineStyle.self)
@@ -75,7 +81,7 @@ final class MARenderer: Renderer {
         return peroids.reduce(NSMutableAttributedString()) { partialResult, period in
             let key = Indicator.Key.ma(period)
             let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
-            guard let values = context.values(forKey: key, valueType: Double?.self), !values.isEmpty,
+            guard let values = context.scalarValues(for: key), !values.isEmpty,
                   context.currentIndex >= 0,
                   context.currentIndex < values.count,
                   let value = values[context.currentIndex] else {
@@ -97,7 +103,7 @@ final class MARenderer: Renderer {
         var bounds = MetricBounds.empty
         for period in peroids {
             let key = Indicator.Key.ma(period)
-            guard let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self) else {
+            guard let visibleValues = context.visibleScalarValues(for: key) else {
                 continue
             }
             var minValue = Double.greatestFiniteMagnitude

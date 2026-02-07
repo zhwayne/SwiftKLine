@@ -34,6 +34,7 @@
 ## 基本使用
 
 ```swift
+import UIKit
 import SwiftKLine
 
 let klineView = KLineView()
@@ -62,65 +63,34 @@ final class MyProvider: KLineItemProvider {
 
 # 扩展框架
 
-## 添加自定义渲染器
+## 扩展内置指标渲染
 
-实现 `Renderer` 协议即可将自定义绘制叠加在主图：
+框架当前提供的是“按指标注册渲染器 provider”的扩展点。  
+你可以覆盖内置指标对应的渲染器实现，或追加同指标的额外渲染器。
 
 ```swift
-final class BuySellMarkerRenderer: Renderer {
-    struct Marker: Hashable { let position: Int; let isBuy: Bool }
+import UIKit
+import SwiftKLine
 
-    let id = "com.example.buy-sell"
-    private let markers: [Marker]
+final class MyMARenderer: Renderer {
+    var id: some Hashable { "my-ma-renderer" }
+    var zIndex: Int { 10 } // 值越大越靠上绘制
+    func install(to layer: CALayer) {}
+    func uninstall(from layer: CALayer) {}
+    func draw(in layer: CALayer, context: Context) {}
+}
 
-    init(markers: [Marker]) {
-        self.markers = markers
-    }
-
-    func install(to layer: CALayer) { /* 创建子图层 */ }
-    func uninstall(from layer: CALayer) { /* 清理子图层 */ }
-
-    func draw(in layer: CALayer, context: Context) {
-        guard !markers.isEmpty else { return }
-        let viewPort = context.layout.frameOfVisibleRange
-        let candleStyle = context.configuration.candleStyle
-        for marker in markers where context.visibleRange.contains(marker.position) {
-            let x = context.layout.minX(at: marker.position) + candleStyle.width / 2
-            let y = viewPort.minY + 12
-            // 在 layer 上绘制三角形 / 圆点等
-        }
-    }
-
-    func dataBounds(context: Context) -> MetricBounds { .empty } // 无需占用 Y 轴
+// 例如：为 MA 指标注册自定义渲染器 provider
+KLineView.registerRenderer(for: .ma) { indicator, configuration in
+    MyMARenderer()
 }
 ```
 
-注册与管理：
+说明：
 
-```swift
-let markers = [
-    BuySellMarkerRenderer.Marker(position: 10, isBuy: true),
-    BuySellMarkerRenderer.Marker(position: 24, isBuy: false),
-]
-
-let renderer = BuySellMarkerRenderer(markers: markers)
-
-// 批量覆盖（同一 pass、zIndex）
-klineView.setCustomRenderers([renderer], pass: .postMain, zIndex: 10)
-
-// 批量覆盖（为每个 renderer 指定不同 pass/zIndex）
-klineView.setCustomRenderers([
-    (renderer: renderer, pass: .postMain, zIndex: 10),
-    (renderer: RangeHighlightRenderer(...), pass: .background, zIndex: 0)
-])
-
-// 单个增量添加 / 移除 / 清空
-klineView.addCustomRenderer(MyOverlayRenderer(), pass: .mainOverlay, zIndex: 1)
-klineView.removeCustomRenderer(id: "com.example.buy-sell")
-klineView.removeAllCustomRenderers()
-```
-
-`RendererPass` 控制绘制层级（背景、主图覆盖、主图之后、最前景），`zIndex` 用于同一层内排序。
+- `registerRenderer` 是全局注册（静态），建议在 App 启动阶段完成。
+- provider 会收到当前 `indicator` 与 `configuration`，可据此生成 renderer。
+- 尚未提供按 `pass/zIndex` 管理任意 overlay renderer 的公开 API。
 
 # 许可证
 

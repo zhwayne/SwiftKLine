@@ -10,7 +10,7 @@ import UIKit
 /// 负责处理K线图布局相关的计算
 @MainActor public final class KLineLayout {
     /// 承载K线图的滚动视图
-    let scrollView: UIScrollView
+    let scrollView: ChartScrollView
     
     /// K线数据总数量
     var itemCount: Int = 0 {
@@ -23,7 +23,7 @@ import UIKit
     
     private let klineConfig: KLineConfiguration
         
-    init(scrollView: UIScrollView, configuration: KLineConfiguration) {
+    init(scrollView: ChartScrollView, configuration: KLineConfiguration) {
         self.scrollView = scrollView
         self.klineConfig = configuration
     }

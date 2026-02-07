@@ -15,7 +15,7 @@ class PinchInteraction: NSObject, UIInteraction {
     private var pinchCenterX: CGFloat = 0
     private var oldScale: CGFloat = 1
     private let klineConfig: KLineConfiguration
-    private var scrollView: ChartScrollView? { layout.scrollView as? ChartScrollView }
+    private var scrollView: ChartScrollView { layout.scrollView }
     private let layout: KLineLayout
     
     init(layout: KLineLayout, configuration: KLineConfiguration) {
@@ -37,7 +37,6 @@ class PinchInteraction: NSObject, UIInteraction {
     }
     
     @objc private func handlePinch(_ pinch: UIPinchGestureRecognizer) {
-        guard let scrollView else { return }
         switch pinch.state {
         case .began:
             scrollView.isScrollEnabled = false
@@ -46,10 +45,11 @@ class PinchInteraction: NSObject, UIInteraction {
             pinchCenterX = (p1.x + p2.x) / 2
             oldScale = 1.0
         case .changed:
-            break;
+            break
             
         default:
             scrollView.isScrollEnabled = true
+            return
         }
         
         let difValue = pinch.scale - oldScale
@@ -67,6 +67,10 @@ class PinchInteraction: NSObject, UIInteraction {
         let oldContentSize = scrollView.contentSize
         scrollView.contentSize = layout.contentSize
         
+        guard oldContentSize.width > 0 else {
+            scrollView.delegate?.scrollViewDidScroll?(scrollView)
+            return
+        }
         
         // 算新的内容偏移量
         let scale = scrollView.contentSize.width / oldContentSize.width
@@ -80,8 +84,6 @@ class PinchInteraction: NSObject, UIInteraction {
 
         // 更新 contentOffset 并重绘内容
         if scrollView.contentOffset.x == newContentOffsetX {
-            scrollView.setNeedsLayout()
-            scrollView.layoutIfNeeded()
             scrollView.delegate?.scrollViewDidScroll?(scrollView)
         } else {
             scrollView.contentOffset.x = newContentOffsetX

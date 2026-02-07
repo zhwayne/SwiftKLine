@@ -11,7 +11,7 @@ import UIKit
 /// 包含渲染K线图所需的所有上下文信息
 @MainActor public final class RendererContext<Item> {
     /// 存储指标计算结果
-    let valueStorage: ValueStorage
+    let indicatorSeriesStore: IndicatorSeriesStore
     /// K线数据数组
     public let items: [Item]
     /// 样式配置
@@ -34,7 +34,7 @@ import UIKit
     public internal(set) var legendText: NSAttributedString?
     
     init(
-        valueStorage: ValueStorage,
+        indicatorSeriesStore: IndicatorSeriesStore,
         items: [Item],
         configuration: KLineConfiguration,
         visibleRange: Range<Int>,
@@ -42,7 +42,7 @@ import UIKit
         location: CGPoint?,
         selectedIndex: Int?
     ) {
-        self.valueStorage = valueStorage
+        self.indicatorSeriesStore = indicatorSeriesStore
         self.items = items
         self.configuration = configuration
         self.visibleRange = visibleRange
@@ -64,30 +64,46 @@ extension RendererContext {
         return items[visibleRange]
     }
     
-    /// 获取指定键对应的可见范围内的数据
-    /// - Parameters:
-    ///   - key: 存储数据的键
-    ///   - type: 数据类型
-    /// - Returns: 可见范围内的数据切片，如果类型不匹配则返回nil
-    public func visibleValues<Key: Hashable, T>(forKey key: Key, valueType: T.Type) -> ArraySlice<T>? {
-        guard let values = values(forKey: key, valueType: valueType) else {
-            return nil
-        }
-        
+    /// 通用可见区间切片工具。
+    /// 仅负责边界校验和切片，不关心具体指标类型。
+    private func visibleValues<T>(from values: ContiguousArray<T>?) -> ArraySlice<T>? {
+        guard let values else { return nil }
         // 确保 visibleRange 在数组有效范围内
         guard !values.isEmpty,
               visibleRange.lowerBound >= 0,
               visibleRange.upperBound <= values.count else {
             return nil
         }
-        
         return values[visibleRange]
     }
     
-    public func values<Key: Hashable, T>(forKey key: Key, valueType type: T.Type) -> Array<T>? {
-        if let values = valueStorage.getValue(forKey: key, type: [T].self) {
-            return values
-        }
-        return nil
+    /// 读取标量指标全量序列。
+    func scalarValues(for key: Indicator.Key) -> ContiguousArray<Double?>? {
+        indicatorSeriesStore.scalarSeries[key]
+    }
+    
+    /// 读取标量指标可见区间序列。
+    func visibleScalarValues(for key: Indicator.Key) -> ArraySlice<Double?>? {
+        visibleValues(from: scalarValues(for: key))
+    }
+    
+    /// 读取 BOLL 指标全量序列。
+    func bollValues(for key: Indicator.Key = .boll) -> ContiguousArray<BOLLIndicatorValue?>? {
+        indicatorSeriesStore.bollSeries[key]
+    }
+    
+    /// 读取 BOLL 指标可见区间序列。
+    func visibleBollValues(for key: Indicator.Key = .boll) -> ArraySlice<BOLLIndicatorValue?>? {
+        visibleValues(from: bollValues(for: key))
+    }
+    
+    /// 读取 MACD 指标全量序列。
+    func macdValues(for key: Indicator.Key = .macd) -> ContiguousArray<MACDIndicatorValue?>? {
+        indicatorSeriesStore.macdSeries[key]
+    }
+    
+    /// 读取 MACD 指标可见区间序列。
+    func visibleMacdValues(for key: Indicator.Key = .macd) -> ArraySlice<MACDIndicatorValue?>? {
+        visibleValues(from: macdValues(for: key))
     }
 }

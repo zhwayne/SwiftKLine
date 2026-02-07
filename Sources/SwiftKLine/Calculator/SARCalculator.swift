@@ -11,6 +11,7 @@ struct SARCalculator: IndicatorCalculator {
     
     typealias Result = Double
     var indicator: Indicator { .sar }
+    var key: Indicator.Key { .sar }
     var id: some Hashable { Indicator.Key.sar }
     
     /// 初始加速因子
@@ -92,4 +93,5 @@ struct SARCalculator: IndicatorCalculator {
         
         return results
     }
+    
 }

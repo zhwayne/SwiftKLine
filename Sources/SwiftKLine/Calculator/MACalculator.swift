@@ -13,6 +13,7 @@ struct MACalculator: IndicatorCalculator {
     typealias Result = Double
     let period: Int       // 移动平均线的周期
     var indicator: Indicator { .ma }
+    var key: Indicator.Key { .ma(period) }
     var id: some Hashable { Indicator.Key.ma(period) }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
@@ -36,4 +37,5 @@ struct MACalculator: IndicatorCalculator {
         
         return result
     }
+    
 }

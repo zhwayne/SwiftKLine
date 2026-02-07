@@ -66,7 +66,7 @@ final class RSIRenderer: Renderer, LegendUpdatable {
         
         zip(peroids, lineLayers).forEach { period, lineLayer in
             let key = Indicator.Key.rsi(period)
-            guard let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self) else {
+            guard let visibleValues = context.visibleScalarValues(for: key) else {
                 return
             }
             let style = klineConfig.indicatorStyle(for: key, type: LineStyle.self)
@@ -116,7 +116,7 @@ final class RSIRenderer: Renderer, LegendUpdatable {
         return peroids.reduce(NSMutableAttributedString()) { partialResult, period in
             let key = Indicator.Key.rsi(period)
             let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
-            guard let values = context.values(forKey: key, valueType: Double?.self), !values.isEmpty,
+            guard let values = context.scalarValues(for: key), !values.isEmpty,
                   context.currentIndex >= 0,
                   context.currentIndex < values.count,
                   let value = values[context.currentIndex] else {
@@ -138,7 +138,7 @@ final class RSIRenderer: Renderer, LegendUpdatable {
         var bounds = MetricBounds.empty
         for period in peroids {
             let key = Indicator.Key.rsi(period)
-            guard let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self) else {
+            guard let visibleValues = context.visibleScalarValues(for: key) else {
                 continue
             }
             var minValue = Double.greatestFiniteMagnitude

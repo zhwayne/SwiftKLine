@@ -25,6 +25,7 @@ struct MACDCalculator: IndicatorCalculator {
     let longPeriod: Int  = 26  // 长期 EMA 的周期（常用 26）
     let signalPeriod: Int = 9 // 信号线 EMA 的周期（常用 9）
     var indicator: Indicator { .macd }
+    var key: Indicator.Key { .macd }
     var id: some Hashable { Indicator.Key.macd }
     
     func calculate(for items: [any KLineItem]) -> [MACDIndicatorValue?] {
@@ -87,4 +88,5 @@ struct MACDCalculator: IndicatorCalculator {
         
         return macdValues
     }
+    
 }

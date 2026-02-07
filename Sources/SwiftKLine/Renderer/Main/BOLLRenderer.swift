@@ -49,7 +49,7 @@ final class BOLLRenderer: Renderer {
         let layout = context.layout
         
         let key = Indicator.Key.boll
-        guard let visibleValues = context.visibleValues(forKey: key, valueType: BOLLIndicatorValue?.self) else {
+        guard let visibleValues = context.visibleBollValues(for: key) else {
             return
         }
         let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
@@ -101,7 +101,7 @@ final class BOLLRenderer: Renderer {
     func legend(context: Context) -> NSAttributedString? {
         let key = Indicator.Key.boll
         let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
-        guard let values = context.values(forKey: key, valueType: BOLLIndicatorValue?.self), !values.isEmpty,
+        guard let values = context.bollValues(for: key), !values.isEmpty,
               context.currentIndex >= 0,
               context.currentIndex < values.count,
               let value = values[context.currentIndex] else {
@@ -133,8 +133,7 @@ final class BOLLRenderer: Renderer {
     }
     
     func dataBounds(context: Context) -> MetricBounds {
-        let key = Indicator.Key.boll
-        let visibleValues = context.visibleValues(forKey: key, valueType: BOLLIndicatorValue?.self)
+        let visibleValues = context.visibleBollValues(for: .boll)
         guard let visibleValues else {
             return .empty
         }

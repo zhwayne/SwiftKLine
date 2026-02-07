@@ -13,6 +13,7 @@ struct RSICalculator: IndicatorCalculator {
     typealias Result = Double
     let period: Int       // RSI 的周期
     var indicator: Indicator { .rsi }
+    var key: Indicator.Key { .rsi(period) }
     var id: some Hashable { Indicator.Key.rsi(period) }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
@@ -68,4 +69,5 @@ struct RSICalculator: IndicatorCalculator {
         
         return rsiValues
     }
+    
 }

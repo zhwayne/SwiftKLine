@@ -12,28 +12,36 @@ protocol NumberFormatting {
     func format(_ number: NSNumber) -> String
 }
 
-struct PriceFormatter: NumberFormatting {
+final class PriceFormatter: NumberFormatting {
     
-    var maximumSignificantDigits = 4
-    var minimumFractionDigits = 2
+    private let maximumSignificantDigits: Int
+    private let minimumFractionDigits: Int
+    private let formatter: NumberFormatter
+    
+    init(maximumSignificantDigits: Int = 4, minimumFractionDigits: Int = 2) {
+        self.maximumSignificantDigits = maximumSignificantDigits
+        self.minimumFractionDigits = minimumFractionDigits
+        formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+    }
     
     func format(_ number: NSNumber) -> String {
         let value = number.doubleValue
         guard value.isFinite else { return "--" }
-        var integer = number.intValue
-        var digits = 0
-        while integer != 0 {
-            digits += 1
-            integer /= 10
+        let absoluteValue = abs(value)
+        let digits: Int
+        if absoluteValue >= 1 {
+            digits = Int(floor(log10(absoluteValue))) + 1
+        } else {
+            digits = 1
         }
-        let formatter = NumberFormatter()
         formatter.maximumSignificantDigits = max(maximumSignificantDigits, digits + minimumFractionDigits)
-        formatter.numberStyle = .decimal
         return formatter.string(from: number) ?? "\(number)"
     }
 }
 
-struct VolumeFormatter: NumberFormatting {
+final class VolumeFormatter: NumberFormatting {
+    private let priceFormatter = PriceFormatter()
     
     func format(_ number: NSNumber) -> String {
         var units = ["K", "M", "B", "T"]
@@ -43,7 +51,6 @@ struct VolumeFormatter: NumberFormatting {
             value /= 1000
             unit = units.removeFirst()
         }
-        let formatter = PriceFormatter()
-        return formatter.format(NSNumber(value: value)) + unit
+        return priceFormatter.format(NSNumber(value: value)) + unit
     }
 }

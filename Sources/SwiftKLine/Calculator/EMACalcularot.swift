@@ -13,6 +13,7 @@ struct EMACalculator: IndicatorCalculator {
     typealias Result = Double
     let period: Int       // 移动平均线的周期
     var indicator: Indicator { .ema }
+    var key: Indicator.Key { .ema(period) }
     var id: some Hashable { Indicator.Key.ema(period) }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
@@ -45,4 +46,5 @@ struct EMACalculator: IndicatorCalculator {
         
         return emaValues
     }
+    
 }

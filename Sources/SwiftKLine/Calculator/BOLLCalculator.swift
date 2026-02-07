@@ -21,6 +21,7 @@ struct BOLLCalculator: IndicatorCalculator {
     
     typealias Result = BOLLIndicatorValue
     var indicator: Indicator { .boll }
+    var key: Indicator.Key { .boll }
     var id: some Hashable { Indicator.Key.boll }
     
     /// 计算周期（常用 20）
@@ -57,4 +58,5 @@ struct BOLLCalculator: IndicatorCalculator {
         
         return results
     }
+    
 }

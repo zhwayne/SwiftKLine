@@ -42,7 +42,7 @@ enum ChartSection: Sendable {
     private var customRenderers = [AnyRenderer]()
     private var crosshairRenderer: CrosshairRenderer?
     
-    private struct ColorAppearanceSignature: Equatable {
+    private struct ColorAppearanceSignature: Hashable {
         let userInterfaceStyle: UIUserInterfaceStyle
         let accessibilityContrast: UIAccessibilityContrast
         let displayScale: CGFloat
@@ -54,6 +54,39 @@ enum ChartSection: Sendable {
         }
     }
     private var lastFullDrawColorSignature: ColorAppearanceSignature?
+    private enum RedrawMode {
+        case crosshairOnly
+        case full
+        
+        func merged(with newValue: RedrawMode) -> RedrawMode {
+            if self == .full || newValue == .full {
+                return .full
+            }
+            return .crosshairOnly
+        }
+    }
+    private struct LegendCacheKey: Hashable {
+        let groupIndex: Int
+        let currentIndex: Int
+        let colorSignature: ColorAppearanceSignature
+        let rendererIDsHash: Int
+    }
+    private struct LegendCacheValue {
+        let text: NSAttributedString
+        let size: CGSize
+    }
+    private let legendCacheCapacity = 256
+    private var isRedrawScheduled = false
+    private var pendingRedrawMode: RedrawMode = .full
+    private var legendCache: [LegendCacheKey: LegendCacheValue] = [:]
+    private var lastMainLegendCacheKey: LegendCacheKey?
+    #if DEBUG
+    private struct DebugDrawMetrics {
+        var frameCount: Int = 0
+        var lastReportTime: CFTimeInterval = CACurrentMediaTime()
+    }
+    private var debugDrawMetrics = DebugDrawMetrics()
+    #endif
     private enum MainChartContent {
         case candlestick
         case timeSeries
@@ -67,7 +100,7 @@ enum ChartSection: Sendable {
     private var mainIndicatorTypes: [Indicator] = []
     private var subIndicatorTypes: [Indicator] = []
     private var klineItems: [any KLineItem] = []
-    private var valueStorage = ValueStorage()
+    private var indicatorSeriesStore = IndicatorSeriesStore()
     private var selectedIndex: Int?
     private var selectedLocation: CGPoint?
     private var longPressLocation: CGPoint = .zero
@@ -169,7 +202,8 @@ enum ChartSection: Sendable {
     
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
-        drawVisibleContent()
+        clearLegendCache()
+        scheduleRedraw(.full)
     }
     
     public override func invalidateIntrinsicContentSize() {
@@ -239,7 +273,7 @@ extension KLineView {
         klineItemLoader?.stop()
         klineItemLoader = nil
         klineItems = []
-        valueStorage = ValueStorage()
+        indicatorSeriesStore = IndicatorSeriesStore()
         lastLiveRedrawAt = 0
         bucketDuration = nil
         
@@ -391,11 +425,11 @@ extension KLineView {
             let calculators = (mainIndicatorTypes + subIndicatorTypes)
                 .flatMap { indicator in indicator.makeCalculators(configuration: klineConfig) }
             if calculators.isEmpty {
-                valueStorage = ValueStorage()
+                indicatorSeriesStore = IndicatorSeriesStore()
             } else {
-                let storage = await calculators.calculate(items: klineItems)
+                let store = await calculators.calculate(items: klineItems)
                 guard !Task.isCancelled else { return }
-                valueStorage = storage
+                indicatorSeriesStore = store
             }
         }
         
@@ -420,16 +454,22 @@ extension KLineView {
         }
         
         descriptor = newDescriptor
+        clearLegendCache()
         invalidateIntrinsicContentSize()
-        drawVisibleContent()
+        scheduleRedraw(.full)
     }
     
     private func reconcileRenderers(
         from oldDescriptor: ChartDescriptor,
         to newDescriptor: inout ChartDescriptor
     ) -> (added: [AnyRenderer], removed: [AnyRenderer]) {
+        struct RendererReuseKey: Hashable {
+            let id: AnyHashable
+            let zIndex: Int
+        }
+        
         var available = Dictionary(grouping: oldDescriptor.renderers) { renderer in
-            AnyHashable(renderer.id)
+            RendererReuseKey(id: AnyHashable(renderer.id), zIndex: renderer.zIndex)
         }
         var additions = [AnyRenderer]()
         var reused = Set<ObjectIdentifier>()
@@ -438,7 +478,7 @@ extension KLineView {
             var renderers = newDescriptor.groups[groupIndex].renderers
             for rendererIndex in renderers.indices {
                 let renderer = renderers[rendererIndex]
-                let key = AnyHashable(renderer.id)
+                let key = RendererReuseKey(id: AnyHashable(renderer.id), zIndex: renderer.zIndex)
                 if var bucket = available[key], let reusedRenderer = bucket.popLast() {
                     renderers[rendererIndex] = reusedRenderer
                     reused.insert(ObjectIdentifier(reusedRenderer))
@@ -464,12 +504,12 @@ extension KLineView {
         let calculators = (mainIndicatorTypes + subIndicatorTypes)
             .flatMap { indicator in indicator.makeCalculators(configuration: klineConfig) }
         
-        // 2. 后台计算新的 valueStorage
-        let newValueStorage: ValueStorage
+        // 2. 后台计算新的指标序列存储
+        let newIndicatorSeriesStore: IndicatorSeriesStore
         if calculators.isEmpty {
-            newValueStorage = ValueStorage()
+            newIndicatorSeriesStore = IndicatorSeriesStore()
         } else {
-            newValueStorage = await calculators.calculate(items: items)
+            newIndicatorSeriesStore = await calculators.calculate(items: items)
             guard !Task.isCancelled else { return }
         }
         
@@ -477,13 +517,13 @@ extension KLineView {
         // 3. 回到主线程，原子性地一次性更新所有状态
         // 此时数据已经准备好，避免中间状态
         klineItems = items
-        valueStorage = newValueStorage  // 旧的 valueStorage 引用计数变为 0，ARC 会自动释放
+        indicatorSeriesStore = newIndicatorSeriesStore
         layout.itemCount = items.count  // 现在可以安全地触发 layoutSubviews
         
         // 4. 调整滚动位置
         scrollView.scroll(to: scrollPosition)
         
-        // 5. 更新渲染器描述符（不需要重新计算 valueStorage）
+        // 5. 更新渲染器描述符（不需要重新计算指标序列）
         await updateDescriptor(recalculateValues: false)
     }
     
@@ -554,12 +594,42 @@ extension KLineView {
         }
         return result
     }
+    
+    private func clearLegendCache() {
+        legendCache.removeAll(keepingCapacity: true)
+        lastMainLegendCacheKey = nil
+    }
+    
+    private func cacheLegend(_ value: LegendCacheValue, for key: LegendCacheKey) {
+        if legendCache.count >= legendCacheCapacity {
+            legendCache.removeAll(keepingCapacity: true)
+            lastMainLegendCacheKey = nil
+        }
+        legendCache[key] = value
+    }
+    
+    private func scheduleRedraw(_ mode: RedrawMode) {
+        pendingRedrawMode = pendingRedrawMode.merged(with: mode)
+        guard !isRedrawScheduled else { return }
+        isRedrawScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.isRedrawScheduled = false
+            let redrawMode = self.pendingRedrawMode
+            self.pendingRedrawMode = .crosshairOnly
+            self.drawVisibleContent(mode: redrawMode)
+        }
+    }
 }
 
 // MARK: - 绘制内容
 extension KLineView {
     
-    private func drawVisibleContent() {
+    private func drawVisibleContent(mode: RedrawMode = .full) {
+        let drawStartTime = CACurrentMediaTime()
+        var legendCost: CFTimeInterval = 0
+        var boundsCost: CFTimeInterval = 0
+        var rendererCost: CFTimeInterval = 0
         guard !klineItems.isEmpty else { return }
         
         // 防御性检查：确保 layout.itemCount 与 klineItems.count 一致
@@ -578,7 +648,7 @@ extension KLineView {
         if visibleRange.isEmpty { return }
         
         let context = RendererContext(
-            valueStorage: valueStorage,
+            indicatorSeriesStore: indicatorSeriesStore,
             items: klineItems,
             configuration: klineConfig,
             visibleRange: visibleRange,
@@ -606,11 +676,30 @@ extension KLineView {
             return legendText
         }
 
-        func configureLegend(for group: RendererGroup, groupFrame: CGRect) -> CGFloat {
-            let legendText = makeLegendText(for: group.renderers)
+        func rendererIDsHash(_ renderers: [AnyRenderer]) -> Int {
+            var hasher = Hasher()
+            for renderer in renderers {
+                hasher.combine(AnyHashable(renderer.id))
+                hasher.combine(renderer.zIndex)
+            }
+            return hasher.finalize()
+        }
+        
+        func configureLegend(for group: RendererGroup, groupIndex: Int, groupFrame: CGRect) -> CGFloat {
+            let legendKey = LegendCacheKey(
+                groupIndex: groupIndex,
+                currentIndex: context.currentIndex,
+                colorSignature: currentColorSignature,
+                rendererIDsHash: rendererIDsHash(group.renderers)
+            )
+            let legendStart = CACurrentMediaTime()
+            let cachedLegend = legendCache[legendKey]
+            let legendText = cachedLegend?.text ?? makeLegendText(for: group.renderers)
+            legendCost += CACurrentMediaTime() - legendStart
             guard !legendText.string.isEmpty else {
                 if group.chartSection == .mainChart {
                     legendLabel.attributedText = nil
+                    lastMainLegendCacheKey = nil
                 }
                 context.legendText = nil
                 context.legendFrame = .zero
@@ -619,23 +708,40 @@ extension KLineView {
 
             context.legendText = legendText
             if group.chartSection == .mainChart {
-                legendLabel.attributedText = legendText
-                legendLabel.sizeToFit()
-                let legendFrame = legendLabel.frame
+                if lastMainLegendCacheKey != legendKey {
+                    legendLabel.attributedText = legendText
+                    if let cachedLegend {
+                        legendLabel.frame.size = cachedLegend.size
+                    } else {
+                        legendLabel.sizeToFit()
+                    }
+                    lastMainLegendCacheKey = legendKey
+                }
+                let legendFrame = CGRect(origin: legendLabel.frame.origin, size: legendLabel.frame.size)
                 context.legendFrame = legendFrame
+                if legendCache[legendKey] == nil {
+                    cacheLegend(LegendCacheValue(text: legendText, size: legendFrame.size), for: legendKey)
+                }
                 return legendFrame.maxY
             }
-
-            let boundingRect = legendText.boundingRect(
-                with: CGSize(width: groupFrame.width * 0.8, height: groupFrame.height),
-                options: [.usesLineFragmentOrigin, .usesFontLeading],
-                context: nil
-            )
+            
+            let measuredSize: CGSize
+            if let cachedLegend {
+                measuredSize = cachedLegend.size
+            } else {
+                let boundingRect = legendText.boundingRect(
+                    with: CGSize(width: groupFrame.width * 0.8, height: groupFrame.height),
+                    options: [.usesLineFragmentOrigin, .usesFontLeading],
+                    context: nil
+                )
+                measuredSize = boundingRect.size
+                cacheLegend(LegendCacheValue(text: legendText, size: measuredSize), for: legendKey)
+            }
             context.legendFrame = CGRect(
                 x: 12, y: groupFrame.minY + group.padding.top,
-                width: boundingRect.width, height: boundingRect.height
+                width: measuredSize.width, height: measuredSize.height
             )
-            return boundingRect.height + group.legendSpacing
+            return measuredSize.height + group.legendSpacing
         }
 
         func configureCrosshairRenderer(_ renderer: CrosshairRenderer) {
@@ -681,11 +787,20 @@ extension KLineView {
                 context.groupFrame = groupFrame
 
                 let group = descriptor.groups[idx]
-                _ = configureLegend(for: group, groupFrame: groupFrame)
+                _ = configureLegend(for: group, groupIndex: idx, groupFrame: groupFrame)
                 for renderer in group.renderers {
                     (renderer.base as? LegendUpdatable)?.updateLegend(context: context)
                 }
             }
+            #if DEBUG
+            reportDrawMetrics(
+                drawStartTime: drawStartTime,
+                legendCost: legendCost,
+                boundsCost: boundsCost,
+                rendererCost: rendererCost,
+                mode: mode
+            )
+            #endif
             return
         }
 
@@ -693,10 +808,12 @@ extension KLineView {
             let renderers = group.renderers
 
             var dataBounds: MetricBounds = .empty
+            let boundsStart = CACurrentMediaTime()
             // 计算可见区域内数据范围
             for renderer in renderers {
                 dataBounds.merge(other: renderer.dataBounds(context: context))
             }
+            boundsCost += CACurrentMediaTime() - boundsStart
             descriptor.groups[idx].dataBounds = dataBounds
             context.layout.dataBounds = dataBounds
 
@@ -706,7 +823,7 @@ extension KLineView {
             context.groupFrame = groupFrame
 
             // 绘制图例
-            let viewPortOffsetY = configureLegend(for: group, groupFrame: groupFrame)
+            let viewPortOffsetY = configureLegend(for: group, groupIndex: idx, groupFrame: groupFrame)
 
             // 计算 viewPort
             let groupInset = UIEdgeInsets(
@@ -718,13 +835,48 @@ extension KLineView {
             context.viewPort = viewPort
 
             // 绘制图表
+            let renderersStart = CACurrentMediaTime()
             for renderer in renderers {
                 renderer.draw(in: scrollView.contentView.canvas, context: context)
             }
+            rendererCost += CACurrentMediaTime() - renderersStart
         }
 
         lastFullDrawColorSignature = currentColorSignature
+        #if DEBUG
+        reportDrawMetrics(
+            drawStartTime: drawStartTime,
+            legendCost: legendCost,
+            boundsCost: boundsCost,
+            rendererCost: rendererCost,
+            mode: mode
+        )
+        #endif
     }
+    
+    #if DEBUG
+    private func reportDrawMetrics(
+        drawStartTime: CFTimeInterval,
+        legendCost: CFTimeInterval,
+        boundsCost: CFTimeInterval,
+        rendererCost: CFTimeInterval,
+        mode: RedrawMode
+    ) {
+        debugDrawMetrics.frameCount += 1
+        let now = CACurrentMediaTime()
+        guard now - debugDrawMetrics.lastReportTime >= 1 else { return }
+        let totalCost = now - drawStartTime
+        print(
+            "[SwiftKLine][Perf] fps=\(debugDrawMetrics.frameCount)/s mode=\(mode) " +
+            "total=\(String(format: "%.4f", totalCost))s " +
+            "legend=\(String(format: "%.4f", legendCost))s " +
+            "bounds=\(String(format: "%.4f", boundsCost))s " +
+            "render=\(String(format: "%.4f", rendererCost))s"
+        )
+        debugDrawMetrics.frameCount = 0
+        debugDrawMetrics.lastReportTime = now
+    }
+    #endif
 }
 
 extension KLineView {
@@ -743,7 +895,7 @@ extension KLineView {
                 crosshairRenderer?.uninstall(from: self.scrollView.contentView.canvas)
                 crosshairRenderer = nil
             }
-            drawVisibleContent()
+            scheduleRedraw(.full)
             klineItemLoader?.scrollViewDidScroll(scrollView: scrollView)
         }
     }
@@ -843,7 +995,7 @@ extension KLineView: CrosshairInteractionDelegate {
             crosshairRenderer = CrosshairRenderer(configuration: klineConfig)
             crosshairRenderer?.install(to: scrollView.contentView.canvas)
         }
-        drawVisibleContent()
+        scheduleRedraw(.crosshairOnly)
     }
 }
 

@@ -35,5 +35,13 @@ struct RendererGroup {
         self.padding = padding
         self.legendSpacing = legendSpacing
         self.renderers = renderers()
+            .enumerated()
+            .sorted { lhs, rhs in
+                if lhs.element.zIndex == rhs.element.zIndex {
+                    return lhs.offset < rhs.offset
+                }
+                return lhs.element.zIndex < rhs.element.zIndex
+            }
+            .map(\.element)
     }
 }

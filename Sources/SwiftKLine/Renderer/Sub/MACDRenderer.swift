@@ -73,7 +73,7 @@ final class MACDRenderer: Renderer, LegendUpdatable {
         updateLegend(context: context)
         
         let key = Indicator.Key.macd
-        guard let visibleValues = context.visibleValues(forKey: key, valueType: MACDIndicatorValue?.self) else {
+        guard let visibleValues = context.visibleMacdValues(for: key) else {
             return
         }
         let style = klineConfig.indicatorStyle(for: key, type: MACDStyle.self)
@@ -182,7 +182,7 @@ final class MACDRenderer: Renderer, LegendUpdatable {
     func legend(context: Context) -> NSAttributedString? {
         let key = Indicator.Key.macd
         let style = context.configuration.indicatorStyle(for: key, type: MACDStyle.self)
-        guard let values = context.values(forKey: key, valueType: MACDIndicatorValue?.self), !values.isEmpty,
+        guard let values = context.macdValues(for: key), !values.isEmpty,
               context.currentIndex >= 0,
               context.currentIndex < values.count,
               let value = values[context.currentIndex] else {
@@ -214,8 +214,7 @@ final class MACDRenderer: Renderer, LegendUpdatable {
     }
     
     func dataBounds(context: Context) -> MetricBounds {
-        let key = Indicator.Key.macd
-        let visibleValues = context.visibleValues(forKey: key, valueType: MACDIndicatorValue?.self)
+        let visibleValues = context.visibleMacdValues(for: .macd)
         guard let visibleValues else {
             return .empty
         }

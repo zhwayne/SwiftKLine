@@ -8,13 +8,19 @@
 import UIKit
 
 final class EMARenderer: Renderer {
+    private struct ID: Hashable {
+        let indicator: Indicator
+        let periods: [Int]
+    }
     
     private let priceFormatter = PriceFormatter()
     
     private let peroids: [Int]
     private let lineLayers: [CAShapeLayer]
 
-    var id: some Hashable { Indicator.ema }
+    var id: some Hashable {
+        ID(indicator: .ema, periods: peroids)
+    }
 
     init(peroids: [Int]) {
         self.peroids = peroids
@@ -45,7 +51,7 @@ final class EMARenderer: Renderer {
         
         zip(peroids, lineLayers).forEach { period, lineLayer in
             let key = Indicator.Key.ema(period)
-            guard let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self) else {
+            guard let visibleValues = context.visibleScalarValues(for: key) else {
                 return
             }
             let style = klineConfig.indicatorStyle(for: key, type: LineStyle.self)
@@ -73,7 +79,7 @@ final class EMARenderer: Renderer {
         return peroids.reduce(NSMutableAttributedString()) { partialResult, period in
             let key = Indicator.Key.ema(period)
             let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
-            guard let values = context.values(forKey: key, valueType: Double?.self), !values.isEmpty,
+            guard let values = context.scalarValues(for: key), !values.isEmpty,
                   context.currentIndex >= 0,
                   context.currentIndex < values.count,
                   let value = values[context.currentIndex] else {
@@ -95,7 +101,7 @@ final class EMARenderer: Renderer {
         var bounds = MetricBounds.empty
         for period in peroids {
             let key = Indicator.Key.ema(period)
-            guard let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self) else {
+            guard let visibleValues = context.visibleScalarValues(for: key) else {
                 continue
             }
             var minValue = Double.greatestFiniteMagnitude

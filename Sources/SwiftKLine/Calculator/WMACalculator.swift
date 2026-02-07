@@ -13,6 +13,7 @@ struct WMACalculator: IndicatorCalculator {
     typealias Result = Double
     let period: Int
     var indicator: Indicator { .wma }
+    var key: Indicator.Key { .wma(period) }
     var id: some Hashable { Indicator.Key.wma(period) }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
@@ -35,4 +36,5 @@ struct WMACalculator: IndicatorCalculator {
         
         return result
     }
+    
 }

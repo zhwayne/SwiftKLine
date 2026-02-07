@@ -12,6 +12,7 @@ import UIKit
     associatedtype Identifier: Hashable
     
     var id: Identifier { get }
+    var zIndex: Int { get }
     
     func install(to layer: CALayer)
     func uninstall(from layer: CALayer)
@@ -22,6 +23,10 @@ import UIKit
 }
 
 extension Renderer {
+    
+    public var zIndex: Int {
+        0
+    }
     
     public func legend(context: Context) -> NSAttributedString? {
         return nil
@@ -40,6 +45,7 @@ protocol LegendUpdatable: AnyObject {
 final class AnyRenderer: Renderer {
         
     private let _id: () -> AnyHashable
+    private let _zIndex: () -> Int
     private let _installFunc: (CALayer) -> Void
     private let _uninstallFunc: (CALayer) -> Void
     private let _drawFunc: (CALayer, Context) -> Void
@@ -51,6 +57,7 @@ final class AnyRenderer: Renderer {
     init<R: Renderer>(_ base: R) {
         self.base = base
         _id = { AnyHashable(base.id) }
+        _zIndex = { base.zIndex }
         _installFunc = { base.install(to: $0) }
         _uninstallFunc = { base.uninstall(from: $0) }
         _drawFunc = {
@@ -61,6 +68,8 @@ final class AnyRenderer: Renderer {
     }
     
     var id: some Hashable { _id() }
+    
+    var zIndex: Int { _zIndex() }
     
     func install(to layer: CALayer) {
         _installFunc(layer)

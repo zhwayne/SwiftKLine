@@ -35,7 +35,7 @@ final class SARRenderer: Renderer {
         let layout = context.layout
 
         let key = Indicator.Key.sar
-        guard let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self) else {
+        guard let visibleValues = context.visibleScalarValues(for: key) else {
             return
         }
         let style = klineConfig.indicatorStyle(for: key, type: LineStyle.self)
@@ -59,7 +59,7 @@ final class SARRenderer: Renderer {
     func legend(context: Context) -> NSAttributedString? {
         let key = Indicator.Key.sar
         let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
-        guard let values = context.values(forKey: key, valueType: Double?.self), !values.isEmpty,
+        guard let values = context.scalarValues(for: key), !values.isEmpty,
               context.currentIndex >= 0,
               context.currentIndex < values.count,
               let value = values[context.currentIndex] else {
@@ -77,8 +77,7 @@ final class SARRenderer: Renderer {
     }
     
     func dataBounds(context: Context) -> MetricBounds {
-        let key = Indicator.Key.sar
-        let visibleValues = context.visibleValues(forKey: key, valueType: Double?.self)
+        let visibleValues = context.visibleScalarValues(for: .sar)
         guard let visibleValues else {
             return .empty
         }
