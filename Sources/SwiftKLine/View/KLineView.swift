@@ -287,7 +287,7 @@ extension KLineView {
                 } else if page == 0 {
                     await self.draw(items: items, scrollPosition: .right)
                 } else {
-                    let merged = await items + self.klineItems
+                    let merged = await self.mergedItems(current: self.klineItems, patch: items)
                     await self.draw(items: merged, scrollPosition: .current)
                 }
             },

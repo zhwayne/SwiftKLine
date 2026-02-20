@@ -17,6 +17,7 @@ final class KLineItemLoader: @unchecked Sendable {
 
     private var page = 0
     private var isLoading = false
+    private var hasMorePages = true
     private var fetchTask: Task<Void, Never>?
     private var liveTask: Task<Void, Never>?
     private var recoveryTask: Task<Void, Never>?
@@ -41,7 +42,7 @@ final class KLineItemLoader: @unchecked Sendable {
 
     @MainActor
     func scrollViewDidScroll(scrollView: UIScrollView) {
-        guard !isLoading else { return }
+        guard !isLoading, hasMorePages else { return }
         let offsetX = scrollView.contentOffset.x
         let width = scrollView.bounds.width
         guard offsetX < width * 2 else { return }
@@ -50,6 +51,7 @@ final class KLineItemLoader: @unchecked Sendable {
 
     func start() {
         page = 0
+        hasMorePages = true
         loadMore()
         startLiveStream()
     }
@@ -84,6 +86,7 @@ final class KLineItemLoader: @unchecked Sendable {
     }
 
     private func loadMore() {
+        guard hasMorePages else { return }
         isLoading = true
         fetchTask?.cancel()
         fetchTask = Task { [weak self] in
@@ -91,7 +94,10 @@ final class KLineItemLoader: @unchecked Sendable {
             defer { self.isLoading = false }
             do {
                 let items = try await self.provider.fetchKLineItems(forPage: self.page)
-                guard !items.isEmpty else { return }
+                guard !items.isEmpty else {
+                    self.hasMorePages = false
+                    return
+                }
                 await self.snapshotHandler(self.page, items)
                 self.page += 1
             } catch {
