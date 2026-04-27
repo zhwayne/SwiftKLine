@@ -11,7 +11,7 @@ final class RSIRenderer: Renderer, LegendUpdatable {
 
     private let priceFormatter = PriceFormatter()
     
-    private let peroids: [Int]
+    private let periods: [Int]
     private let range: ClosedRange<Double>
     private let rangeColor = UIColor.systemBlue
     private let lineLayers: [CAShapeLayer]
@@ -21,10 +21,10 @@ final class RSIRenderer: Renderer, LegendUpdatable {
 
     var id: some Hashable { Indicator.rsi }
 
-    init(peroids: [Int]) {
-        self.peroids = peroids
+    init(periods: [Int]) {
+        self.periods = periods
         range = 30...70
-        lineLayers = peroids.map { _ in
+        lineLayers = periods.map { _ in
             let layer = CAShapeLayer()
             layer.lineWidth = 1
             layer.fillColor = UIColor.clear.cgColor
@@ -64,7 +64,7 @@ final class RSIRenderer: Renderer, LegendUpdatable {
         let itemWidth = candleStyle.width + candleStyle.gap
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         
-        zip(peroids, lineLayers).forEach { period, lineLayer in
+        zip(periods, lineLayers).forEach { period, lineLayer in
             let key = Indicator.Key.rsi(period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 return
@@ -113,7 +113,7 @@ final class RSIRenderer: Renderer, LegendUpdatable {
     }
     
     func legend(context: Context) -> NSAttributedString? {
-        return peroids.reduce(NSMutableAttributedString()) { partialResult, period in
+        return periods.reduce(NSMutableAttributedString()) { partialResult, period in
             let key = Indicator.Key.rsi(period)
             let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
             guard let values = context.scalarValues(for: key), !values.isEmpty,
@@ -136,7 +136,7 @@ final class RSIRenderer: Renderer, LegendUpdatable {
     
     func dataBounds(context: Context) -> MetricBounds {
         var bounds = MetricBounds.empty
-        for period in peroids {
+        for period in periods {
             let key = Indicator.Key.rsi(period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 continue

@@ -8,7 +8,6 @@
 import UIKit
 import SnapKit
 import Combine
-import Network
 
 enum ChartSection: Sendable {
     case mainChart, timeline, subChart
@@ -87,11 +86,7 @@ enum ChartSection: Sendable {
     }
     private var debugDrawMetrics = DebugDrawMetrics()
     #endif
-    private enum MainChartContent {
-        case candlestick
-        case timeSeries
-    }
-    private var mainChartContent: MainChartContent = .candlestick
+    private var mainChartContent: KLineChartContentStyle = .candlestick
     private var descriptorUpdateTask: Task<Void, Never>? {
         didSet { oldValue?.cancel() }
     }
@@ -104,17 +99,14 @@ enum ChartSection: Sendable {
     private var selectedIndex: Int?
     private var selectedLocation: CGPoint?
     private var longPressLocation: CGPoint = .zero
-    private var bucketDuration: Int?
+    private var dataMerger = KLineDataMerger()
     public var indicatorSelectionDidChange: ((IndicatorSelectionState) -> Void)?
     
     private var disposeBag = Set<AnyCancellable>()
     private var lastLiveRedrawAt: TimeInterval = 0
     private var klineItemLoader: KLineItemLoader?
-    
-    // MARK: - Network Monitoring
-    private var networkMonitor: NWPathMonitor?
-    private var networkQueue = DispatchQueue(label: "NetworkMonitor")
-    private var isNetworkAvailable = true
+    private var loaderGeneration = UUID()
+    private let networkObserver = KLineNetworkObserver()
     
     // MARK: - Initializers
     public init(
@@ -178,7 +170,7 @@ enum ChartSection: Sendable {
         addInteractions()
         observeScrollViewLayoutChange()
         setupBindings()
-        setupNetworkMonitoring()
+        setupNetworkObservation()
         updateDescriptorAndDrawContent()
         scheduleDescriptorUpdate()
     }
@@ -189,8 +181,10 @@ enum ChartSection: Sendable {
     
     deinit {
         descriptorUpdateTask?.cancel()
-        klineItemLoader?.stop()
-        networkMonitor?.cancel()
+        let loader = klineItemLoader
+        Task { await loader?.stop() }
+        let observer = networkObserver
+        Task { @MainActor in observer.stop() }
     }
     
     private func addInteractions() {
@@ -268,98 +262,72 @@ enum ChartSection: Sendable {
 
 extension KLineView {
     
-    public func setProvider(_ provider: some KLineItemProvider) {
+    public func loadData(using provider: some KLineItemProvider) {
         descriptorUpdateTask?.cancel()
-        klineItemLoader?.stop()
+        let oldLoader = klineItemLoader
+        Task { await oldLoader?.stop() }
         klineItemLoader = nil
         klineItems = []
         indicatorSeriesStore = IndicatorSeriesStore()
         lastLiveRedrawAt = 0
-        bucketDuration = nil
+        dataMerger.reset()
+        let generation = UUID()
+        loaderGeneration = generation
         
         klineItemLoader = KLineItemLoader(
             provider: provider,
-            snapshotHandler: { [weak self] page, items in
-                guard let self else { return }
-                if page == -1 {
-                    let merged = await self.mergedItems(current: self.klineItems, patch: items)
-                    await self.draw(items: merged, scrollPosition: .right)
-                } else if page == 0 {
-                    await self.draw(items: items, scrollPosition: .right)
-                } else {
-                    let merged = await self.mergedItems(current: self.klineItems, patch: items)
-                    await self.draw(items: merged, scrollPosition: .current)
-                }
-            },
-            liveHandler: { [weak self] tick in
-                guard let self else { return }
-                await self.applyLiveTick(tick)
+            eventHandler: { [weak self] event in
+                guard let self, self.loaderGeneration == generation else { return }
+                self.handleLoaderEvent(event)
             }
         )
-        klineItemLoader?.start()
+        let loader = klineItemLoader
+        Task { await loader?.start() }
     }
 }
 
 private extension KLineView {
     func handleDidEnterBackground() {
         let latestTimestamp = klineItems.last?.timestamp
-        klineItemLoader?.didEnterBackground(latestTimestamp: latestTimestamp)
+        let loader = klineItemLoader
+        Task { await loader?.didEnterBackground(latestTimestamp: latestTimestamp) }
     }
     
     func handleWillEnterForeground() {
         let latestTimestamp = klineItems.last?.timestamp
-        klineItemLoader?.willEnterForeground(latestTimestamp: latestTimestamp)
+        let loader = klineItemLoader
+        Task { await loader?.willEnterForeground(latestTimestamp: latestTimestamp) }
     }
-    
-    func mergedItems(current: [any KLineItem], patch: [any KLineItem]) -> [any KLineItem] {
-        guard !current.isEmpty else { return patch }
-        var map = Dictionary(uniqueKeysWithValues: current.map { ($0.timestamp, $0) })
-        for item in patch {
-            map[item.timestamp] = item
+
+    func handleLoaderEvent(_ event: KLineItemLoaderEvent) {
+        Task { [weak self] in
+            guard let self else { return }
+            switch event {
+            case let .page(index, items):
+                if index == 0 {
+                    await self.draw(items: items, scrollPosition: .right)
+                } else {
+                    let merged = self.dataMerger.merge(current: self.klineItems, patch: items)
+                    await self.draw(items: merged, scrollPosition: .current)
+                }
+            case let .recovery(items):
+                let merged = self.dataMerger.merge(current: self.klineItems, patch: items)
+                await self.draw(items: merged, scrollPosition: .right)
+            case let .liveTick(tick):
+                await self.applyLiveTick(tick)
+            case .failed:
+                break
+            }
         }
-        return map.values.sorted { $0.timestamp < $1.timestamp }
-    }
-    
-    func updateBucketDurationIfNeeded(with items: [any KLineItem]) {
-        guard bucketDuration == nil else { return }
-        let timestamps = items.map(\.timestamp).sorted()
-        guard timestamps.count >= 2 else { return }
-        var minDiff: Int?
-        for index in 1..<timestamps.count {
-            let diff = timestamps[index] - timestamps[index - 1]
-            guard diff > 0 else { continue }
-            minDiff = min(minDiff ?? diff, diff)
-        }
-        bucketDuration = minDiff
-    }
-    
-    func bucketStart(for timestamp: Int) -> Int {
-        guard let bucketDuration, bucketDuration > 0 else { return timestamp }
-        return (timestamp / bucketDuration) * bucketDuration
-    }
-    
-    func indexOfBucket(for timestamp: Int) -> Int? {
-        let target = bucketStart(for: timestamp)
-        return klineItems.firstIndex { bucketStart(for: $0.timestamp) == target }
-    }
-    
-    func insertionIndexForBucket(_ timestamp: Int) -> Int {
-        let target = bucketStart(for: timestamp)
-        return klineItems.firstIndex { bucketStart(for: $0.timestamp) > target } ?? klineItems.endIndex
     }
 }
 
 // MARK: - 切换主图模式
 extension KLineView {
     
-    public func useTimeSeries() {
-        mainChartContent = .timeSeries
-        scheduleDescriptorUpdate()
-    }
-    
-    public func useCandlesticks() {
-        guard mainChartContent != .candlestick else { return }
-        mainChartContent = .candlestick
+    public func setChartContentStyle(_ style: KLineChartContentStyle) {
+        guard mainChartContent != style else { return }
+        mainChartContent = style
         scheduleDescriptorUpdate()
     }
 }
@@ -513,7 +481,7 @@ extension KLineView {
             guard !Task.isCancelled else { return }
         }
         
-        updateBucketDurationIfNeeded(with: items)
+        dataMerger.prepareBucketsIfNeeded(with: items)
         // 3. 回到主线程，原子性地一次性更新所有状态
         // 此时数据已经准备好，避免中间状态
         klineItems = items
@@ -896,7 +864,15 @@ extension KLineView {
                 crosshairRenderer = nil
             }
             scheduleRedraw(.full)
-            klineItemLoader?.scrollViewDidScroll(scrollView: scrollView)
+            let loader = klineItemLoader
+            let contentOffsetX = Double(scrollView.contentOffset.x)
+            let viewportWidth = Double(scrollView.bounds.width)
+            Task {
+                await loader?.loadMoreIfNeeded(
+                    contentOffsetX: contentOffsetX,
+                    viewportWidth: viewportWidth
+                )
+            }
         }
     }
 }
@@ -904,34 +880,18 @@ extension KLineView {
 // MARK: - Live merging
 private extension KLineView {
     func applyLiveTick(_ tick: any KLineItem) async {
-        await MainActor.run {
-            updateBucketDurationIfNeeded(with: klineItems + [tick])
-            
-            let shouldStickToRightEdge = scrollView.isNearRightEdge
-            guard !klineItems.isEmpty else {
-                klineItems = [tick]
-                layout.itemCount = 1
-                if shouldStickToRightEdge {
-                    scrollView.scroll(to: .right)
-                }
-                throttleRecalculateAndRedraw()
-                return
+        let shouldStickToRightEdge = scrollView.isNearRightEdge
+        let result = dataMerger.applyLiveTick(tick, to: &klineItems)
+        layout.itemCount = klineItems.count
+        if shouldStickToRightEdge {
+            switch result {
+            case let .inserted(_, appendedToTail) where appendedToTail:
+                scrollView.scroll(to: .right)
+            default:
+                break
             }
-            
-            if let existingIndex = indexOfBucket(for: tick.timestamp) {
-                klineItems[existingIndex] = tick
-            } else {
-                let insertIndex = insertionIndexForBucket(tick.timestamp)
-                let didAppendToTail = insertIndex == klineItems.endIndex
-                klineItems.insert(tick, at: insertIndex)
-                layout.itemCount = klineItems.count
-                if shouldStickToRightEdge && didAppendToTail {
-                    scrollView.scroll(to: .right)
-                }
-            }
-            
-            throttleRecalculateAndRedraw()
         }
+        throttleRecalculateAndRedraw()
     }
     
     func throttleRecalculateAndRedraw() {
@@ -942,42 +902,34 @@ private extension KLineView {
     }
 }
 
-// MARK: - Network Monitoring
+// MARK: - Network Observation
 extension KLineView {
     
-    private func setupNetworkMonitoring() {
-        networkMonitor = NWPathMonitor()
-        networkMonitor?.pathUpdateHandler = { [weak self] path in
-            DispatchQueue.main.async {
-                self?.handleNetworkStatusChange(path.status == .satisfied)
+    private func setupNetworkObservation() {
+        networkObserver.statusDidChange = { [weak self] status in
+            guard let self else { return }
+            switch status {
+            case .available:
+                self.handleNetworkRecovery()
+            case .unavailable:
+                self.handleNetworkDisconnection()
             }
         }
-        networkMonitor?.start(queue: networkQueue)
-    }
-    
-    private func handleNetworkStatusChange(_ isAvailable: Bool) {
-        let wasAvailable = isNetworkAvailable
-        isNetworkAvailable = isAvailable
-        
-        if !wasAvailable && isAvailable {
-            // 网络从断开恢复到连接
-            handleNetworkRecovery()
-        } else if wasAvailable && !isAvailable {
-            // 网络从连接变为断开
-            handleNetworkDisconnection()
-        }
+        networkObserver.start()
     }
     
     private func handleNetworkRecovery() {
         // 网络恢复时，触发数据补全
         let latestTimestamp = klineItems.last?.timestamp
-        klineItemLoader?.willEnterForeground(latestTimestamp: latestTimestamp)
+        let loader = klineItemLoader
+        Task { await loader?.willEnterForeground(latestTimestamp: latestTimestamp) }
     }
     
     private func handleNetworkDisconnection() {
         // 网络断开时，记录当前状态
         let latestTimestamp = klineItems.last?.timestamp
-        klineItemLoader?.didEnterBackground(latestTimestamp: latestTimestamp)
+        let loader = klineItemLoader
+        Task { await loader?.didEnterBackground(latestTimestamp: latestTimestamp) }
     }
 }
 

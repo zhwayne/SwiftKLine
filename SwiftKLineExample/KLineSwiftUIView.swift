@@ -40,16 +40,16 @@ private struct KLineRepresentable: UIViewRepresentable {
     func updateUIView(_ uiView: KLineView, context: Context) {
         if context.coordinator.period != period {
             let provider = BinanceDataProvider(symbol: "BTCUSDT", period: period)
-            uiView.setProvider(provider)
+            uiView.loadData(using: provider)
             uiView.invalidateIntrinsicContentSize()
             context.coordinator.period = period
         }
 
         switch mode {
         case .candlestick:
-            uiView.useCandlesticks()
+            uiView.setChartContentStyle(.candlestick)
         case .timeSeries:
-            uiView.useTimeSeries()
+            uiView.setChartContentStyle(.timeSeries)
         }
     }
 

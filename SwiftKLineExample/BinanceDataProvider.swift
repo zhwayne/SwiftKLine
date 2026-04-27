@@ -25,7 +25,7 @@ final class BinanceDataProvider: KLineItemProvider {
     private let symbol: String
     private let period: KLinePeriod
     private let size = 1000
-    private lazy var endDate = Date()
+    private let endDate = Date()
     private let session = URLSession(configuration: URLSessionConfiguration.default)
     
     init(symbol: String, period: KLinePeriod) {

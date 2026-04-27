@@ -62,7 +62,7 @@ private struct MASpec: IndicatorSpec {
             return period
         }
         guard !periods.isEmpty else { return nil }
-        return MARenderer(peroids: periods)
+        return MARenderer(periods: periods)
     }
 }
 
@@ -86,7 +86,7 @@ private struct EMASpec: IndicatorSpec {
             return period
         }
         guard !periods.isEmpty else { return nil }
-        return EMARenderer(peroids: periods)
+        return EMARenderer(periods: periods)
     }
 }
 
@@ -188,7 +188,7 @@ private struct RSISpec: IndicatorSpec {
             return period
         }
         guard !periods.isEmpty else { return nil }
-        return RSIRenderer(peroids: periods)
+        return RSIRenderer(periods: periods)
     }
 }
 

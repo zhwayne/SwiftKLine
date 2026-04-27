@@ -1,5 +1,5 @@
 //
-//  EMACalcularot.swift
+//  EMACalculator.swift
 //  KLineDemo
 //
 //  Created by iya on 2024/11/6.

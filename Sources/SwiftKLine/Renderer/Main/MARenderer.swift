@@ -17,16 +17,16 @@ final class MARenderer: Renderer {
 
     private let priceFormatter = PriceFormatter()
     
-    private let peroids: [Int]
+    private let periods: [Int]
     private let lineLayers: [CAShapeLayer]
 
     var id: some Hashable {
-        ID(indicator: .ma, periods: peroids)
+        ID(indicator: .ma, periods: periods)
     }
 
-    init(peroids: [Int]) {
-        self.peroids = peroids
-        lineLayers = peroids.map { _ in
+    init(periods: [Int]) {
+        self.periods = periods
+        lineLayers = periods.map { _ in
             let layer = CAShapeLayer()
             layer.lineWidth = 1
             layer.fillColor = UIColor.clear.cgColor
@@ -51,7 +51,7 @@ final class MARenderer: Renderer {
         let itemWidth = candleStyle.width + candleStyle.gap
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         
-        zip(peroids, lineLayers).forEach { period, lineLayer in
+        zip(periods, lineLayers).forEach { period, lineLayer in
             let key = Indicator.Key.ma(period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 return
@@ -78,7 +78,7 @@ final class MARenderer: Renderer {
     }
     
     func legend(context: Context) -> NSAttributedString? {
-        return peroids.reduce(NSMutableAttributedString()) { partialResult, period in
+        return periods.reduce(NSMutableAttributedString()) { partialResult, period in
             let key = Indicator.Key.ma(period)
             let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
             guard let values = context.scalarValues(for: key), !values.isEmpty,
@@ -101,7 +101,7 @@ final class MARenderer: Renderer {
     
     func dataBounds(context: Context) -> MetricBounds {
         var bounds = MetricBounds.empty
-        for period in peroids {
+        for period in periods {
             let key = Indicator.Key.ma(period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 continue

@@ -7,7 +7,7 @@
 
 import Foundation
 
-public protocol KLineItemProvider: AnyObject {
+public protocol KLineItemProvider: AnyObject, Sendable {
     /// 按页获取历史 K 线数据。page=0 表示最近一页，page 递增向过去扩展。
     func fetchKLineItems(forPage page: Int) async throws -> [any KLineItem]
 

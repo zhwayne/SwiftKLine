@@ -5,15 +5,25 @@
 //  Created by iya on 2025/4/13.
 //
 
-import UIKit
+import Foundation
 
-final class KLineItemLoader: @unchecked Sendable {
-    typealias SnapshotHandler = @Sendable (Int, [any KLineItem]) async -> Void
-    typealias LiveHandler = @Sendable (any KLineItem) async -> Void
+enum KLineItemLoaderEvent {
+    case page(index: Int, items: [any KLineItem])
+    case recovery(items: [any KLineItem])
+    case liveTick(any KLineItem)
+    case failed(KLineItemLoaderError)
+}
+
+enum KLineItemLoaderError: Error {
+    case page(Error)
+    case recovery(Error)
+}
+
+actor KLineItemLoader {
+    typealias EventHandler = @MainActor (KLineItemLoaderEvent) -> Void
 
     private let provider: any KLineItemProvider
-    private let snapshotHandler: SnapshotHandler
-    private let liveHandler: LiveHandler
+    private let eventHandler: EventHandler
 
     private var page = 0
     private var isLoading = false
@@ -26,12 +36,10 @@ final class KLineItemLoader: @unchecked Sendable {
 
     init(
         provider: some KLineItemProvider,
-        snapshotHandler: @escaping SnapshotHandler,
-        liveHandler: @escaping LiveHandler
+        eventHandler: @escaping EventHandler
     ) {
         self.provider = provider
-        self.snapshotHandler = snapshotHandler
-        self.liveHandler = liveHandler
+        self.eventHandler = eventHandler
     }
 
     deinit {
@@ -40,19 +48,17 @@ final class KLineItemLoader: @unchecked Sendable {
         recoveryTask?.cancel()
     }
 
-    @MainActor
-    func scrollViewDidScroll(scrollView: UIScrollView) {
+    func loadMoreIfNeeded(contentOffsetX: Double, viewportWidth: Double) {
         guard !isLoading, hasMorePages else { return }
-        let offsetX = scrollView.contentOffset.x
-        let width = scrollView.bounds.width
-        guard offsetX < width * 2 else { return }
-        loadMore()
+        guard contentOffsetX < viewportWidth * 2 else { return }
+        startLoadingMore()
     }
 
     func start() {
         page = 0
         hasMorePages = true
-        loadMore()
+        isLoading = false
+        startLoadingMore()
         startLiveStream()
     }
 
@@ -63,6 +69,8 @@ final class KLineItemLoader: @unchecked Sendable {
         fetchTask = nil
         liveTask = nil
         recoveryTask = nil
+        isLoading = false
+        isRecovering = false
     }
 
     func didEnterBackground(latestTimestamp: Int?) {
@@ -79,58 +87,72 @@ final class KLineItemLoader: @unchecked Sendable {
         guard !isRecovering else { return }
         recoveryTask?.cancel()
         recoveryTask = Task { [weak self] in
-            guard let self else { return }
-            let startDate = Date(timeIntervalSince1970: TimeInterval(timestamp))
-            await self.recoverMissingData(from: startDate, to: Date())
+            await self?.recoverMissingData(from: timestamp)
         }
     }
 
-    private func loadMore() {
+    private func startLoadingMore() {
         guard hasMorePages else { return }
-        isLoading = true
         fetchTask?.cancel()
         fetchTask = Task { [weak self] in
-            guard let self else { return }
-            defer { self.isLoading = false }
-            do {
-                let items = try await self.provider.fetchKLineItems(forPage: self.page)
-                guard !items.isEmpty else {
-                    self.hasMorePages = false
-                    return
-                }
-                await self.snapshotHandler(self.page, items)
-                self.page += 1
-            } catch {
-                print("KLineItemLoader load error: \(error)")
+            await self?.loadMore()
+        }
+    }
+
+    private func loadMore() async {
+        guard !isLoading, hasMorePages else { return }
+        isLoading = true
+        let currentPage = page
+        defer { isLoading = false }
+
+        do {
+            let items = try await provider.fetchKLineItems(forPage: currentPage)
+            guard !Task.isCancelled else { return }
+            guard !items.isEmpty else {
+                hasMorePages = false
+                return
             }
+            page += 1
+            await eventHandler(.page(index: currentPage, items: items))
+        } catch {
+            guard !Task.isCancelled else { return }
+            await eventHandler(.failed(.page(error)))
         }
     }
 
     private func startLiveStream() {
         liveTask?.cancel()
         liveTask = Task { [weak self] in
-            guard let self else { return }
-            for await tick in self.provider.liveStream() {
-                self.lastKnownTimestamp = tick.timestamp
-                await self.liveHandler(tick)
-            }
+            await self?.consumeLiveStream()
         }
     }
 
-    private func recoverMissingData(from startDate: Date, to endDate: Date) async {
+    private func consumeLiveStream() async {
+        for await tick in provider.liveStream() {
+            guard !Task.isCancelled else { break }
+            lastKnownTimestamp = tick.timestamp
+            await eventHandler(.liveTick(tick))
+        }
+    }
+
+    private func recoverMissingData(from timestamp: Int) async {
         guard !isRecovering else { return }
         isRecovering = true
         defer {
             isRecovering = false
             lastKnownTimestamp = nil
         }
+
         do {
-            let missing = try await provider.fetchKLineItems(from: startDate, to: endDate)
+            let startDate = Date(timeIntervalSince1970: TimeInterval(timestamp))
+            let missing = try await provider.fetchKLineItems(from: startDate, to: Date())
+            guard !Task.isCancelled else { return }
             if !missing.isEmpty {
-                await snapshotHandler(-1, missing)
+                await eventHandler(.recovery(items: missing))
             }
         } catch {
-            print("Recovery error: \(error)")
+            guard !Task.isCancelled else { return }
+            await eventHandler(.failed(.recovery(error)))
         }
         startLiveStream()
     }
