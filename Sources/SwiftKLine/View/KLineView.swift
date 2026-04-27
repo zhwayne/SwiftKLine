@@ -96,6 +96,7 @@ enum ChartSection: Sendable {
     private var subIndicatorTypes: [Indicator] = []
     private var klineItems: [any KLineItem] = []
     private var indicatorSeriesStore = IndicatorSeriesStore()
+    private let indicatorCalculationEngine = IndicatorCalculationEngine()
     private var selectedIndex: Int?
     private var selectedLocation: CGPoint?
     private var longPressLocation: CGPoint = .zero
@@ -390,15 +391,14 @@ extension KLineView {
         guard !Task.isCancelled else { return }
         
         if recalculateValues {
-            let calculators = (mainIndicatorTypes + subIndicatorTypes)
-                .flatMap { indicator in indicator.makeCalculators(configuration: klineConfig) }
-            if calculators.isEmpty {
-                indicatorSeriesStore = IndicatorSeriesStore()
-            } else {
-                let store = await calculators.calculate(items: klineItems)
-                guard !Task.isCancelled else { return }
-                indicatorSeriesStore = store
-            }
+            let store = await indicatorCalculationEngine.calculate(
+                items: klineItems,
+                mainIndicators: mainIndicatorTypes,
+                subIndicators: subIndicatorTypes,
+                configuration: klineConfig
+            )
+            guard !Task.isCancelled else { return }
+            indicatorSeriesStore = store
         }
         
         updateDescriptorAndDrawContent()
@@ -468,18 +468,13 @@ extension KLineView {
         // 取消之前的更新任务
         descriptorUpdateTask?.cancel()
         
-        // 1. 在后台准备计算所需的配置（捕获当前的指标类型）
-        let calculators = (mainIndicatorTypes + subIndicatorTypes)
-            .flatMap { indicator in indicator.makeCalculators(configuration: klineConfig) }
-        
-        // 2. 后台计算新的指标序列存储
-        let newIndicatorSeriesStore: IndicatorSeriesStore
-        if calculators.isEmpty {
-            newIndicatorSeriesStore = IndicatorSeriesStore()
-        } else {
-            newIndicatorSeriesStore = await calculators.calculate(items: items)
-            guard !Task.isCancelled else { return }
-        }
+        let newIndicatorSeriesStore = await indicatorCalculationEngine.calculate(
+            items: items,
+            mainIndicators: mainIndicatorTypes,
+            subIndicators: subIndicatorTypes,
+            configuration: klineConfig
+        )
+        guard !Task.isCancelled else { return }
         
         dataMerger.prepareBucketsIfNeeded(with: items)
         // 3. 回到主线程，原子性地一次性更新所有状态

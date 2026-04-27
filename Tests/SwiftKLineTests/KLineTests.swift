@@ -118,3 +118,34 @@ private struct TestKLineItem: KLineItem {
     #expect(values[2] == 2)
     #expect(values[3] == 3)
 }
+
+@MainActor
+@Test func indicatorCalculationEngineReturnsEmptyStoreWithoutCalculators() async {
+    let engine = IndicatorCalculationEngine()
+    let store = await engine.calculate(items: [], calculators: [])
+
+    #expect(store.scalarSeries.isEmpty)
+    #expect(store.bollSeries.isEmpty)
+    #expect(store.macdSeries.isEmpty)
+}
+
+@MainActor
+@Test func indicatorCalculationEngineMergesCalculatorStores() async {
+    let items: [any KLineItem] = [
+        TestKLineItem(timestamp: 1, closing: 1),
+        TestKLineItem(timestamp: 2, closing: 2),
+        TestKLineItem(timestamp: 3, closing: 3),
+        TestKLineItem(timestamp: 4, closing: 4),
+    ]
+    let calculators: [any IndicatorCalculator] = [
+        MACalculator(period: 2),
+        EMACalculator(period: 3),
+    ]
+
+    let store = await IndicatorCalculationEngine().calculate(items: items, calculators: calculators)
+
+    #expect(store.scalarSeries[.ma(2)]?.count == 4)
+    #expect(store.scalarSeries[.ema(3)]?.count == 4)
+    #expect(store.scalarSeries[.ma(2)]?[1] == 1.5)
+    #expect(store.scalarSeries[.ema(3)]?[3] == 3)
+}
