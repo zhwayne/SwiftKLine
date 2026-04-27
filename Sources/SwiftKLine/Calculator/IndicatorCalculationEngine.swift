@@ -2,6 +2,8 @@
 //  IndicatorCalculationEngine.swift
 //  SwiftKLine
 //
+//  Created by zhwayne on 2026/4/27.
+//
 
 import Foundation
 

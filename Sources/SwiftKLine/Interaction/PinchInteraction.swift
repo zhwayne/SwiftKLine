@@ -2,7 +2,7 @@
 //  PinchInteraction.swift
 //  SwiftKLine
 //
-//  Created by W Zh on 2025/7/27.
+//  Created by zhwayne on 2025/7/27.
 //
 
 import UIKit

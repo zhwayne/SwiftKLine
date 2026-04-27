@@ -1,3 +1,8 @@
+//  KLineTests.swift
+//  SwiftKLineTests
+//
+//  Created by zhwayne on 2026/4/27.
+
 import Testing
 @testable import SwiftKLine
 
@@ -83,6 +88,23 @@ private struct TestKLineItem: KLineItem {
 
     #expect(result == .inserted(index: 2, appendedToTail: true))
     #expect(items.map(\.timestamp) == [60, 120, 180])
+}
+
+@Test func indicatorSelectionNormalizerFiltersInvalidAndDuplicateIndicators() {
+    let normalizer = IndicatorSelectionNormalizer(
+        availableMain: [.ma, .ema],
+        availableSub: [.vol, .macd]
+    )
+
+    let normalized = normalizer.normalize(
+        IndicatorSelectionState(
+            mainIndicators: [.ma, .vol, .ma, .ema],
+            subIndicators: [.macd, .ema, .vol, .macd]
+        )
+    )
+
+    #expect(normalized.mainIndicators == [.ma, .ema])
+    #expect(normalized.subIndicators == [.macd, .vol])
 }
 
 @Test func maCalculatorCalculatesMovingAverage() {

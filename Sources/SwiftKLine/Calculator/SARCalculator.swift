@@ -2,7 +2,7 @@
 //  SARCalculator.swift
 //  SwiftKLine
 //
-//  Created by W Zh on 2025/8/7.
+//  Created by zhwayne on 2025/8/7.
 //
 
 import Foundation

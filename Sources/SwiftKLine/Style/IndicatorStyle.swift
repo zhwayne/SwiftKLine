@@ -2,7 +2,7 @@
 //  IndicatorStyle.swift
 //  SwiftKLine
 //
-//  Created by W on 2025/4/14.
+//  Created by zhwayne on 2025/4/14.
 //
 
 import UIKit

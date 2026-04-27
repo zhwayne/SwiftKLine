@@ -26,6 +26,7 @@ enum ChartSection: Sendable {
     private lazy var layout = KLineLayout(scrollView: scrollView, configuration: klineConfig)
     private let klineConfig: KLineConfiguration
     private var indicatorSelectionStore: IndicatorSelectionStore?
+    private let indicatorSelectionNormalizer: IndicatorSelectionNormalizer
     private var layoutMetrics: LayoutMetrics { klineConfig.layoutMetrics }
     
     // MARK: - Height defines
@@ -53,38 +54,16 @@ enum ChartSection: Sendable {
         }
     }
     private var lastFullDrawColorSignature: ColorAppearanceSignature?
-    private enum RedrawMode {
-        case crosshairOnly
-        case full
-        
-        func merged(with newValue: RedrawMode) -> RedrawMode {
-            if self == .full || newValue == .full {
-                return .full
-            }
-            return .crosshairOnly
-        }
-    }
     private struct LegendCacheKey: Hashable {
         let groupIndex: Int
         let currentIndex: Int
         let colorSignature: ColorAppearanceSignature
         let rendererIDsHash: Int
     }
-    private struct LegendCacheValue {
-        let text: NSAttributedString
-        let size: CGSize
-    }
-    private let legendCacheCapacity = 256
-    private var isRedrawScheduled = false
-    private var pendingRedrawMode: RedrawMode = .full
-    private var legendCache: [LegendCacheKey: LegendCacheValue] = [:]
-    private var lastMainLegendCacheKey: LegendCacheKey?
+    private var redrawScheduler = KLineRedrawScheduler()
+    private var legendCache = KLineLegendCache<LegendCacheKey>()
     #if DEBUG
-    private struct DebugDrawMetrics {
-        var frameCount: Int = 0
-        var lastReportTime: CFTimeInterval = CACurrentMediaTime()
-    }
-    private var debugDrawMetrics = DebugDrawMetrics()
+    private var debugDrawReporter = KLineDebugDrawReporter()
     #endif
     private var mainChartContent: KLineChartContentStyle = .candlestick
     private var descriptorUpdateTask: Task<Void, Never>? {
@@ -97,6 +76,12 @@ enum ChartSection: Sendable {
     private var klineItems: [any KLineItem] = []
     private var indicatorSeriesStore = IndicatorSeriesStore()
     private let indicatorCalculationEngine = IndicatorCalculationEngine()
+    private let descriptorFactory = KLineDescriptorFactory()
+    private let rendererReconciler = KLineRendererReconciler()
+    private let crosshairDrawCoordinator = KLineCrosshairDrawCoordinator()
+    private let groupDrawCoordinator = KLineGroupDrawCoordinator()
+    private let legendCoordinator = KLineLegendCoordinator()
+    private let visibleContentCoordinator = KLineVisibleContentCoordinator()
     private var selectedIndex: Int?
     private var selectedLocation: CGPoint?
     private var longPressLocation: CGPoint = .zero
@@ -104,7 +89,7 @@ enum ChartSection: Sendable {
     public var indicatorSelectionDidChange: ((IndicatorSelectionState) -> Void)?
     
     private var disposeBag = Set<AnyCancellable>()
-    private var lastLiveRedrawAt: TimeInterval = 0
+    private var liveRedrawThrottle = KLineLiveRedrawThrottle()
     private var klineItemLoader: KLineItemLoader?
     private var loaderGeneration = UUID()
     private let networkObserver = KLineNetworkObserver()
@@ -117,13 +102,17 @@ enum ChartSection: Sendable {
     ) {
         self.klineConfig = configuration
         self.indicatorSelectionStore = indicatorSelectionStore
+        let availableMain = configuration.indicators.filter { $0.isMain && !$0.defaultKeys.isEmpty }
+        let availableSub = configuration.indicators.filter { !$0.isMain && !$0.defaultKeys.isEmpty }
+        self.indicatorSelectionNormalizer = IndicatorSelectionNormalizer(
+            availableMain: availableMain,
+            availableSub: availableSub
+        )
         super.init(frame: frame)
         chartView.layer.masksToBounds = true
-        let availableMain = klineConfig.indicators.filter { $0.isMain && !$0.defaultKeys.isEmpty }
-        let availableSub = klineConfig.indicators.filter { !$0.isMain && !$0.defaultKeys.isEmpty }
         indicatorTypeView.mainIndicators = availableMain
         indicatorTypeView.subIndicators = availableSub
-        let persistedState = normalizedSelectionState(indicatorSelectionStore?.load())
+        let persistedState = indicatorSelectionNormalizer.normalize(indicatorSelectionStore?.load())
         let normalizedMain = persistedState.mainIndicators
         let normalizedSub = persistedState.subIndicators
         mainIndicatorTypes = normalizedMain.isEmpty ? klineConfig.defaultMainIndicators : normalizedMain
@@ -197,7 +186,7 @@ enum ChartSection: Sendable {
     
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
-        clearLegendCache()
+        legendCache.clear()
         scheduleRedraw(.full)
     }
     
@@ -270,7 +259,7 @@ extension KLineView {
         klineItemLoader = nil
         klineItems = []
         indicatorSeriesStore = IndicatorSeriesStore()
-        lastLiveRedrawAt = 0
+        liveRedrawThrottle.reset()
         dataMerger.reset()
         let generation = UUID()
         loaderGeneration = generation
@@ -336,49 +325,6 @@ extension KLineView {
 // MARK: - 绘制和擦除指标
 extension KLineView {
     
-    private func makeDescriptor() -> ChartDescriptor {
-        ChartDescriptor {
-            // MARK: - 主图
-            RendererGroup(chartSection: .mainChart, height: candleHeight, padding: (16, 12)) {
-                XAxisRenderer()
-                if mainChartContent == .timeSeries {
-                    TimeSeriesRenderer(style: TimeSeriesStyle())
-                    // Y轴
-                    YAxisRenderer()
-                } else {
-                    CandleRenderer()
-                    // 主图指标
-                    for type in mainIndicatorTypes {
-                        for renderer in IndicatorRendererRegistry.shared.renderers(for: type, configuration: klineConfig) {
-                            renderer
-                        }
-                    }
-                    // 自定义主图渲染器
-                    for renderer in customRenderers {
-                        renderer
-                    }
-                    // Y轴
-                    YAxisRenderer()
-                    // 价格相关
-                    PriceIndicatorRenderer(style: PriceIndicatorStyle())
-                }
-            }
-            // MARK: - Timeline
-            RendererGroup(chartSection: .timeline, height: timelineHeight, padding: (0, 0)) {
-                TimeAxisRenderer(style: TimeAxisStyle())
-            }
-            // MARK: - 副图
-            for type in subIndicatorTypes {
-                RendererGroup(chartSection: .subChart, height: indicatorHeight) {
-                    XAxisRenderer()
-                    for renderer in IndicatorRendererRegistry.shared.renderers(for: type, configuration: klineConfig) {
-                        renderer
-                    }
-                }
-            }
-        }
-    }
-    
     private func scheduleDescriptorUpdate(recalculateValues: Bool = true) {
         descriptorUpdateTask = Task(priority: .userInitiated) { [weak self] in
             guard let self else { return }
@@ -405,9 +351,16 @@ extension KLineView {
     }
     
     private func updateDescriptorAndDrawContent() {
-        var newDescriptor = makeDescriptor()
+        var newDescriptor = descriptorFactory.makeDescriptor(
+            contentStyle: mainChartContent,
+            mainIndicators: mainIndicatorTypes,
+            subIndicators: subIndicatorTypes,
+            customRenderers: customRenderers,
+            configuration: klineConfig,
+            layoutMetrics: layoutMetrics
+        )
         let oldDescriptor = descriptor
-        let transition = reconcileRenderers(from: oldDescriptor, to: &newDescriptor)
+        let transition = rendererReconciler.reconcile(from: oldDescriptor, to: &newDescriptor)
         
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -422,46 +375,9 @@ extension KLineView {
         }
         
         descriptor = newDescriptor
-        clearLegendCache()
+        legendCache.clear()
         invalidateIntrinsicContentSize()
         scheduleRedraw(.full)
-    }
-    
-    private func reconcileRenderers(
-        from oldDescriptor: ChartDescriptor,
-        to newDescriptor: inout ChartDescriptor
-    ) -> (added: [AnyRenderer], removed: [AnyRenderer]) {
-        struct RendererReuseKey: Hashable {
-            let id: AnyHashable
-            let zIndex: Int
-        }
-        
-        var available = Dictionary(grouping: oldDescriptor.renderers) { renderer in
-            RendererReuseKey(id: AnyHashable(renderer.id), zIndex: renderer.zIndex)
-        }
-        var additions = [AnyRenderer]()
-        var reused = Set<ObjectIdentifier>()
-        
-        for groupIndex in newDescriptor.groups.indices {
-            var renderers = newDescriptor.groups[groupIndex].renderers
-            for rendererIndex in renderers.indices {
-                let renderer = renderers[rendererIndex]
-                let key = RendererReuseKey(id: AnyHashable(renderer.id), zIndex: renderer.zIndex)
-                if var bucket = available[key], let reusedRenderer = bucket.popLast() {
-                    renderers[rendererIndex] = reusedRenderer
-                    reused.insert(ObjectIdentifier(reusedRenderer))
-                    available[key] = bucket.isEmpty ? nil : bucket
-                } else {
-                    additions.append(renderer)
-                }
-            }
-            newDescriptor.groups[groupIndex].renderers = renderers
-        }
-        
-        let removals = oldDescriptor.renderers.filter { renderer in
-            !reused.contains(ObjectIdentifier(renderer))
-        }
-        return (additions, removals)
     }
     
     private func draw(items: [any KLineItem], scrollPosition: ChartScrollView.ScrollPosition) async {
@@ -530,7 +446,7 @@ extension KLineView {
     }
     
     private func saveIndicatorSelection() {
-        let normalized = normalizedSelectionState(
+        let normalized = indicatorSelectionNormalizer.normalize(
             IndicatorSelectionState(
                 mainIndicators: mainIndicatorTypes,
                 subIndicators: subIndicatorTypes
@@ -540,47 +456,9 @@ extension KLineView {
         indicatorSelectionDidChange?(normalized)
     }
     
-    private func normalizedSelectionState(_ state: IndicatorSelectionState?) -> IndicatorSelectionState {
-        let availableMain = Set(indicatorTypeView.mainIndicators)
-        let availableSub = Set(indicatorTypeView.subIndicators)
-        let main = deduplicatedIndicators(state?.mainIndicators ?? [], validSet: availableMain)
-        let sub = deduplicatedIndicators(state?.subIndicators ?? [], validSet: availableSub)
-        return IndicatorSelectionState(mainIndicators: main, subIndicators: sub)
-    }
-    
-    private func deduplicatedIndicators(_ indicators: [Indicator], validSet: Set<Indicator>) -> [Indicator] {
-        var seen = Set<Indicator>()
-        var result: [Indicator] = []
-        for indicator in indicators where validSet.contains(indicator) && !seen.contains(indicator) {
-            result.append(indicator)
-            seen.insert(indicator)
-        }
-        return result
-    }
-    
-    private func clearLegendCache() {
-        legendCache.removeAll(keepingCapacity: true)
-        lastMainLegendCacheKey = nil
-    }
-    
-    private func cacheLegend(_ value: LegendCacheValue, for key: LegendCacheKey) {
-        if legendCache.count >= legendCacheCapacity {
-            legendCache.removeAll(keepingCapacity: true)
-            lastMainLegendCacheKey = nil
-        }
-        legendCache[key] = value
-    }
-    
-    private func scheduleRedraw(_ mode: RedrawMode) {
-        pendingRedrawMode = pendingRedrawMode.merged(with: mode)
-        guard !isRedrawScheduled else { return }
-        isRedrawScheduled = true
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.isRedrawScheduled = false
-            let redrawMode = self.pendingRedrawMode
-            self.pendingRedrawMode = .crosshairOnly
-            self.drawVisibleContent(mode: redrawMode)
+    private func scheduleRedraw(_ mode: KLineRedrawMode) {
+        redrawScheduler.schedule(mode) { [weak self] redrawMode in
+            self?.drawVisibleContent(mode: redrawMode)
         }
     }
 }
@@ -588,7 +466,7 @@ extension KLineView {
 // MARK: - 绘制内容
 extension KLineView {
     
-    private func drawVisibleContent(mode: RedrawMode = .full) {
+    private func drawVisibleContent(mode: KLineRedrawMode = .full) {
         let drawStartTime = CACurrentMediaTime()
         var legendCost: CFTimeInterval = 0
         var boundsCost: CFTimeInterval = 0
@@ -627,136 +505,49 @@ extension KLineView {
             && crosshairLocation != nil
             && lastFullDrawColorSignature == currentColorSignature
 
-        func makeLegendText(for renderers: [AnyRenderer]) -> NSMutableAttributedString {
-            let legendText = NSMutableAttributedString()
-            for renderer in renderers {
-                guard let string = renderer.legend(context: context) else { continue }
-                if !legendText.string.isEmpty {
-                    legendText.append(NSAttributedString(string: "\n"))
-                }
-                legendText.append(string)
-            }
-            return legendText
-        }
-
-        func rendererIDsHash(_ renderers: [AnyRenderer]) -> Int {
-            var hasher = Hasher()
-            for renderer in renderers {
-                hasher.combine(AnyHashable(renderer.id))
-                hasher.combine(renderer.zIndex)
-            }
-            return hasher.finalize()
-        }
-        
         func configureLegend(for group: RendererGroup, groupIndex: Int, groupFrame: CGRect) -> CGFloat {
             let legendKey = LegendCacheKey(
                 groupIndex: groupIndex,
                 currentIndex: context.currentIndex,
                 colorSignature: currentColorSignature,
-                rendererIDsHash: rendererIDsHash(group.renderers)
+                rendererIDsHash: KLineLegendCache<LegendCacheKey>.rendererIDsHash(group.renderers)
             )
-            let legendStart = CACurrentMediaTime()
-            let cachedLegend = legendCache[legendKey]
-            let legendText = cachedLegend?.text ?? makeLegendText(for: group.renderers)
-            legendCost += CACurrentMediaTime() - legendStart
-            guard !legendText.string.isEmpty else {
-                if group.chartSection == .mainChart {
-                    legendLabel.attributedText = nil
-                    lastMainLegendCacheKey = nil
-                }
-                context.legendText = nil
-                context.legendFrame = .zero
-                return 0
-            }
-
-            context.legendText = legendText
-            if group.chartSection == .mainChart {
-                if lastMainLegendCacheKey != legendKey {
-                    legendLabel.attributedText = legendText
-                    if let cachedLegend {
-                        legendLabel.frame.size = cachedLegend.size
-                    } else {
-                        legendLabel.sizeToFit()
-                    }
-                    lastMainLegendCacheKey = legendKey
-                }
-                let legendFrame = CGRect(origin: legendLabel.frame.origin, size: legendLabel.frame.size)
-                context.legendFrame = legendFrame
-                if legendCache[legendKey] == nil {
-                    cacheLegend(LegendCacheValue(text: legendText, size: legendFrame.size), for: legendKey)
-                }
-                return legendFrame.maxY
-            }
-            
-            let measuredSize: CGSize
-            if let cachedLegend {
-                measuredSize = cachedLegend.size
-            } else {
-                let boundingRect = legendText.boundingRect(
-                    with: CGSize(width: groupFrame.width * 0.8, height: groupFrame.height),
-                    options: [.usesLineFragmentOrigin, .usesFontLeading],
-                    context: nil
-                )
-                measuredSize = boundingRect.size
-                cacheLegend(LegendCacheValue(text: legendText, size: measuredSize), for: legendKey)
-            }
-            context.legendFrame = CGRect(
-                x: 12, y: groupFrame.minY + group.padding.top,
-                width: measuredSize.width, height: measuredSize.height
+            let result = legendCoordinator.configureLegend(
+                for: group,
+                groupFrame: groupFrame,
+                legendKey: legendKey,
+                legendLabel: legendLabel,
+                legendCache: &legendCache,
+                context: context
             )
-            return measuredSize.height + group.legendSpacing
-        }
-
-        func configureCrosshairRenderer(_ renderer: CrosshairRenderer) {
-            for group in descriptor.groups {
-                if group.chartSection == .mainChart {
-                    renderer.candleGroup = group
-                } else if group.chartSection == .timeline {
-                    renderer.timelineGroup = group
-                }
-            }
-        }
-
-        @discardableResult
-        func drawCrosshairIfPossible(at location: CGPoint) -> Bool {
-            guard let renderer = crosshairRenderer,
-                  let groupIndex = descriptor.indexOfGroup(at: location) else {
-                return false
-            }
-
-            let group = descriptor.groups[groupIndex]
-            guard !group.groupFrame.isEmpty, !group.viewPort.isEmpty else { return false }
-
-            renderer.selectedGroup = group
-            configureCrosshairRenderer(renderer)
-            context.groupFrame = group.groupFrame
-            context.viewPort = group.viewPort
-            context.layout.dataBounds = group.dataBounds
-            renderer.draw(in: scrollView.contentView.canvas, context: context)
-            return true
+            legendCost += result.cost
+            return result.viewPortOffsetY
         }
 
         if hasCrosshairRenderer, let location = crosshairLocation {
-            defer { _ = drawCrosshairIfPossible(at: location) }
+            defer {
+                crosshairDrawCoordinator.drawCrosshair(
+                    renderer: crosshairRenderer,
+                    descriptor: descriptor,
+                    canvas: scrollView.contentView.canvas,
+                    context: context,
+                    at: location
+                )
+            }
         }
 
         if canUseCrosshairFastPath,
            let location = crosshairLocation,
            let selectedGroupIndex = descriptor.indexOfGroup(at: location),
            !descriptor.groups[selectedGroupIndex].viewPort.isEmpty {
-            for idx in descriptor.groups.indices {
-                let groupFrame = descriptor.frameOfGroup(at: idx, rect: contentRect)
-                descriptor.groups[idx].groupFrame = groupFrame
-                context.groupFrame = groupFrame
-
-                let group = descriptor.groups[idx]
-                _ = configureLegend(for: group, groupIndex: idx, groupFrame: groupFrame)
-                for renderer in group.renderers {
-                    (renderer.base as? LegendUpdatable)?.updateLegend(context: context)
-                }
-            }
+            visibleContentCoordinator.updateCrosshairFastPath(
+                descriptor: &descriptor,
+                contentRect: contentRect,
+                context: context,
+                configureLegend: configureLegend(for:groupIndex:groupFrame:)
+            )
             #if DEBUG
-            reportDrawMetrics(
+            debugDrawReporter.report(
                 drawStartTime: drawStartTime,
                 legendCost: legendCost,
                 boundsCost: boundsCost,
@@ -767,47 +558,20 @@ extension KLineView {
             return
         }
 
-        for (idx, group) in descriptor.groups.enumerated() {
-            let renderers = group.renderers
-
-            var dataBounds: MetricBounds = .empty
-            let boundsStart = CACurrentMediaTime()
-            // 计算可见区域内数据范围
-            for renderer in renderers {
-                dataBounds.merge(other: renderer.dataBounds(context: context))
-            }
-            boundsCost += CACurrentMediaTime() - boundsStart
-            descriptor.groups[idx].dataBounds = dataBounds
-            context.layout.dataBounds = dataBounds
-
-            // 计算可见区域内每个 group 所在的位置
-            let groupFrame = descriptor.frameOfGroup(at: idx, rect: contentRect)
-            descriptor.groups[idx].groupFrame = groupFrame
-            context.groupFrame = groupFrame
-
-            // 绘制图例
-            let viewPortOffsetY = configureLegend(for: group, groupIndex: idx, groupFrame: groupFrame)
-
-            // 计算 viewPort
-            let groupInset = UIEdgeInsets(
-                top: group.padding.top + viewPortOffsetY, left: 0,
-                bottom: group.padding.bottom, right: 0
-            )
-            let viewPort = groupFrame.inset(by: groupInset)
-            descriptor.groups[idx].viewPort = viewPort
-            context.viewPort = viewPort
-
-            // 绘制图表
-            let renderersStart = CACurrentMediaTime()
-            for renderer in renderers {
-                renderer.draw(in: scrollView.contentView.canvas, context: context)
-            }
-            rendererCost += CACurrentMediaTime() - renderersStart
-        }
+        let drawCost = visibleContentCoordinator.drawFullContent(
+            descriptor: &descriptor,
+            contentRect: contentRect,
+            canvas: scrollView.contentView.canvas,
+            context: context,
+            groupDrawCoordinator: groupDrawCoordinator,
+            configureLegend: configureLegend(for:groupIndex:groupFrame:)
+        )
+        boundsCost += drawCost.boundsCost
+        rendererCost += drawCost.rendererCost
 
         lastFullDrawColorSignature = currentColorSignature
         #if DEBUG
-        reportDrawMetrics(
+        debugDrawReporter.report(
             drawStartTime: drawStartTime,
             legendCost: legendCost,
             boundsCost: boundsCost,
@@ -817,29 +581,6 @@ extension KLineView {
         #endif
     }
     
-    #if DEBUG
-    private func reportDrawMetrics(
-        drawStartTime: CFTimeInterval,
-        legendCost: CFTimeInterval,
-        boundsCost: CFTimeInterval,
-        rendererCost: CFTimeInterval,
-        mode: RedrawMode
-    ) {
-        debugDrawMetrics.frameCount += 1
-        let now = CACurrentMediaTime()
-        guard now - debugDrawMetrics.lastReportTime >= 1 else { return }
-        let totalCost = now - drawStartTime
-        print(
-            "[SwiftKLine][Perf] fps=\(debugDrawMetrics.frameCount)/s mode=\(mode) " +
-            "total=\(String(format: "%.4f", totalCost))s " +
-            "legend=\(String(format: "%.4f", legendCost))s " +
-            "bounds=\(String(format: "%.4f", boundsCost))s " +
-            "render=\(String(format: "%.4f", rendererCost))s"
-        )
-        debugDrawMetrics.frameCount = 0
-        debugDrawMetrics.lastReportTime = now
-    }
-    #endif
 }
 
 extension KLineView {
@@ -890,9 +631,7 @@ private extension KLineView {
     }
     
     func throttleRecalculateAndRedraw() {
-        let now = CACurrentMediaTime()
-        guard now - lastLiveRedrawAt >= 0.2 else { return }
-        lastLiveRedrawAt = now
+        guard liveRedrawThrottle.shouldRedraw() else { return }
         scheduleDescriptorUpdate(recalculateValues: true)
     }
 }

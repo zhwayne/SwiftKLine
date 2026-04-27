@@ -2,7 +2,7 @@
 //  CrosshairInteraction.swift
 //  SwiftKLine
 //
-//  Created by W Zh on 2025/7/28.
+//  Created by zhwayne on 2025/7/28.
 //
 
 import UIKit
