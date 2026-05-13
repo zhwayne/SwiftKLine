@@ -87,6 +87,7 @@ enum ChartSection: Sendable {
     private var longPressLocation: CGPoint = .zero
     private var dataMerger = KLineDataMerger()
     public var indicatorSelectionDidChange: ((IndicatorSelectionState) -> Void)?
+    public var onLoadError: ((Error) -> Void)?
     
     private var disposeBag = Set<AnyCancellable>()
     private var liveRedrawThrottle = KLineLiveRedrawThrottle()
@@ -305,8 +306,8 @@ private extension KLineView {
                 await self.draw(items: merged, scrollPosition: .right)
             case let .liveTick(tick):
                 await self.applyLiveTick(tick)
-            case .failed:
-                break
+            case let .failed(error):
+                onLoadError?(error)
             }
         }
     }

@@ -43,8 +43,8 @@ extension KLineItem {
 extension Collection where Element == any KLineItem {
     
     var lowerBoundItem: (Int, Element)? {
-        if isEmpty { return nil }
-        var (idx, element) = (0, self.first!)
+        guard let first = self.first else { return nil }
+        var (idx, element) = (0, first)
         for (offset, item) in self.dropFirst().enumerated() {
             if item.lowest < element.lowest {
                 (idx, element) = (offset + 1, item)
@@ -54,8 +54,8 @@ extension Collection where Element == any KLineItem {
     }
     
     var upperBoundItem: (Int, Element)? {
-        if isEmpty { return nil }
-        var (idx, element) = (0, self.first!)
+        guard let first = self.first else { return nil }
+        var (idx, element) = (0, first)
         for (offset, item) in self.dropFirst().enumerated() {
             if item.highest > element.highest {
                 (idx, element) = (offset + 1, item)

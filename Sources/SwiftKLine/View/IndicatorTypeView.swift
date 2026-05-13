@@ -84,7 +84,9 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
         dataSource = .init(collectionView: collectionView, cellProvider: { collectionView, indexPath, itemIdentifier in
             switch itemIdentifier {
             case let .main(type), let .sub(type):
-                let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "cell", for: indexPath) as! IndicatorCell
+                guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "cell", for: indexPath) as? IndicatorCell else {
+                    return UICollectionViewCell()
+                }
                 cell.label.text = type.rawValue
                 return cell
             case .separator:

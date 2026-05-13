@@ -40,6 +40,7 @@ class PinchInteraction: NSObject, UIInteraction {
         switch pinch.state {
         case .began:
             scrollView.isScrollEnabled = false
+            guard pinch.numberOfTouches >= 2 else { return }
             let p1 = pinch.location(ofTouch: 0, in: scrollView.contentView)
             let p2 = pinch.location(ofTouch: 1, in: scrollView.contentView)
             pinchCenterX = (p1.x + p2.x) / 2
