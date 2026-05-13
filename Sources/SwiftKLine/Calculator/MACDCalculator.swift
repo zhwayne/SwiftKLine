@@ -21,12 +21,18 @@ struct MACDIndicatorValue: ValueBounds {
 struct MACDCalculator: IndicatorCalculator {
     
     typealias Result = MACDIndicatorValue
-    let shortPeriod: Int = 12  // 短期 EMA 的周期（常用 12）
-    let longPeriod: Int  = 26  // 长期 EMA 的周期（常用 26）
-    let signalPeriod: Int = 9 // 信号线 EMA 的周期（常用 9）
+    let shortPeriod: Int
+    let longPeriod: Int
+    let signalPeriod: Int
     var indicator: Indicator { .macd }
-    var key: Indicator.Key { .macd }
-    var id: some Hashable { Indicator.Key.macd }
+    var key: Indicator.Key { .macd(shortPeriod: shortPeriod, longPeriod: longPeriod, signalPeriod: signalPeriod) }
+    var id: some Hashable { key }
+    
+    init(shortPeriod: Int = 12, longPeriod: Int = 26, signalPeriod: Int = 9) {
+        self.shortPeriod = shortPeriod
+        self.longPeriod = longPeriod
+        self.signalPeriod = signalPeriod
+    }
     
     func calculate(for items: [any KLineItem]) -> [MACDIndicatorValue?] {
         // 至少需要足够的数据来计算长期 EMA

@@ -129,7 +129,7 @@ public struct LayoutMetrics {
             .wma(10): LineStyle(strokeColor: .systemBlue),
             .wma(20): LineStyle(strokeColor: .systemGreen),
             // BOLL
-            .boll: LineStyle(strokeColor: .systemOrange),
+            .boll(period: 20, k: 2.0): LineStyle(strokeColor: .systemOrange),
             // SAR
             .sar: LineStyle(strokeColor: .systemOrange),
             // RSI
@@ -137,7 +137,7 @@ public struct LayoutMetrics {
             .rsi(12): LineStyle(strokeColor: .systemPink),
             .rsi(24): LineStyle(strokeColor: .systemTeal),
             // MACD
-            .macd: MACDStyle(macdColor: .systemOrange, difColor: .systemPink, deaColor: .systemTeal)
+            .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9): MACDStyle(macdColor: .systemOrange, difColor: .systemPink, deaColor: .systemTeal)
         ]
     }
 }
@@ -203,12 +203,12 @@ public extension KLineConfiguration.ThemePreset {
             .wma(5): LineStyle(strokeColor: UIColor(red: 0.63, green: 0.89, blue: 0.75, alpha: 1)),
             .wma(10): LineStyle(strokeColor: UIColor(red: 0.74, green: 0.8, blue: 0.98, alpha: 1)),
             .wma(20): LineStyle(strokeColor: UIColor(red: 0.97, green: 0.84, blue: 0.96, alpha: 1)),
-            .boll: LineStyle(strokeColor: UIColor(red: 0.64, green: 0.78, blue: 1, alpha: 1)),
+            .boll(period: 20, k: 2.0): LineStyle(strokeColor: UIColor(red: 0.64, green: 0.78, blue: 1, alpha: 1)),
             .sar: LineStyle(strokeColor: UIColor(red: 1, green: 0.71, blue: 0.45, alpha: 1)),
             .rsi(6): LineStyle(strokeColor: UIColor(red: 0.83, green: 0.93, blue: 1, alpha: 1)),
             .rsi(12): LineStyle(strokeColor: UIColor(red: 1, green: 0.77, blue: 0.53, alpha: 1)),
             .rsi(24): LineStyle(strokeColor: UIColor(red: 0.58, green: 0.89, blue: 0.71, alpha: 1)),
-            .macd: MACDStyle(
+            .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9): MACDStyle(
                 macdColor: UIColor(red: 0.97, green: 0.69, blue: 0.36, alpha: 1),
                 difColor: UIColor(red: 0.63, green: 0.89, blue: 1, alpha: 1),
                 deaColor: UIColor(red: 1, green: 0.47, blue: 0.64, alpha: 1)
@@ -246,12 +246,12 @@ public extension KLineConfiguration.ThemePreset {
             .wma(5): LineStyle(strokeColor: UIColor(red: 0.84, green: 0.58, blue: 0.28, alpha: 1)),
             .wma(10): LineStyle(strokeColor: UIColor(red: 0.25, green: 0.55, blue: 0.70, alpha: 1)),
             .wma(20): LineStyle(strokeColor: UIColor(red: 0.61, green: 0.63, blue: 0.54, alpha: 1)),
-            .boll: LineStyle(strokeColor: UIColor(red: 0.95, green: 0.89, blue: 0.75, alpha: 1)),
+            .boll(period: 20, k: 2.0): LineStyle(strokeColor: UIColor(red: 0.95, green: 0.89, blue: 0.75, alpha: 1)),
             .sar: LineStyle(strokeColor: UIColor(red: 0.20, green: 0.27, blue: 0.38, alpha: 1)),
             .rsi(6): LineStyle(strokeColor: UIColor(red: 0.98, green: 0.72, blue: 0.18, alpha: 1)),
             .rsi(12): LineStyle(strokeColor: UIColor(red: 0.36, green: 0.68, blue: 0.91, alpha: 1)),
             .rsi(24): LineStyle(strokeColor: UIColor(red: 0.79, green: 0.68, blue: 0.75, alpha: 1)),
-            .macd: MACDStyle(
+            .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9): MACDStyle(
                 macdColor: UIColor(red: 0.98, green: 0.50, blue: 0.15, alpha: 1),
                 difColor: UIColor(red: 0.36, green: 0.68, blue: 0.91, alpha: 1),
                 deaColor: UIColor(red: 0.20, green: 0.27, blue: 0.38, alpha: 1)

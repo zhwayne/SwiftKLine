@@ -17,8 +17,10 @@ final class BOLLRenderer: Renderer {
     private let areaLayer = CAShapeLayer()
 
     var id: some Hashable { Indicator.boll }
+    let key: Indicator.Key
 
-    init() {
+    init(key: Indicator.Key) {
+        self.key = key
         upperLayer.lineWidth = 1
         upperLayer.fillColor = UIColor.clear.cgColor
         middleLayer.lineWidth = 1
@@ -48,7 +50,6 @@ final class BOLLRenderer: Renderer {
         let candleStyle = klineConfig.candleStyle
         let layout = context.layout
         
-        let key = Indicator.Key.boll
         guard let visibleValues = context.visibleBollValues(for: key) else {
             return
         }
@@ -99,7 +100,6 @@ final class BOLLRenderer: Renderer {
     }
     
     func legend(context: Context) -> NSAttributedString? {
-        let key = Indicator.Key.boll
         let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
         guard let values = context.bollValues(for: key), !values.isEmpty,
               context.currentIndex >= 0,
@@ -133,7 +133,7 @@ final class BOLLRenderer: Renderer {
     }
     
     func dataBounds(context: Context) -> MetricBounds {
-        let visibleValues = context.visibleBollValues(for: .boll)
+        let visibleValues = context.visibleBollValues(for: key)
         guard let visibleValues else {
             return .empty
         }

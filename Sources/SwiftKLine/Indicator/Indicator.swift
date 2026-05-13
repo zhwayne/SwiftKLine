@@ -32,11 +32,11 @@ extension Indicator {
         .ma:    [.ma(5), .ma(10), .ma(20)],
         .ema:   [.ema(5), .ema(10), .ema(20)],
         .wma:   [.wma(5), .wma(10), .wma(20)],
-        .boll:  [.boll],
+        .boll:  [.boll(period: 20, k: 2.0)],
         .sar:   [.sar],
         .vol:   [.vol],
         .rsi:   [.rsi(6), .rsi(12), .rsi(24)],
-        .macd:  [.macd]
+        .macd:  [.macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)]
     ]
 
     var defaultKeys: [Key] {
@@ -50,22 +50,22 @@ extension Indicator {
         case ma(_ period: Int)
         case ema(_ period: Int)
         case wma(_ period: Int)
-        case boll
+        case boll(period: Int, k: Double)
         case sar
         case vol
         case rsi(_ period: Int)
-        case macd
+        case macd(shortPeriod: Int, longPeriod: Int, signalPeriod: Int)
         
         public var description: String {
             switch self {
             case let .ma(period):   return "MA(\(period))"
             case let .ema(period):  return "EMA(\(period))"
             case let .wma(period):  return "WMA(\(period))"
-            case .boll: return "BOLL"
+            case let .boll(period, k): return "BOLL(\(period),\(k))"
             case .sar: return "SAR(0.02,0.2)"
             case .vol:  return "VOL"
             case let .rsi(period):  return "RSI\(period)"
-            case let .macd: return "MACD(12,26,9)"
+            case let .macd(short, long, signal): return "MACD(\(short),\(long),\(signal))"
             }
         }
     }

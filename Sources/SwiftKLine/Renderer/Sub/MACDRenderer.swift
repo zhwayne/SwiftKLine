@@ -10,10 +10,7 @@ import UIKit
 final class MACDRenderer: Renderer, LegendUpdatable {
     
     var id: some Hashable { Indicator.macd }
-    
-    private let shortPeriod: Int = 12 // 短期 EMA 的周期（常用 12）
-    private let longPeriod: Int  = 26 // 长期 EMA 的周期（常用 26）
-    private let signalPeriod: Int = 9// 信号线 EMA 的周期（常用 9）
+    let key: Indicator.Key
     private let priceFormatter = PriceFormatter()
     
     private let legendLayer = CATextLayer()
@@ -25,7 +22,8 @@ final class MACDRenderer: Renderer, LegendUpdatable {
     private let negativeFilledBarsLayer = CAShapeLayer()
     private let negativeHollowBarsLayer = CAShapeLayer()
     
-    init() {
+    init(key: Indicator.Key) {
+        self.key = key
         legendLayer.alignmentMode = .center
         legendLayer.contentsScale = UIScreen.main.scale
         
@@ -72,7 +70,6 @@ final class MACDRenderer: Renderer, LegendUpdatable {
         
         updateLegend(context: context)
         
-        let key = Indicator.Key.macd
         guard let visibleValues = context.visibleMacdValues(for: key) else {
             return
         }
@@ -180,7 +177,6 @@ final class MACDRenderer: Renderer, LegendUpdatable {
     }
     
     func legend(context: Context) -> NSAttributedString? {
-        let key = Indicator.Key.macd
         let style = context.configuration.indicatorStyle(for: key, type: MACDStyle.self)
         guard let values = context.macdValues(for: key), !values.isEmpty,
               context.currentIndex >= 0,
@@ -214,7 +210,7 @@ final class MACDRenderer: Renderer, LegendUpdatable {
     }
     
     func dataBounds(context: Context) -> MetricBounds {
-        let visibleValues = context.visibleMacdValues(for: .macd)
+        let visibleValues = context.visibleMacdValues(for: key)
         guard let visibleValues else {
             return .empty
         }

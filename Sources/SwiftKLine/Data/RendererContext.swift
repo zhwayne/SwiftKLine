@@ -88,22 +88,22 @@ extension RendererContext {
     }
     
     /// 读取 BOLL 指标全量序列。
-    func bollValues(for key: Indicator.Key = .boll) -> ContiguousArray<BOLLIndicatorValue?>? {
+    func bollValues(for key: Indicator.Key = .boll(period: 20, k: 2.0)) -> ContiguousArray<BOLLIndicatorValue?>? {
         indicatorSeriesStore.bollSeries[key]
     }
     
     /// 读取 BOLL 指标可见区间序列。
-    func visibleBollValues(for key: Indicator.Key = .boll) -> ArraySlice<BOLLIndicatorValue?>? {
+    func visibleBollValues(for key: Indicator.Key = .boll(period: 20, k: 2.0)) -> ArraySlice<BOLLIndicatorValue?>? {
         visibleValues(from: bollValues(for: key))
     }
     
     /// 读取 MACD 指标全量序列。
-    func macdValues(for key: Indicator.Key = .macd) -> ContiguousArray<MACDIndicatorValue?>? {
+    func macdValues(for key: Indicator.Key = .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)) -> ContiguousArray<MACDIndicatorValue?>? {
         indicatorSeriesStore.macdSeries[key]
     }
     
     /// 读取 MACD 指标可见区间序列。
-    func visibleMacdValues(for key: Indicator.Key = .macd) -> ArraySlice<MACDIndicatorValue?>? {
+    func visibleMacdValues(for key: Indicator.Key = .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)) -> ArraySlice<MACDIndicatorValue?>? {
         visibleValues(from: macdValues(for: key))
     }
 }

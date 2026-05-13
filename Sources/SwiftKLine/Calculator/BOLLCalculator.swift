@@ -21,13 +21,18 @@ struct BOLLCalculator: IndicatorCalculator {
     
     typealias Result = BOLLIndicatorValue
     var indicator: Indicator { .boll }
-    var key: Indicator.Key { .boll }
-    var id: some Hashable { Indicator.Key.boll }
+    var key: Indicator.Key { .boll(period: period, k: k) }
+    var id: some Hashable { key }
     
     /// 计算周期（常用 20）
-    let period: Int = 20
+    let period: Int
     /// 带宽系数（常用 2.0）
-    let k: Double = 2.0
+    let k: Double
+    
+    init(period: Int = 20, k: Double = 2.0) {
+        self.period = period
+        self.k = k
+    }
 
     func calculate(for items: [any KLineItem]) -> [Result?] {
         guard period > 0, items.count >= period else {

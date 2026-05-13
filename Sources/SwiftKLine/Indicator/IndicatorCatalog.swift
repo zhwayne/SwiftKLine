@@ -122,13 +122,14 @@ private struct BOLLSpec: IndicatorSpec {
 
     func makeCalculators(configuration: KLineConfiguration) -> [any IndicatorCalculator] {
         configuration.indicatorKeys(for: indicator).compactMap { key in
-            guard case .boll = key else { return nil }
-            return BOLLCalculator()
+            guard case let .boll(period, k) = key else { return nil }
+            return BOLLCalculator(period: period, k: k)
         }
     }
 
     func makeRenderer(configuration: KLineConfiguration) -> (any Renderer)? {
-        BOLLRenderer()
+        guard let key = configuration.indicatorKeys(for: .boll).first else { return nil }
+        return BOLLRenderer(key: key)
     }
 }
 
@@ -200,12 +201,13 @@ private struct MACDSpec: IndicatorSpec {
 
     func makeCalculators(configuration: KLineConfiguration) -> [any IndicatorCalculator] {
         configuration.indicatorKeys(for: indicator).compactMap { key in
-            guard case .macd = key else { return nil }
-            return MACDCalculator()
+            guard case let .macd(short, long, signal) = key else { return nil }
+            return MACDCalculator(shortPeriod: short, longPeriod: long, signalPeriod: signal)
         }
     }
 
     func makeRenderer(configuration: KLineConfiguration) -> (any Renderer)? {
-        MACDRenderer()
+        guard let key = configuration.indicatorKeys(for: .macd).first else { return nil }
+        return MACDRenderer(key: key)
     }
 }
