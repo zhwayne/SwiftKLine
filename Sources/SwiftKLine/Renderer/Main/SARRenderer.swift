@@ -34,7 +34,7 @@ final class SARRenderer: KLineRenderer {
         let candleStyle = klineConfig.candleStyle
         let layout = context.layout
 
-        let key = KLineIndicator.Key.sar
+        let key = KLineIndicator.Parameters.sar
         guard let visibleValues = context.visibleScalarValues(for: key) else {
             return
         }
@@ -57,7 +57,7 @@ final class SARRenderer: KLineRenderer {
     }
     
     func legend(context: Context) -> NSAttributedString? {
-        let key = KLineIndicator.Key.sar
+        let key = KLineIndicator.Parameters.sar
         let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
         guard let values = context.scalarValues(for: key), !values.isEmpty,
               context.currentIndex >= 0,
@@ -76,7 +76,7 @@ final class SARRenderer: KLineRenderer {
         return partialResult
     }
     
-    func dataBounds(context: Context) -> KLineMetricBounds {
+    func dataBounds(context: Context) -> ValueBounds {
         let visibleValues = context.visibleScalarValues(for: .sar)
         guard let visibleValues else {
             return .empty
@@ -91,6 +91,6 @@ final class SARRenderer: KLineRenderer {
             maxValue = Swift.max(maxValue, value)
         }
         guard hasValue else { return .empty }
-        return KLineMetricBounds(min: minValue, max: maxValue)
+        return ValueBounds(min: minValue, max: maxValue)
     }
 }

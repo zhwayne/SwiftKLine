@@ -11,8 +11,8 @@ import Foundation
 struct MACalculator: KLineIndicatorCalculator {
     typealias Value = Double
     let period: Int       // 移动平均线的周期
-    var id: KLineSeriesKey {
-        KLineSeriesKey(indicatorID: KLineIndicatorID("builtin.ma"), name: "MA", parameters: ["period": "\(period)"])
+    var id: SeriesKey {
+        SeriesKey(indicatorID: IndicatorID("builtin.ma"), name: "MA", parameters: ["period": "\(period)"])
     }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
@@ -23,10 +23,10 @@ struct MACalculator: KLineIndicatorCalculator {
         var sum: Double = 0
         
         for i in 0..<items.count {
-            sum += items[i].closing
+            sum += items[i].close
             
             if i >= period {
-                sum -= items[i - period].closing
+                sum -= items[i - period].close
             }
             
             if i >= period - 1 {

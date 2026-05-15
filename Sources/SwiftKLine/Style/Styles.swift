@@ -62,8 +62,8 @@ public struct LayoutMetrics {
     public let defaultMainIndicators: [KLineIndicator]
     public let defaultSubIndicators: [KLineIndicator]
     
-    private var indicatorStyleRegistry: [KLineIndicator.Key: any IndicatorStyle]
-    private var indicatorKeyOverrides: [KLineIndicator: [KLineIndicator.Key]]
+    private var indicatorStyleRegistry: [KLineIndicator.Parameters: any IndicatorStyle]
+    private var indicatorKeyOverrides: [KLineIndicator: [KLineIndicator.Parameters]]
     
     public init(
         candleStyle: CandleStyle = CandleStyle(),
@@ -73,8 +73,8 @@ public struct LayoutMetrics {
         indicators: [KLineIndicator] = KLineIndicator.allCases,
         defaultMainIndicators: [KLineIndicator] = [],
         defaultSubIndicators: [KLineIndicator] = [],
-        indicatorStyleRegistry: [KLineIndicator.Key: any IndicatorStyle]? = nil,
-        indicatorKeyOverrides: [KLineIndicator: [KLineIndicator.Key]] = [:]
+        indicatorStyleRegistry: [KLineIndicator.Parameters: any IndicatorStyle]? = nil,
+        indicatorKeyOverrides: [KLineIndicator: [KLineIndicator.Parameters]] = [:]
     ) {
         self.candleStyle = candleStyle
         self.legendFont = legendFont
@@ -92,15 +92,15 @@ public struct LayoutMetrics {
         builder(self)
     }
     
-    public func indicatorStyle<S>(for key: KLineIndicator.Key, type: S.Type) -> S? where S: IndicatorStyle {
+    public func indicatorStyle<S>(for key: KLineIndicator.Parameters, type: S.Type) -> S? where S: IndicatorStyle {
         indicatorStyleRegistry[key] as? S
     }
     
-    public func indicatorKeys(for indicator: KLineIndicator) -> [KLineIndicator.Key] {
+    public func indicatorKeys(for indicator: KLineIndicator) -> [KLineIndicator.Parameters] {
         indicatorKeyOverrides[indicator] ?? indicator.defaultKeys
     }
     
-    static func makeDefaultIndicatorStyles() -> [KLineIndicator.Key: any IndicatorStyle] {
+    static func makeDefaultIndicatorStyles() -> [KLineIndicator.Parameters: any IndicatorStyle] {
         [
             // MA
             .ma(5): LineStyle(strokeColor: .systemOrange),
@@ -136,14 +136,14 @@ public extension KLineConfiguration {
         public var legendFont: UIFont
         public var watermarkText: String?
         public var layout: LayoutMetrics
-        public var indicatorStyles: [KLineIndicator.Key: any IndicatorStyle]
+        public var indicatorStyles: [KLineIndicator.Parameters: any IndicatorStyle]
         
         public init(
             candleStyle: CandleStyle,
             legendFont: UIFont = UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
             watermarkText: String?,
             layout: LayoutMetrics = LayoutMetrics(),
-            indicatorStyles: [KLineIndicator.Key: any IndicatorStyle]? = nil
+            indicatorStyles: [KLineIndicator.Parameters: any IndicatorStyle]? = nil
         ) {
             self.candleStyle = candleStyle
             self.legendFont = legendFont
@@ -179,7 +179,7 @@ public extension KLineConfiguration.ThemePreset {
             indicatorHeight: 76,
             indicatorSelectorHeight: 36
         )
-        let indicatorStyles: [KLineIndicator.Key: any IndicatorStyle] = [
+        let indicatorStyles: [KLineIndicator.Parameters: any IndicatorStyle] = [
             .ma(5): LineStyle(strokeColor: UIColor(red: 1, green: 0.78, blue: 0.32, alpha: 1)),
             .ma(10): LineStyle(strokeColor: UIColor(red: 0.97, green: 0.5, blue: 0.67, alpha: 1)),
             .ma(20): LineStyle(strokeColor: UIColor(red: 0.4, green: 0.85, blue: 1, alpha: 1)),
@@ -222,7 +222,7 @@ public extension KLineConfiguration.ThemePreset {
             indicatorHeight: 70,
             indicatorSelectorHeight: 34
         )
-        let indicatorStyles: [KLineIndicator.Key: any IndicatorStyle] = [
+        let indicatorStyles: [KLineIndicator.Parameters: any IndicatorStyle] = [
             .ma(5): LineStyle(strokeColor: UIColor(red: 0.98, green: 0.72, blue: 0.18, alpha: 1)),
             .ma(10): LineStyle(strokeColor: UIColor(red: 0.44, green: 0.63, blue: 0.85, alpha: 1)),
             .ma(20): LineStyle(strokeColor: UIColor(red: 0.67, green: 0.76, blue: 0.83, alpha: 1)),

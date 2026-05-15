@@ -52,7 +52,7 @@ final class MARenderer: KLineRenderer {
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         
         zip(periods, lineLayers).forEach { period, lineLayer in
-            let key = KLineIndicator.Key.ma(period)
+            let key = KLineIndicator.Parameters.ma(period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 return
             }
@@ -79,7 +79,7 @@ final class MARenderer: KLineRenderer {
     
     func legend(context: Context) -> NSAttributedString? {
         return periods.reduce(NSMutableAttributedString()) { partialResult, period in
-            let key = KLineIndicator.Key.ma(period)
+            let key = KLineIndicator.Parameters.ma(period)
             let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
             guard let values = context.scalarValues(for: key), !values.isEmpty,
                   context.currentIndex >= 0,
@@ -99,10 +99,10 @@ final class MARenderer: KLineRenderer {
         }
     }
     
-    func dataBounds(context: Context) -> KLineMetricBounds {
-        var bounds = KLineMetricBounds.empty
+    func dataBounds(context: Context) -> ValueBounds {
+        var bounds = ValueBounds.empty
         for period in periods {
-            let key = KLineIndicator.Key.ma(period)
+            let key = KLineIndicator.Parameters.ma(period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 continue
             }
@@ -116,7 +116,7 @@ final class MARenderer: KLineRenderer {
                 maxValue = Swift.max(maxValue, value)
             }
             if hasValue {
-                bounds.merge(other: KLineMetricBounds(min: minValue, max: maxValue))
+                bounds.merge(other: ValueBounds(min: minValue, max: maxValue))
             }
         }
         return bounds

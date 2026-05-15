@@ -17,9 +17,9 @@ final class BOLLRenderer: KLineRenderer {
     private let areaLayer = CAShapeLayer()
 
     var id: some Hashable { KLineIndicator.boll }
-    let key: KLineIndicator.Key
+    let key: KLineIndicator.Parameters
 
-    init(key: KLineIndicator.Key) {
+    init(key: KLineIndicator.Parameters) {
         self.key = key
         upperLayer.lineWidth = 1
         upperLayer.fillColor = UIColor.clear.cgColor
@@ -132,7 +132,7 @@ final class BOLLRenderer: KLineRenderer {
         return partialResult
     }
     
-    func dataBounds(context: Context) -> KLineMetricBounds {
+    func dataBounds(context: Context) -> ValueBounds {
         let visibleValues = context.visibleBollValues(for: key)
         guard let visibleValues else {
             return .empty
@@ -149,6 +149,6 @@ final class BOLLRenderer: KLineRenderer {
         guard hasValue else {
             return .empty
         }
-        return KLineMetricBounds(min: minValue, max: maxValue)
+        return ValueBounds(min: minValue, max: maxValue)
     }
 }

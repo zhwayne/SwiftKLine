@@ -3,19 +3,19 @@ import UIKit
 @testable import SwiftKLine
 
 private struct TestKLineItem: KLineItem {
-    let opening: Double
-    let closing: Double
-    let highest: Double
-    let lowest: Double
+    let open: Double
+    let close: Double
+    let high: Double
+    let low: Double
     let volume: Double
     let value: Double
     let timestamp: Int
 
-    init(timestamp: Int, closing: Double) {
-        self.opening = closing
-        self.closing = closing
-        self.highest = closing
-        self.lowest = closing
+    init(timestamp: Int, close: Double) {
+        self.open = close
+        self.close = close
+        self.high = close
+        self.low = close
         self.volume = 0
         self.value = 0
         self.timestamp = timestamp
@@ -23,20 +23,20 @@ private struct TestKLineItem: KLineItem {
 }
 
 @Test func indicatorIDSupportsStringLiteralAndRawValue() {
-    let id: KLineIndicatorID = "custom.vwap"
+    let id: IndicatorID = "custom.vwap"
 
     #expect(id.rawValue == "custom.vwap")
     #expect(String(describing: id) == "custom.vwap")
 }
 
 @Test func builtInIndicatorMapsToStableOpenID() {
-    #expect(KLineIndicator.ma.kLineID == KLineIndicatorID("builtin.ma"))
-    #expect(KLineIndicator.macd.kLineID == KLineIndicatorID("builtin.macd"))
+    #expect(KLineIndicator.ma.kLineID == IndicatorID("builtin.ma"))
+    #expect(KLineIndicator.macd.kLineID == IndicatorID("builtin.macd"))
 }
 
 @Test func builtInIndicatorKeysMapToStableSeriesKeys() {
-    let ma = KLineIndicator.Key.ma(5).kLineSeriesKey
-    let macd = KLineIndicator.Key.macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9).kLineSeriesKey
+    let ma = KLineIndicator.Parameters.ma(5).kLineSeriesKey
+    let macd = KLineIndicator.Parameters.macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9).kLineSeriesKey
 
     #expect(ma.indicatorID == "builtin.ma")
     #expect(ma.name == "MA")
@@ -49,7 +49,7 @@ private struct TestKLineItem: KLineItem {
 }
 
 @Test @MainActor func chartConfigurationThemeBuildsAppearanceConfiguration() {
-    let chart = KLineChartConfiguration(
+    let chart = ChartConfiguration(
         data: .deferred,
         appearance: .theme(.midnight),
         content: .candlestick,
@@ -65,18 +65,18 @@ private struct TestKLineItem: KLineItem {
 }
 
 private struct TestScalarCalculator: KLineIndicatorCalculator {
-    let id = KLineSeriesKey(indicatorID: "test.scalar", name: "TEST")
+    let id = SeriesKey(indicatorID: "test.scalar", name: "TEST")
 
     func calculate(for items: [any KLineItem]) -> [Double?] {
-        items.map { Optional($0.closing) }
+        items.map { Optional($0.close) }
     }
 }
 
 private struct TestIndicatorPlugin: KLineIndicatorPlugin {
-    let id: KLineIndicatorID = "test.scalar"
+    let id: IndicatorID = "test.scalar"
     let title = "TEST"
-    let placement: KLineIndicatorPlacement = .sub
-    let defaultSeriesKeys = [KLineSeriesKey(indicatorID: "test.scalar", name: "TEST")]
+    let placement: IndicatorPlacement = .sub
+    let defaultSeriesKeys = [SeriesKey(indicatorID: "test.scalar", name: "TEST")]
 
     func makeCalculators(configuration: KLineConfiguration) -> [any KLineIndicatorCalculator] {
         [TestScalarCalculator()]
@@ -87,14 +87,14 @@ private struct TestIndicatorPlugin: KLineIndicatorPlugin {
     }
 }
 
-private final class InMemoryIndicatorSelectionStore: KLineIndicatorSelectionStore {
-    var savedState: KLineIndicatorSelectionState?
+private final class InMemoryIndicatorSelectionStore: IndicatorSelectionStore {
+    var savedState: IndicatorSelectionState?
 
-    func load() -> KLineIndicatorSelectionState? {
+    func load() -> IndicatorSelectionState? {
         savedState
     }
 
-    func save(state: KLineIndicatorSelectionState) {
+    func save(state: IndicatorSelectionState) {
         savedState = state
     }
 
@@ -125,8 +125,8 @@ private final class InMemoryIndicatorSelectionStore: KLineIndicatorSelectionStor
 }
 
 @Test @MainActor func pluginRegistryStoresPluginsPerInstance() {
-    let first = KLinePluginRegistry()
-    let second = KLinePluginRegistry()
+    let first = PluginRegistry()
+    let second = PluginRegistry()
 
     first.register(TestIndicatorPlugin())
 
@@ -136,7 +136,7 @@ private final class InMemoryIndicatorSelectionStore: KLineIndicatorSelectionStor
 
 @Test func indicatorSeriesStoreStoresAndReadsOpenKeySeries() {
     var store = IndicatorSeriesStore()
-    let key = KLineSeriesKey(indicatorID: "test.scalar", name: "TEST")
+    let key = SeriesKey(indicatorID: "test.scalar", name: "TEST")
 
     store.setValues(ContiguousArray<Double?>([1, nil, 3]), for: key)
 
@@ -146,13 +146,13 @@ private final class InMemoryIndicatorSelectionStore: KLineIndicatorSelectionStor
 
 @Test func legacyMACalculatorWritesOpenSeriesKey() async {
     let items: [any KLineItem] = [
-        TestKLineItem(timestamp: 1, closing: 1),
-        TestKLineItem(timestamp: 2, closing: 2),
-        TestKLineItem(timestamp: 3, closing: 3)
+        TestKLineItem(timestamp: 1, close: 1),
+        TestKLineItem(timestamp: 2, close: 2),
+        TestKLineItem(timestamp: 3, close: 3)
     ]
 
     let store = await [MACalculator(period: 2).eraseToAnyIndicatorCalculator()].calculate(items: items)
-    let values = store.values(for: KLineIndicator.Key.ma(2).kLineSeriesKey, as: Double.self)
+    let values = store.values(for: KLineIndicator.Parameters.ma(2).kLineSeriesKey, as: Double.self)
 
     #expect(values?[0] == nil)
     #expect(values?[1] == 1.5)
@@ -160,14 +160,14 @@ private final class InMemoryIndicatorSelectionStore: KLineIndicatorSelectionStor
 }
 
 @Test @MainActor func defaultRegistryContainsBuiltInPlugins() {
-    let registry = KLinePluginRegistry.default
+    let registry = PluginRegistry.default
 
     #expect(registry.plugin(for: KLineIndicator.ma.kLineID) != nil)
     #expect(registry.plugin(for: KLineIndicator.macd.kLineID) != nil)
 }
 
 @Test @MainActor func builtInMAPluginCreatesCalculatorsAndRenderers() {
-    let plugin = KLinePluginRegistry.default.plugin(for: KLineIndicator.ma.kLineID)
+    let plugin = PluginRegistry.default.plugin(for: KLineIndicator.ma.kLineID)
     let configuration = KLineConfiguration()
 
     #expect(plugin?.defaultSeriesKeys == KLineIndicator.ma.defaultKeys.map(\.kLineSeriesKey))
@@ -184,29 +184,27 @@ private final class InMemoryIndicatorSelectionStore: KLineIndicatorSelectionStor
     #expect(state.lastError == nil)
 }
 
-@Test func dataPipelineMergesHistoricalPageIntoState() {
-    var pipeline = DataPipeline()
-    var state = ChartState()
+@Test func chartControllerMergesHistoricalPageIntoState() {
+    var controller = ChartController()
     let items: [any KLineItem] = [
-        TestKLineItem(timestamp: 60, closing: 1),
-        TestKLineItem(timestamp: 120, closing: 2)
+        TestKLineItem(timestamp: 60, close: 1),
+        TestKLineItem(timestamp: 120, close: 2)
     ]
 
-    pipeline.apply(.page(index: 0, items: items), to: &state)
+    controller.applyLoaderEvent(.page(index: 0, items: items))
 
-    #expect(state.items.map(\.timestamp) == [60, 120])
+    #expect(controller.state.items.map(\.timestamp) == [60, 120])
 }
 
-@Test func dataPipelineMergesLiveTickIntoState() {
-    var pipeline = DataPipeline()
-    var state = ChartState(items: [
-        TestKLineItem(timestamp: 60, closing: 1),
-        TestKLineItem(timestamp: 120, closing: 2)
-    ])
+@Test func chartControllerMergesLiveTickIntoState() {
+    var controller = ChartController(state: ChartState(items: [
+        TestKLineItem(timestamp: 60, close: 1),
+        TestKLineItem(timestamp: 120, close: 2)
+    ]))
 
-    pipeline.apply(.liveTick(TestKLineItem(timestamp: 120, closing: 22)), to: &state)
+    controller.applyLoaderEvent(.liveTick(TestKLineItem(timestamp: 120, close: 22)))
 
-    #expect(state.items.map(\.closing) == [1, 22])
+    #expect(controller.state.items.map(\.close) == [1, 22])
 }
 
 @Test @MainActor func indicatorPipelineNormalizesAndPersistsSelection() {
@@ -228,7 +226,7 @@ private final class InMemoryIndicatorSelectionStore: KLineIndicatorSelectionStor
 
 @Test @MainActor func indicatorPipelinePersistsCustomSelection() {
     let normalizer = IndicatorSelectionNormalizer(availableMain: [.ma], availableSub: [.vol])
-    let registry = KLinePluginRegistry()
+    let registry = PluginRegistry()
     registry.register(CloseEchoPlugin())
     let store = InMemoryIndicatorSelectionStore()
     let pipeline = IndicatorPipeline(
@@ -250,8 +248,8 @@ private final class InMemoryIndicatorSelectionStore: KLineIndicatorSelectionStor
 }
 
 @Test @MainActor func renderPipelineUsesInstanceRegistry() {
-    let firstRegistry = KLinePluginRegistry()
-    let secondRegistry = KLinePluginRegistry()
+    let firstRegistry = PluginRegistry()
+    let secondRegistry = PluginRegistry()
     firstRegistry.registerRenderer(placement: .overlay) { _, _ in [TestRenderer()] }
 
     let factory = DescriptorFactory()
@@ -282,7 +280,6 @@ private final class InMemoryIndicatorSelectionStore: KLineIndicatorSelectionStor
 @Test @MainActor func chartControllerUpdatesContentStyleCommand() {
     var controller = ChartController(
         state: ChartState(),
-        dataPipeline: DataPipeline(),
         indicatorPipeline: nil
     )
 
@@ -292,18 +289,18 @@ private final class InMemoryIndicatorSelectionStore: KLineIndicatorSelectionStor
 }
 
 private struct CloseEchoCalculator: KLineIndicatorCalculator {
-    let id = KLineSeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho")
+    let id = SeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho")
 
     func calculate(for items: [any KLineItem]) -> [Double?] {
-        items.map { Optional($0.closing) }
+        items.map { Optional($0.close) }
     }
 }
 
 private struct CloseEchoPlugin: KLineIndicatorPlugin {
-    let id: KLineIndicatorID = "custom.closeEcho"
+    let id: IndicatorID = "custom.closeEcho"
     let title = "Close Echo"
-    let placement = KLineIndicatorPlacement.main
-    let defaultSeriesKeys = [KLineSeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho")]
+    let placement = IndicatorPlacement.main
+    let defaultSeriesKeys = [SeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho")]
 
     func makeCalculators(configuration: KLineConfiguration) -> [any KLineIndicatorCalculator] {
         [CloseEchoCalculator()]
@@ -329,8 +326,8 @@ private final class RecordingKLineItemProvider: KLineItemProvider, @unchecked Se
 
     func fetchKLineItems(forPage page: Int) async throws -> [any KLineItem] {
         [
-            TestKLineItem(timestamp: 60, closing: 1),
-            TestKLineItem(timestamp: 120, closing: 2)
+            TestKLineItem(timestamp: 60, close: 1),
+            TestKLineItem(timestamp: 120, close: 2)
         ]
     }
 
@@ -348,26 +345,26 @@ private final class RecordingKLineItemProvider: KLineItemProvider, @unchecked Se
 }
 
 @Test @MainActor func externalCustomIndicatorCanBeRegisteredCalculatedAndRendered() async {
-    let registry = KLinePluginRegistry()
+    let registry = PluginRegistry()
     registry.register(CloseEchoPlugin())
     let plugin = registry.plugin(for: "custom.closeEcho")
     let items: [any KLineItem] = [
-        TestKLineItem(timestamp: 1, closing: 10),
-        TestKLineItem(timestamp: 2, closing: 11)
+        TestKLineItem(timestamp: 1, close: 10),
+        TestKLineItem(timestamp: 2, close: 11)
     ]
 
     let calculators = plugin?.makeCalculators(configuration: KLineConfiguration()).map {
         $0.eraseToAnyIndicatorCalculator()
     } ?? []
     let store = await calculators.calculate(items: items)
-    let values = store.values(for: KLineSeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho"), as: Double.self)
+    let values = store.values(for: SeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho"), as: Double.self)
 
     #expect(values == ContiguousArray<Double?>([10, 11]))
     #expect(plugin?.makeRenderers(configuration: KLineConfiguration()).isEmpty == false)
 }
 
 @Test @MainActor func chartConfigurationIndicatorsDriveInitialViewSelection() {
-    let chart = KLineChartConfiguration(
+    let chart = ChartConfiguration(
         appearance: .configuration(
             KLineConfiguration(
                 defaultMainIndicators: [.ma],
@@ -386,8 +383,8 @@ private final class RecordingKLineItemProvider: KLineItemProvider, @unchecked Se
 
 @Test @MainActor func persistedIndicatorSelectionOverridesChartConfigurationWhenEnabled() {
     let store = InMemoryIndicatorSelectionStore()
-    store.savedState = KLineIndicatorSelectionState(mainIndicators: [.ema], subIndicators: [.rsi])
-    let chart = KLineChartConfiguration(
+    store.savedState = IndicatorSelectionState(mainIndicators: [.ema], subIndicators: [.rsi])
+    let chart = ChartConfiguration(
         appearance: .configuration(
             KLineConfiguration(
                 defaultMainIndicators: [.ma],
@@ -406,9 +403,9 @@ private final class RecordingKLineItemProvider: KLineItemProvider, @unchecked Se
 
 @Test @MainActor func chartConfigurationCanActivateCustomIndicator() {
     RecordingRenderer.installCount = 0
-    let registry = KLinePluginRegistry()
+    let registry = PluginRegistry()
     registry.register(CloseEchoPlugin())
-    let chart = KLineChartConfiguration(
+    let chart = ChartConfiguration(
         indicators: .init(main: [.custom("custom.closeEcho")]),
         features: [],
         plugins: registry
@@ -420,9 +417,9 @@ private final class RecordingKLineItemProvider: KLineItemProvider, @unchecked Se
 }
 
 @Test @MainActor func customIndicatorAppearsInIndicatorTypeViewAndCanBeToggled() {
-    let registry = KLinePluginRegistry()
+    let registry = PluginRegistry()
     registry.register(CloseEchoPlugin())
-    let chart = KLineChartConfiguration(
+    let chart = ChartConfiguration(
         indicators: .init(main: [], sub: []),
         features: [],
         plugins: registry
@@ -437,10 +434,10 @@ private final class RecordingKLineItemProvider: KLineItemProvider, @unchecked Se
 }
 
 @Test @MainActor func resetIndicatorsToDefaultUsesPipelineAndDropsCustomSelection() {
-    let registry = KLinePluginRegistry()
+    let registry = PluginRegistry()
     registry.register(CloseEchoPlugin())
     let store = InMemoryIndicatorSelectionStore()
-    let chart = KLineChartConfiguration(
+    let chart = ChartConfiguration(
         appearance: .configuration(
             KLineConfiguration(
                 defaultMainIndicators: [.ma],
@@ -462,11 +459,11 @@ private final class RecordingKLineItemProvider: KLineItemProvider, @unchecked Se
 }
 
 @Test @MainActor func drawSynchronizesControllerStateWithLegacyViewFields() async {
-    let chart = KLineChartConfiguration(features: [])
+    let chart = ChartConfiguration(features: [])
     let view = KLineView(chart: chart)
     let items: [any KLineItem] = [
-        TestKLineItem(timestamp: 60, closing: 1),
-        TestKLineItem(timestamp: 120, closing: 2)
+        TestKLineItem(timestamp: 60, close: 1),
+        TestKLineItem(timestamp: 120, close: 2)
     ]
 
     await view.debugDraw(items: items)

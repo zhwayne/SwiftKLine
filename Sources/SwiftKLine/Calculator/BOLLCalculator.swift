@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct BOLLIndicatorValue: KLineValueBounds {
+struct BOLLIndicatorValue {
     let middle: Double  // 中轨
     let upper: Double   // 上轨
     let lower: Double   // 下轨
@@ -25,8 +25,8 @@ struct BOLLCalculator: KLineIndicatorCalculator {
     /// 带宽系数（常用 2.0）
     let k: Double
     
-    var id: KLineSeriesKey {
-        KLineSeriesKey(indicatorID: KLineIndicatorID("builtin.boll"), name: "BOLL", parameters: ["period": "\(period)", "k": "\(k)"])
+    var id: SeriesKey {
+        SeriesKey(indicatorID: IndicatorID("builtin.boll"), name: "BOLL", parameters: ["period": "\(period)", "k": "\(k)"])
     }
     
     init(period: Int = 20, k: Double = 2.0) {
@@ -45,7 +45,7 @@ struct BOLLCalculator: KLineIndicatorCalculator {
             let window = items[(i - period + 1)...i]
             
             // 收盘价
-            let closes = window.map { $0.closing }
+            let closes = window.map { $0.close }
             
             // 中轨 (MA)
             let avg = closes.reduce(0, +) / Double(period)

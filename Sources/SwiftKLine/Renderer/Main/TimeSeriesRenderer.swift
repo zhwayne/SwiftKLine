@@ -65,7 +65,7 @@ final class TimeSeriesRenderer: KLineRenderer {
         if let latestItem {
             dataChanged =
                 cachedLastVisibleTimestamp != latestItem.timestamp ||
-                cachedLastVisibleClosing != latestItem.closing
+                cachedLastVisibleClosing != latestItem.close
         } else {
             dataChanged = cachedLastVisibleTimestamp != nil
         }
@@ -87,20 +87,20 @@ final class TimeSeriesRenderer: KLineRenderer {
             cachedLayoutFrame = layoutFrame
             cachedBounds = (bounds.min, bounds.max)
             cachedLastVisibleTimestamp = latestItem?.timestamp
-            cachedLastVisibleClosing = latestItem?.closing ?? .nan
+            cachedLastVisibleClosing = latestItem?.close ?? .nan
         }
     }
     
-    func dataBounds(context: Context) -> KLineMetricBounds {
+    func dataBounds(context: Context) -> ValueBounds {
         let visibleItems = context.visibleItems
         guard !visibleItems.isEmpty else { return .empty }
         var minValue = Double.greatestFiniteMagnitude
         var maxValue = -Double.greatestFiniteMagnitude
         for item in visibleItems {
-            minValue = min(minValue, item.lowest, item.closing)
-            maxValue = max(maxValue, item.highest, item.closing)
+            minValue = min(minValue, item.low, item.close)
+            maxValue = max(maxValue, item.high, item.close)
         }
-        return KLineMetricBounds(min: minValue, max: maxValue)
+        return ValueBounds(min: minValue, max: maxValue)
     }
 }
 
@@ -155,7 +155,7 @@ private extension TimeSeriesRenderer {
         var lastPoint: CGPoint?
         for (idx, item) in visibleItems.enumerated() {
             let centerX = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
-            let priceY = layout.minY(for: item.closing, viewPort: viewPort)
+            let priceY = layout.minY(for: item.close, viewPort: viewPort)
             let point = CGPoint(x: centerX, y: priceY)
             if let _ = firstPoint {
                 linePath.addLine(to: point)

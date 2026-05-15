@@ -11,8 +11,8 @@ import Foundation
 struct EMACalculator: KLineIndicatorCalculator {
     typealias Value = Double
     let period: Int       // 移动平均线的周期
-    var id: KLineSeriesKey {
-        KLineSeriesKey(indicatorID: KLineIndicatorID("builtin.ema"), name: "EMA", parameters: ["period": "\(period)"])
+    var id: SeriesKey {
+        SeriesKey(indicatorID: IndicatorID("builtin.ema"), name: "EMA", parameters: ["period": "\(period)"])
     }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
@@ -28,10 +28,10 @@ struct EMACalculator: KLineIndicatorCalculator {
         
         var previousEMA = 0.0
         for i in 0..<items.count {
-            sum += items[i].closing
+            sum += items[i].close
             if i >= period {
                 // 从第 `period` 个位置开始计算 EMA
-                let currentPrice = items[i].closing
+                let currentPrice = items[i].close
                 let ema = (currentPrice - previousEMA) * alpha + previousEMA
                 emaValues[i] = ema
                 previousEMA = ema

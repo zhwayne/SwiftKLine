@@ -61,7 +61,7 @@ import UIKit
 ////        dashLayer.strokeColor = color.cgColor
 //    }
 //    
-//    func dataBounds(context: Context) -> KLineMetricBounds {
-//        return KLineMetricBounds(range: range)
+//    func dataBounds(context: Context) -> ValueBounds {
+//        return ValueBounds(range: range)
 //    }
 //}

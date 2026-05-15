@@ -9,8 +9,8 @@ import Foundation
 
 struct VOLCalculator: KLineIndicatorCalculator {
     typealias Value = Double
-    var id: KLineSeriesKey {
-        KLineSeriesKey(indicatorID: KLineIndicatorID("builtin.vol"), name: "VOL")
+    var id: SeriesKey {
+        SeriesKey(indicatorID: IndicatorID("builtin.vol"), name: "VOL")
     }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {

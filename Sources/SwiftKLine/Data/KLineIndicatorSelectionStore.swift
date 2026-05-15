@@ -1,5 +1,5 @@
 //
-//  KLineIndicatorSelectionStore.swift
+//  IndicatorSelectionStore.swift
 //  SwiftKLine
 //
 //  Created by iya on 2025/11/26.
@@ -8,9 +8,9 @@
 import Foundation
 
 /// 表示主/副图指标的选择状态，可用于做持久化存储。
-public struct KLineIndicatorSelectionState: Codable, Equatable {
-    public var main: [KLineIndicatorSelection]
-    public var sub: [KLineIndicatorSelection]
+public struct IndicatorSelectionState: Codable, Equatable {
+    public var main: [IndicatorSelection]
+    public var sub: [IndicatorSelection]
 
     public var mainIndicators: [KLineIndicator] {
         get { main.compactMap(\.builtInIndicator) }
@@ -23,8 +23,8 @@ public struct KLineIndicatorSelectionState: Codable, Equatable {
     }
 
     public init(
-        main: [KLineIndicatorSelection],
-        sub: [KLineIndicatorSelection]
+        main: [IndicatorSelection],
+        sub: [IndicatorSelection]
     ) {
         self.main = main
         self.sub = sub
@@ -36,8 +36,8 @@ public struct KLineIndicatorSelectionState: Codable, Equatable {
     }
 }
 
-public extension KLineIndicatorSelection {
-    var id: KLineIndicatorID {
+public extension IndicatorSelection {
+    var id: IndicatorID {
         switch self {
         case let .builtIn(indicator):
             return indicator.kLineID
@@ -55,13 +55,13 @@ public extension KLineIndicatorSelection {
 }
 
 /// 抽象指标选择状态的存取行为，便于注入不同的持久化方案。
-public protocol KLineIndicatorSelectionStore {
-    func load() -> KLineIndicatorSelectionState?
-    func save(state: KLineIndicatorSelectionState)
+public protocol IndicatorSelectionStore {
+    func load() -> IndicatorSelectionState?
+    func save(state: IndicatorSelectionState)
     func reset()
 }
 
-public final class KLineUserDefaultsIndicatorSelectionStore: KLineIndicatorSelectionStore {
+public final class UserDefaultsIndicatorSelectionStore: IndicatorSelectionStore {
     
     public static let defaultKey = "com.swiftkline.indicator.selection"
     
@@ -72,19 +72,19 @@ public final class KLineUserDefaultsIndicatorSelectionStore: KLineIndicatorSelec
     
     public init(
         userDefaults: UserDefaults = .standard,
-        key: String = KLineUserDefaultsIndicatorSelectionStore.defaultKey
+        key: String = UserDefaultsIndicatorSelectionStore.defaultKey
     ) {
         self.userDefaults = userDefaults
         self.key = key
     }
     
-    public func load() -> KLineIndicatorSelectionState? {
+    public func load() -> IndicatorSelectionState? {
         guard let data = userDefaults.data(forKey: key) else { return nil }
         do {
-            return try decoder.decode(KLineIndicatorSelectionState.self, from: data)
+            return try decoder.decode(IndicatorSelectionState.self, from: data)
         } catch {
             if let legacy = try? decoder.decode(LegacyIndicatorSelectionState.self, from: data) {
-                let migrated = KLineIndicatorSelectionState(
+                let migrated = IndicatorSelectionState(
                     mainIndicators: legacy.mainIndicators,
                     subIndicators: legacy.subIndicators
                 )
@@ -97,7 +97,7 @@ public final class KLineUserDefaultsIndicatorSelectionStore: KLineIndicatorSelec
         }
     }
     
-    public func save(state: KLineIndicatorSelectionState) {
+    public func save(state: IndicatorSelectionState) {
         guard let data = try? encoder.encode(state) else { return }
         userDefaults.set(data, forKey: key)
     }

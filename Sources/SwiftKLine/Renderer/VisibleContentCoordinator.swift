@@ -14,7 +14,7 @@ struct VisibleContentCoordinator {
     func updateCrosshairFastPath(
         descriptor: inout ChartDescriptor,
         contentRect: CGRect,
-        context: KLineRendererContext<any KLineItem>,
+        context: RendererContext,
         configureLegend: LegendConfigurator
     ) {
         for idx in descriptor.groups.indices {
@@ -34,7 +34,7 @@ struct VisibleContentCoordinator {
         descriptor: inout ChartDescriptor,
         contentRect: CGRect,
         canvas: CALayer,
-        context: KLineRendererContext<any KLineItem>,
+        context: RendererContext,
         groupDrawCoordinator: GroupDrawCoordinator,
         configureLegend: LegendConfigurator
     ) -> (boundsCost: CFTimeInterval, rendererCost: CFTimeInterval) {

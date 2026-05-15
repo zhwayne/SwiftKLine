@@ -9,7 +9,7 @@ import UIKit
 import Combine
 
 struct KLineIndicatorListItem: Hashable {
-    var selection: KLineIndicatorSelection
+    var selection: IndicatorSelection
     var title: String
 }
 
@@ -21,11 +21,11 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
         case sub(KLineIndicatorListItem)
     }
 
-    var drawIndicatorPublisher: AnyPublisher<(ChartSection, KLineIndicatorSelection), Never> {
+    var drawIndicatorPublisher: AnyPublisher<(ChartSection, IndicatorSelection), Never> {
         drawPublisher.eraseToAnyPublisher()
     }
     
-    var eraseIndicatorPublisher: AnyPublisher<(ChartSection, KLineIndicatorSelection), Never> {
+    var eraseIndicatorPublisher: AnyPublisher<(ChartSection, IndicatorSelection), Never> {
         erasePublisher.eraseToAnyPublisher()
     }
     
@@ -34,12 +34,12 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
     var mainCustomIndicators: [KLineIndicatorListItem] = [] { didSet { reloadData() } }
     var subCustomIndicators: [KLineIndicatorListItem] = [] { didSet { reloadData() } }
     
-    private let drawPublisher = PassthroughSubject<(ChartSection, KLineIndicatorSelection), Never>()
-    private let erasePublisher = PassthroughSubject<(ChartSection, KLineIndicatorSelection), Never>()
+    private let drawPublisher = PassthroughSubject<(ChartSection, IndicatorSelection), Never>()
+    private let erasePublisher = PassthroughSubject<(ChartSection, IndicatorSelection), Never>()
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Int, SectionItem>!
-    private var selectedMainIndicators = Set<KLineIndicatorSelection>()
-    private var selectedSubIndicators = Set<KLineIndicatorSelection>()
+    private var selectedMainIndicators = Set<IndicatorSelection>()
+    private var selectedSubIndicators = Set<IndicatorSelection>()
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -116,11 +116,11 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
     
     func setSelectedIndicators(main: [KLineIndicator], sub: [KLineIndicator]) {
         setSelectedIndicators(
-            KLineIndicatorSelectionState(mainIndicators: main, subIndicators: sub)
+            IndicatorSelectionState(mainIndicators: main, subIndicators: sub)
         )
     }
 
-    func setSelectedIndicators(_ state: KLineIndicatorSelectionState) {
+    func setSelectedIndicators(_ state: IndicatorSelectionState) {
         selectedMainIndicators = Set(state.main).intersection(Set(mainItems.map(\.selection)))
         selectedSubIndicators = Set(state.sub).intersection(Set(subItems.map(\.selection)))
         applySelection(for: .mainChart)

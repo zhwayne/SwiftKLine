@@ -94,11 +94,11 @@ final class VOLRenderer: KLineRenderer, LegendUpdatable {
         return string
     }
     
-    func dataBounds(context: Context) -> KLineMetricBounds {
+    func dataBounds(context: Context) -> ValueBounds {
         let visibleItems = context.visibleItems
         guard let max = visibleItems.max(by: { $0.volume < $1.volume }) else {
             return .empty
         }
-        return KLineMetricBounds(min: 0, max: max.volume)
+        return ValueBounds(min: 0, max: max.volume)
     }
 }

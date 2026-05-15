@@ -2,10 +2,10 @@ import Foundation
 
 // 计算结果在 task group 之间以不可变快照传递，内部 Any 只承载值类型序列。
 struct AnyIndicatorSeries: @unchecked Sendable {
-    let key: KLineSeriesKey
+    let key: SeriesKey
     private let valuesStorage: Any
 
-    init<Value>(key: KLineSeriesKey, values: ContiguousArray<Value?>) {
+    init<Value>(key: SeriesKey, values: ContiguousArray<Value?>) {
         self.key = key
         valuesStorage = values
     }
@@ -17,19 +17,19 @@ struct AnyIndicatorSeries: @unchecked Sendable {
 
 /// 指标序列的统一存储。
 ///
-/// 内部以开放的 `KLineSeriesKey` 索引，无旧兼容层。
+/// 内部以开放的 `SeriesKey` 索引，无旧兼容层。
 struct IndicatorSeriesStore: @unchecked Sendable {
-    private var series: [KLineSeriesKey: AnyIndicatorSeries] = [:]
+    private var series: [SeriesKey: AnyIndicatorSeries] = [:]
 
-    mutating func setSeries(_ value: AnyIndicatorSeries, for key: KLineSeriesKey) {
+    mutating func setSeries(_ value: AnyIndicatorSeries, for key: SeriesKey) {
         series[key] = value
     }
 
-    mutating func setValues<Value>(_ values: ContiguousArray<Value?>, for key: KLineSeriesKey) {
+    mutating func setValues<Value>(_ values: ContiguousArray<Value?>, for key: SeriesKey) {
         series[key] = AnyIndicatorSeries(key: key, values: values)
     }
 
-    func values<Value>(for key: KLineSeriesKey, as type: Value.Type) -> ContiguousArray<Value?>? {
+    func values<Value>(for key: SeriesKey, as type: Value.Type) -> ContiguousArray<Value?>? {
         series[key]?.values(as: type)
     }
 

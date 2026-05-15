@@ -1,7 +1,7 @@
 import Foundation
 
 extension KLineConfiguration {
-    func periods(for indicator: KLineIndicator, matching extractor: (KLineIndicator.Key) -> Int?) -> [Int] {
+    func periods(for indicator: KLineIndicator, matching extractor: (KLineIndicator.Parameters) -> Int?) -> [Int] {
         indicatorKeys(for: indicator).compactMap(extractor)
     }
 }
@@ -10,7 +10,7 @@ extension KLineConfiguration {
 struct BuiltInIndicatorPlugin: KLineIndicatorPlugin {
     let indicator: KLineIndicator
 
-    var id: KLineIndicatorID {
+    var id: IndicatorID {
         indicator.kLineID
     }
 
@@ -18,11 +18,11 @@ struct BuiltInIndicatorPlugin: KLineIndicatorPlugin {
         indicator.rawValue
     }
 
-    var placement: KLineIndicatorPlacement {
+    var placement: IndicatorPlacement {
         indicator.isMain ? .main : .sub
     }
 
-    var defaultSeriesKeys: [KLineSeriesKey] {
+    var defaultSeriesKeys: [SeriesKey] {
         indicator.defaultKeys.map(\.kLineSeriesKey)
     }
 

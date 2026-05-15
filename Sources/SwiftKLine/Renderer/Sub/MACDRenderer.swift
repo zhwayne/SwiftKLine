@@ -10,7 +10,7 @@ import UIKit
 final class MACDRenderer: KLineRenderer, LegendUpdatable {
     
     var id: some Hashable { KLineIndicator.macd }
-    let key: KLineIndicator.Key
+    let key: KLineIndicator.Parameters
     private let priceFormatter = PriceFormatter()
     
     private let legendLayer = CATextLayer()
@@ -22,7 +22,7 @@ final class MACDRenderer: KLineRenderer, LegendUpdatable {
     private let negativeFilledBarsLayer = CAShapeLayer()
     private let negativeHollowBarsLayer = CAShapeLayer()
     
-    init(key: KLineIndicator.Key) {
+    init(key: KLineIndicator.Parameters) {
         self.key = key
         legendLayer.alignmentMode = .center
         legendLayer.contentsScale = UIScreen.main.scale
@@ -209,7 +209,7 @@ final class MACDRenderer: KLineRenderer, LegendUpdatable {
         return partialResult
     }
     
-    func dataBounds(context: Context) -> KLineMetricBounds {
+    func dataBounds(context: Context) -> ValueBounds {
         let visibleValues = context.visibleMacdValues(for: key)
         guard let visibleValues else {
             return .empty
@@ -227,6 +227,6 @@ final class MACDRenderer: KLineRenderer, LegendUpdatable {
             return .empty
         }
         let symmetricMax = Swift.max(abs(minValue), abs(maxValue))
-        return KLineMetricBounds(min: -symmetricMax, max: symmetricMax)
+        return ValueBounds(min: -symmetricMax, max: symmetricMax)
     }
 }

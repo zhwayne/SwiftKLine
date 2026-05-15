@@ -11,25 +11,25 @@ import Foundation
 struct IndicatorSelectionNormalizer {
     private let availableMain: Set<KLineIndicator>
     private let availableSub: Set<KLineIndicator>
-    private let pluginRegistry: KLinePluginRegistry
+    private let pluginRegistry: PluginRegistry
 
     init(
         availableMain: [KLineIndicator],
         availableSub: [KLineIndicator],
-        pluginRegistry: KLinePluginRegistry = .default
+        pluginRegistry: PluginRegistry = .default
     ) {
         self.availableMain = Set(availableMain)
         self.availableSub = Set(availableSub)
         self.pluginRegistry = pluginRegistry
     }
 
-    func normalize(_ state: KLineIndicatorSelectionState?) -> KLineIndicatorSelectionState {
+    func normalize(_ state: IndicatorSelectionState?) -> IndicatorSelectionState {
         let main = deduplicatedSelections(state?.main ?? [], placement: .main)
         let sub = deduplicatedSelections(state?.sub ?? [], placement: .sub)
-        return KLineIndicatorSelectionState(main: main, sub: sub)
+        return IndicatorSelectionState(main: main, sub: sub)
     }
 
-    func using(pluginRegistry: KLinePluginRegistry) -> IndicatorSelectionNormalizer {
+    func using(pluginRegistry: PluginRegistry) -> IndicatorSelectionNormalizer {
         IndicatorSelectionNormalizer(
             availableMain: Array(availableMain),
             availableSub: Array(availableSub),
@@ -38,11 +38,11 @@ struct IndicatorSelectionNormalizer {
     }
 
     private func deduplicatedSelections(
-        _ selections: [KLineIndicatorSelection],
-        placement: KLineIndicatorPlacement
-    ) -> [KLineIndicatorSelection] {
-        var seen = Set<KLineIndicatorID>()
-        var result: [KLineIndicatorSelection] = []
+        _ selections: [IndicatorSelection],
+        placement: IndicatorPlacement
+    ) -> [IndicatorSelection] {
+        var seen = Set<IndicatorID>()
+        var result: [IndicatorSelection] = []
         for selection in selections {
             guard isValid(selection, placement: placement), !seen.contains(selection.id) else { continue }
             result.append(selection)
@@ -51,7 +51,7 @@ struct IndicatorSelectionNormalizer {
         return result
     }
 
-    private func isValid(_ selection: KLineIndicatorSelection, placement: KLineIndicatorPlacement) -> Bool {
+    private func isValid(_ selection: IndicatorSelection, placement: IndicatorPlacement) -> Bool {
         switch selection {
         case let .builtIn(indicator):
             let validSet = placement == .sub ? availableSub : availableMain

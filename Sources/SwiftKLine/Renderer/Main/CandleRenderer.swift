@@ -54,16 +54,16 @@ final class CandleRenderer: KLineRenderer {
             let x = CGFloat(idx) * itemWidth + visibleMinX
             
             // 计算开盘价和收盘价的 y 坐标
-            let openY = layout.minY(for: item.opening, viewPort: viewPort)
-            let closeY = layout.minY(for: item.closing, viewPort: viewPort)
+            let openY = layout.minY(for: item.open, viewPort: viewPort)
+            let closeY = layout.minY(for: item.close, viewPort: viewPort)
             let y = min(openY, closeY)
             let h = abs(openY - closeY)
             
             let rect = CGRect(x: x, y: y, width: candleStyle.width, height: h)
             
             // 计算最高价和最低价的 y 坐标
-            let highY = layout.minY(for: item.highest, viewPort: viewPort)
-            let lowY = layout.minY(for: item.lowest, viewPort: viewPort)
+            let highY = layout.minY(for: item.high, viewPort: viewPort)
+            let lowY = layout.minY(for: item.low, viewPort: viewPort)
             
             let centerX = x + candleHalfWidth
             let highestPoint = CGPoint(x: centerX, y: highY)
@@ -81,7 +81,7 @@ final class CandleRenderer: KLineRenderer {
         fallingLayer.path = downPath
     }
     
-    func dataBounds(context: Context) -> KLineMetricBounds {
+    func dataBounds(context: Context) -> ValueBounds {
         return context.visibleItems.dataBounds
     }
 }

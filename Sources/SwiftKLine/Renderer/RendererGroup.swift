@@ -19,7 +19,7 @@ struct RendererGroup {
     
     var viewPort: CGRect = .zero
     var groupFrame: CGRect = .zero
-    var dataBounds: KLineMetricBounds = .empty
+    var dataBounds: ValueBounds = .empty
     
     typealias Builder = RendererBuilder
     

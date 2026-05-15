@@ -1,21 +1,21 @@
 import Foundation
 
 @MainActor
-public struct KLineChartConfiguration {
-    public var data: KLineDataSourceConfiguration
-    public var appearance: KLineAppearanceConfiguration
-    public var content: KLineChartContentStyle
-    public var indicators: KLineIndicatorSelectionConfiguration
-    public var features: KLineFeatureOptions
-    public var plugins: KLinePluginRegistry
+public struct ChartConfiguration {
+    public var data: DataSourceConfiguration
+    public var appearance: AppearanceConfiguration
+    public var content: ChartType
+    public var indicators: IndicatorSelectionConfiguration
+    public var features: ChartFeatures
+    public var plugins: PluginRegistry
 
     public init(
-        data: KLineDataSourceConfiguration = .deferred,
-        appearance: KLineAppearanceConfiguration = .configuration(KLineConfiguration()),
-        content: KLineChartContentStyle = .candlestick,
-        indicators: KLineIndicatorSelectionConfiguration = .init(),
-        features: KLineFeatureOptions = .default,
-        plugins: KLinePluginRegistry = .default
+        data: DataSourceConfiguration = .manual,
+        appearance: AppearanceConfiguration = .configuration(KLineConfiguration()),
+        content: ChartType = .candlestick,
+        indicators: IndicatorSelectionConfiguration = .init(),
+        features: ChartFeatures = .all,
+        plugins: PluginRegistry = .default
     ) {
         self.data = data
         self.appearance = appearance
@@ -30,13 +30,13 @@ public struct KLineChartConfiguration {
     }
 }
 
-public enum KLineDataSourceConfiguration {
+public enum DataSourceConfiguration {
     case provider(any KLineItemProvider)
-    case deferred
+    case manual
 }
 
 @MainActor
-public enum KLineAppearanceConfiguration {
+public enum AppearanceConfiguration {
     case configuration(KLineConfiguration)
     case theme(KLineConfiguration.ThemePreset)
 
@@ -50,31 +50,31 @@ public enum KLineAppearanceConfiguration {
     }
 }
 
-public enum KLineIndicatorSelection: Hashable, Sendable, Codable {
+public enum IndicatorSelection: Hashable, Sendable, Codable {
     case builtIn(KLineIndicator)
-    case custom(KLineIndicatorID)
+    case custom(IndicatorID)
 }
 
-public struct KLineIndicatorSelectionConfiguration: Equatable, Sendable {
-    public var main: [KLineIndicatorSelection]
-    public var sub: [KLineIndicatorSelection]
+public struct IndicatorSelectionConfiguration: Equatable, Sendable {
+    public var main: [IndicatorSelection]
+    public var sub: [IndicatorSelection]
 
     public init(
-        main: [KLineIndicatorSelection] = [],
-        sub: [KLineIndicatorSelection] = []
+        main: [IndicatorSelection] = [],
+        sub: [IndicatorSelection] = []
     ) {
         self.main = main
         self.sub = sub
     }
 }
 
-public struct KLineFeatureOptions: OptionSet, Sendable {
+public struct ChartFeatures: OptionSet, Sendable {
     public let rawValue: Int
 
-    public static let liveUpdates = KLineFeatureOptions(rawValue: 1 << 0)
-    public static let gapRecovery = KLineFeatureOptions(rawValue: 1 << 1)
-    public static let indicatorPersistence = KLineFeatureOptions(rawValue: 1 << 2)
-    public static let `default`: KLineFeatureOptions = [.liveUpdates, .gapRecovery, .indicatorPersistence]
+    public static let liveUpdates = ChartFeatures(rawValue: 1 << 0)
+    public static let gapRecovery = ChartFeatures(rawValue: 1 << 1)
+    public static let indicatorPersistence = ChartFeatures(rawValue: 1 << 2)
+    public static let all: ChartFeatures = [.liveUpdates, .gapRecovery, .indicatorPersistence]
 
     public init(rawValue: Int) {
         self.rawValue = rawValue

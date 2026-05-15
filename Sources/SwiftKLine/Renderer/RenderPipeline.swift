@@ -3,16 +3,16 @@ import Foundation
 @MainActor
 struct RenderPipeline {
     private let descriptorFactory = DescriptorFactory()
-    private let registry: KLinePluginRegistry
+    private let registry: PluginRegistry
 
-    init(registry: KLinePluginRegistry) {
+    init(registry: PluginRegistry) {
         self.registry = registry
     }
 
     func makeDescriptor(
-        contentStyle: KLineChartContentStyle,
-        mainIndicatorIDs: [KLineIndicatorID],
-        subIndicatorIDs: [KLineIndicatorID],
+        contentStyle: ChartType,
+        mainIndicatorIDs: [IndicatorID],
+        subIndicatorIDs: [IndicatorID],
         customRenderers: [AnyRenderer],
         configuration: KLineConfiguration,
         layoutMetrics: LayoutMetrics
@@ -29,7 +29,7 @@ struct RenderPipeline {
     }
 
     func makeDescriptor(
-        contentStyle: KLineChartContentStyle,
+        contentStyle: ChartType,
         mainIndicators: [KLineIndicator],
         subIndicators: [KLineIndicator],
         customRenderers: [AnyRenderer],

@@ -11,8 +11,8 @@ import Foundation
 struct WMACalculator: KLineIndicatorCalculator {
     typealias Value = Double
     let period: Int
-    var id: KLineSeriesKey {
-        KLineSeriesKey(indicatorID: KLineIndicatorID("builtin.wma"), name: "WMA", parameters: ["period": "\(period)"])
+    var id: SeriesKey {
+        SeriesKey(indicatorID: IndicatorID("builtin.wma"), name: "WMA", parameters: ["period": "\(period)"])
     }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
@@ -28,7 +28,7 @@ struct WMACalculator: KLineIndicatorCalculator {
             for offset in 0..<period {
                 let weight = Double(offset + 1)
                 let priceIndex = index - period + 1 + offset
-                weightedSum += items[priceIndex].closing * weight
+                weightedSum += items[priceIndex].close * weight
             }
             result[index] = weightedSum / weightSum
         }

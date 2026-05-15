@@ -10,13 +10,13 @@ import CoreGraphics
 @MainActor
 struct DescriptorFactory {
     func makeDescriptor(
-        contentStyle: KLineChartContentStyle,
-        mainIndicatorIDs: [KLineIndicatorID],
-        subIndicatorIDs: [KLineIndicatorID],
+        contentStyle: ChartType,
+        mainIndicatorIDs: [IndicatorID],
+        subIndicatorIDs: [IndicatorID],
         customRenderers: [AnyRenderer],
         configuration: KLineConfiguration,
         layoutMetrics: LayoutMetrics,
-        registry: KLinePluginRegistry = .default
+        registry: PluginRegistry = .default
     ) -> ChartDescriptor {
         ChartDescriptor {
             RendererGroup(
@@ -79,13 +79,13 @@ struct DescriptorFactory {
     }
 
     func makeDescriptor(
-        contentStyle: KLineChartContentStyle,
+        contentStyle: ChartType,
         mainIndicators: [KLineIndicator],
         subIndicators: [KLineIndicator],
         customRenderers: [AnyRenderer],
         configuration: KLineConfiguration,
         layoutMetrics: LayoutMetrics,
-        registry: KLinePluginRegistry = .default
+        registry: PluginRegistry = .default
     ) -> ChartDescriptor {
         makeDescriptor(
             contentStyle: contentStyle,

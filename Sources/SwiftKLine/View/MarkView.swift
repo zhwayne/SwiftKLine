@@ -111,24 +111,24 @@ class MarkView: UIView {
         dateLabel.detailLabel.text = dateFormatter.string(from: date)
         // 开盘
         openingLabel.titleLabel.text = "开盘"
-        openingLabel.detailLabel.text = priceFormatter.format(item.opening as NSNumber)
+        openingLabel.detailLabel.text = priceFormatter.format(item.open as NSNumber)
         // 最高价
         highestLabel.titleLabel.text = "最高"
-        highestLabel.detailLabel.text = priceFormatter.format(item.highest as NSNumber)
+        highestLabel.detailLabel.text = priceFormatter.format(item.high as NSNumber)
         // 最低价
         lowestLabel.titleLabel.text = "最低"
-        lowestLabel.detailLabel.text = priceFormatter.format(item.lowest as NSNumber)
+        lowestLabel.detailLabel.text = priceFormatter.format(item.low as NSNumber)
         // 收盘
         closingLabel.titleLabel.text = "收盘"
-        closingLabel.detailLabel.text = priceFormatter.format(item.closing as NSNumber)
+        closingLabel.detailLabel.text = priceFormatter.format(item.close as NSNumber)
         // 涨跌额
-        let changeAmount = item.closing - item.opening
+        let changeAmount = item.close - item.open
         changeAmountLabel.titleLabel.text = "涨跌额"
         changeAmountLabel.detailLabel.text = priceFormatter.format(changeAmount as NSNumber)
         // 涨跌幅
         changeRateLabel.titleLabel.text = "涨跌幅"
-        if item.opening != 0 {
-            let changeRate = (changeAmount / item.opening) * 100
+        if item.open != 0 {
+            let changeRate = (changeAmount / item.open) * 100
             let changeRateString = priceFormatter.format(changeRate as NSNumber)
             var prefix = changeRateString.hasPrefix("-") ? "" : "+"
             changeRateLabel.detailLabel.text = prefix + changeRateString + "%"
@@ -141,8 +141,8 @@ class MarkView: UIView {
         }
         // 振幅
         amplitudeLabel.titleLabel.text = "振幅"
-        if item.lowest != 0 {
-            let amplitude = ((item.highest - item.lowest) / item.lowest) * 100
+        if item.low != 0 {
+            let amplitude = ((item.high - item.low) / item.low) * 100
             let amplitudeString = priceFormatter.format(amplitude as NSNumber)
             let prefix = amplitudeString.hasPrefix("-") ? "" : "+"
             amplitudeLabel.detailLabel.text = prefix + amplitudeString + "%"

@@ -61,13 +61,13 @@ enum ChartSection: Sendable {
     #if DEBUG
     private var debugDrawReporter = DebugDrawReporter()
     #endif
-    private var mainChartContent: KLineChartContentStyle = .candlestick
+    private var mainChartContent: ChartType = .candlestick
     private var descriptorUpdateTask: Task<Void, Never>? {
         didSet { oldValue?.cancel() }
     }
     
     // MARK: - Data
-    private let features: KLineFeatureOptions
+    private let features: ChartFeatures
     private var controller = ChartController()
     private var klineItems: [any KLineItem] = []
     private var indicatorSeriesStore = IndicatorSeriesStore()
@@ -80,7 +80,7 @@ enum ChartSection: Sendable {
     private var selectedIndex: Int?
     private var selectedLocation: CGPoint?
     private var longPressLocation: CGPoint = .zero
-    public var indicatorSelectionDidChange: ((KLineIndicatorSelectionState) -> Void)?
+    public var indicatorSelectionDidChange: ((IndicatorSelectionState) -> Void)?
     public var onLoadError: ((Error) -> Void)?
     
     private var disposeBag = Set<AnyCancellable>()
@@ -93,10 +93,10 @@ enum ChartSection: Sendable {
     public init(
         frame: CGRect = .zero,
         configuration: KLineConfiguration = KLineConfiguration(),
-        indicatorSelectionStore: KLineIndicatorSelectionStore? = KLineUserDefaultsIndicatorSelectionStore(),
-        pluginRegistry: KLinePluginRegistry = .default,
-        initialIndicatorSelection: KLineIndicatorSelectionConfiguration? = nil,
-        features: KLineFeatureOptions = .default
+        indicatorSelectionStore: IndicatorSelectionStore? = UserDefaultsIndicatorSelectionStore(),
+        pluginRegistry: PluginRegistry = .default,
+        initialIndicatorSelection: IndicatorSelectionConfiguration? = nil,
+        features: ChartFeatures = .all
     ) {
         self.klineConfig = configuration
         self.features = features
@@ -259,16 +259,16 @@ enum ChartSection: Sendable {
 
 extension KLineView {
     private func resolveInitialIndicatorSelection(
-        _ declaredSelection: KLineIndicatorSelectionConfiguration?,
-        persistedState: KLineIndicatorSelectionState,
-        pluginRegistry: KLinePluginRegistry
-    ) -> KLineIndicatorSelectionState {
+        _ declaredSelection: IndicatorSelectionConfiguration?,
+        persistedState: IndicatorSelectionState,
+        pluginRegistry: PluginRegistry
+    ) -> IndicatorSelectionState {
         if !persistedState.main.isEmpty || !persistedState.sub.isEmpty {
             return persistedState
         }
 
         guard let declaredSelection else {
-            return KLineIndicatorSelectionState(
+            return IndicatorSelectionState(
                 mainIndicators: klineConfig.defaultMainIndicators,
                 subIndicators: klineConfig.defaultSubIndicators
             )
@@ -284,16 +284,16 @@ extension KLineView {
             placement: .sub,
             pluginRegistry: pluginRegistry
         )
-        return KLineIndicatorSelectionState(main: main, sub: sub)
+        return IndicatorSelectionState(main: main, sub: sub)
     }
 
     private func resolveSelections(
-        _ selections: [KLineIndicatorSelection],
-        placement: KLineIndicatorPlacement,
-        pluginRegistry: KLinePluginRegistry
-    ) -> [KLineIndicatorSelection] {
-        var result: [KLineIndicatorSelection] = []
-        var seen = Set<KLineIndicatorID>()
+        _ selections: [IndicatorSelection],
+        placement: IndicatorPlacement,
+        pluginRegistry: PluginRegistry
+    ) -> [IndicatorSelection] {
+        var result: [IndicatorSelection] = []
+        var seen = Set<IndicatorID>()
         for selection in selections {
             switch selection {
             case let .builtIn(indicator):
@@ -311,8 +311,8 @@ extension KLineView {
     }
 
     private func customIndicatorItems(
-        for placement: KLineIndicatorPlacement,
-        pluginRegistry: KLinePluginRegistry
+        for placement: IndicatorPlacement,
+        pluginRegistry: PluginRegistry
     ) -> [KLineIndicatorListItem] {
         customPlugins(for: placement, pluginRegistry: pluginRegistry)
             .filter { KLineIndicator(kLineID: $0.id) == nil }
@@ -320,8 +320,8 @@ extension KLineView {
     }
 
     private func customPlugins(
-        for placement: KLineIndicatorPlacement,
-        pluginRegistry: KLinePluginRegistry
+        for placement: IndicatorPlacement,
+        pluginRegistry: PluginRegistry
     ) -> [any KLineIndicatorPlugin] {
         var plugins = pluginRegistry.plugins(for: placement)
         if placement == .main {
@@ -332,8 +332,8 @@ extension KLineView {
 
     public convenience init(
         frame: CGRect = .zero,
-        chart: KLineChartConfiguration,
-        indicatorSelectionStore: KLineIndicatorSelectionStore? = KLineUserDefaultsIndicatorSelectionStore()
+        chart: ChartConfiguration,
+        indicatorSelectionStore: IndicatorSelectionStore? = UserDefaultsIndicatorSelectionStore()
     ) {
         self.init(
             frame: frame,
@@ -390,7 +390,7 @@ private extension KLineView {
         Task { await loader?.willEnterForeground(latestTimestamp: latestTimestamp) }
     }
 
-    func handleLoaderEvent(_ event: KLineItemLoaderEvent) {
+    func handleLoaderEvent(_ event: DataLoaderEvent) {
         Task { [weak self] in
             guard let self else { return }
             let shouldStickToRightEdge = self.scrollView.isNearRightEdge
@@ -426,7 +426,7 @@ private extension KLineView {
 // MARK: - 切换主图模式
 extension KLineView {
     
-    public func setChartContentStyle(_ style: KLineChartContentStyle) {
+    public func setChartContentStyle(_ style: ChartType) {
         guard mainChartContent != style else { return }
         mainChartContent = style
         controller.setChartContentStyle(style)
@@ -511,7 +511,7 @@ extension KLineView {
         await updateDescriptor(recalculateValues: false)
     }
     
-    private func drawIndicator(_ selection: KLineIndicatorSelection, in section: ChartSection) async {
+    private func drawIndicator(_ selection: IndicatorSelection, in section: ChartSection) async {
         guard section == .mainChart || section == .subChart else { return }
         guard !selections(in: section).contains(where: { $0.id == selection.id }) else { return }
         var state = controller.state.indicatorSelection
@@ -527,7 +527,7 @@ extension KLineView {
         await updateDescriptor(recalculateValues: true)
     }
     
-    private func eraseIndicator(_ selection: KLineIndicatorSelection, in section: ChartSection) {
+    private func eraseIndicator(_ selection: IndicatorSelection, in section: ChartSection) {
         guard section == .mainChart || section == .subChart else { return }
         var state = controller.state.indicatorSelection
         let oldState = state
@@ -543,7 +543,7 @@ extension KLineView {
         scheduleDescriptorUpdate()
     }
     
-    private func selections(in section: ChartSection) -> [KLineIndicatorSelection] {
+    private func selections(in section: ChartSection) -> [IndicatorSelection] {
         switch section {
         case .mainChart:
             return controller.state.indicatorSelection.main
@@ -567,7 +567,7 @@ extension KLineView {
 
     private func calculateIndicators(
         items: [any KLineItem],
-        selection: KLineIndicatorSelectionState
+        selection: IndicatorSelectionState
     ) async -> IndicatorSeriesStore {
         await controller.calculateIndicators(
             items: items,
@@ -576,11 +576,11 @@ extension KLineView {
         )
     }
 
-    private var selectedMainIndicatorIDs: [KLineIndicatorID] {
+    private var selectedMainIndicatorIDs: [IndicatorID] {
         controller.state.indicatorSelection.main.map(\.id)
     }
 
-    private var selectedSubIndicatorIDs: [KLineIndicatorID] {
+    private var selectedSubIndicatorIDs: [IndicatorID] {
         controller.state.indicatorSelection.sub.map(\.id)
     }
     
@@ -597,7 +597,7 @@ extension KLineView {
         (controller.state.mainIndicators, controller.state.subIndicators)
     }
 
-    var debugSelectedIndicators: (main: [KLineIndicatorSelection], sub: [KLineIndicatorSelection]) {
+    var debugSelectedIndicators: (main: [IndicatorSelection], sub: [IndicatorSelection]) {
         (controller.state.indicatorSelection.main, controller.state.indicatorSelection.sub)
     }
 
@@ -605,7 +605,7 @@ extension KLineView {
         indicatorTypeView.debugTitles
     }
 
-    func debugToggleIndicator(_ selection: KLineIndicatorSelection, in section: ChartSection) {
+    func debugToggleIndicator(_ selection: IndicatorSelection, in section: ChartSection) {
         if selections(in: section).contains(where: { $0.id == selection.id }) {
             eraseIndicator(selection, in: section)
         } else {
@@ -661,7 +661,7 @@ extension KLineView {
         let visibleRange = layout.visibleRange
         if visibleRange.isEmpty { return }
         
-        let context = KLineRendererContext(
+        let context = RendererContext(
             indicatorSeriesStore: indicatorSeriesStore,
             items: klineItems,
             configuration: klineConfig,

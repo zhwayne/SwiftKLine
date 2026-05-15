@@ -8,7 +8,7 @@
 import UIKit
 
 @MainActor public protocol KLineRenderer: AnyObject {
-    typealias Context = KLineRendererContext<any KLineItem>
+    typealias Context = RendererContext
     associatedtype Identifier: Hashable
     
     var id: Identifier { get }
@@ -19,7 +19,7 @@ import UIKit
     func draw(in layer: CALayer, context: Context)
     
     func legend(context: Context) -> NSAttributedString?
-    func dataBounds(context: Context) -> KLineMetricBounds
+    func dataBounds(context: Context) -> ValueBounds
 }
 
 extension KLineRenderer {
@@ -32,14 +32,14 @@ extension KLineRenderer {
         return nil
     }
     
-    public func dataBounds(context: Context) -> KLineMetricBounds {
+    public func dataBounds(context: Context) -> ValueBounds {
         return .empty
     }
 }
 
 @MainActor
 protocol LegendUpdatable: AnyObject {
-    func updateLegend(context: KLineRendererContext<any KLineItem>)
+    func updateLegend(context: RendererContext)
 }
 
 final class AnyRenderer: KLineRenderer {
@@ -50,7 +50,7 @@ final class AnyRenderer: KLineRenderer {
     private let _uninstallFunc: (CALayer) -> Void
     private let _drawFunc: (CALayer, Context) -> Void
     private let _legendStringFunc: (Context) -> NSAttributedString?
-    private let _dataBoundsFunc: (Context) -> KLineMetricBounds
+    private let _dataBoundsFunc: (Context) -> ValueBounds
     
     let base: any KLineRenderer
     
@@ -87,7 +87,7 @@ final class AnyRenderer: KLineRenderer {
         return _legendStringFunc(context)
     }
     
-    func dataBounds(context: Context) -> KLineMetricBounds {
+    func dataBounds(context: Context) -> ValueBounds {
         return _dataBoundsFunc(context)
     }
 }

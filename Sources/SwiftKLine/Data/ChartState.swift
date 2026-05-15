@@ -4,11 +4,11 @@ import Foundation
 struct ChartState {
     var items: [any KLineItem]
     var indicatorSeriesStore: IndicatorSeriesStore
-    var contentStyle: KLineChartContentStyle
+    var contentStyle: ChartType
     var selectedIndex: Int?
     var selectedLocation: CGPoint?
     var lastError: Error?
-    var indicatorSelection: KLineIndicatorSelectionState
+    var indicatorSelection: IndicatorSelectionState
 
     var mainIndicators: [KLineIndicator] { indicatorSelection.mainIndicators }
     var subIndicators: [KLineIndicator] { indicatorSelection.subIndicators }
@@ -16,11 +16,11 @@ struct ChartState {
     init(
         items: [any KLineItem] = [],
         indicatorSeriesStore: IndicatorSeriesStore = IndicatorSeriesStore(),
-        contentStyle: KLineChartContentStyle = .candlestick,
+        contentStyle: ChartType = .candlestick,
         selectedIndex: Int? = nil,
         selectedLocation: CGPoint? = nil,
         lastError: Error? = nil,
-        indicatorSelection: KLineIndicatorSelectionState = KLineIndicatorSelectionState()
+        indicatorSelection: IndicatorSelectionState = IndicatorSelectionState()
     ) {
         self.items = items
         self.indicatorSeriesStore = indicatorSeriesStore

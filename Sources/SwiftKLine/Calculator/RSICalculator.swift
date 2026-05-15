@@ -11,8 +11,8 @@ import Foundation
 struct RSICalculator: KLineIndicatorCalculator {
     typealias Value = Double
     let period: Int       // RSI 的周期
-    var id: KLineSeriesKey {
-        KLineSeriesKey(indicatorID: KLineIndicatorID("builtin.rsi"), name: "RSI", parameters: ["period": "\(period)"])
+    var id: SeriesKey {
+        SeriesKey(indicatorID: IndicatorID("builtin.rsi"), name: "RSI", parameters: ["period": "\(period)"])
     }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
@@ -26,7 +26,7 @@ struct RSICalculator: KLineIndicatorCalculator {
         
         // 初始化：计算第一个平均涨幅和平均跌幅
         for i in 1...period {
-            let change = items[i].closing - items[i - 1].closing
+            let change = items[i].close - items[i - 1].close
             if change > 0 {
                 gains.append(change)
                 losses.append(0)
@@ -49,7 +49,7 @@ struct RSICalculator: KLineIndicatorCalculator {
         
         // 迭代计算后续的 RSI 值
         for i in (period + 1)..<items.count {
-            let change = items[i].closing - items[i - 1].closing
+            let change = items[i].close - items[i - 1].close
             let gain = max(change, 0)
             let loss = max(-change, 0)
             

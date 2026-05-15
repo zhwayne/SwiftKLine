@@ -15,7 +15,7 @@ struct LegendCoordinator {
         legendKey: Key,
         legendLabel: UILabel,
         legendCache: inout LegendCache<Key>,
-        context: KLineRendererContext<any KLineItem>
+        context: RendererContext
     ) -> (viewPortOffsetY: CGFloat, cost: CFTimeInterval) {
         let legendStart = CACurrentMediaTime()
         let cachedLegend = legendCache[legendKey]

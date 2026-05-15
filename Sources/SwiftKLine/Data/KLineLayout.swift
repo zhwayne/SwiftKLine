@@ -19,7 +19,7 @@ import UIKit
     
     /// 当前可见范围内的数值范围
     public internal(set)
-    var dataBounds: KLineMetricBounds = .empty
+    var dataBounds: ValueBounds = .empty
     
     private let klineConfig: KLineConfiguration
         

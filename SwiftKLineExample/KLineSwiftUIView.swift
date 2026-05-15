@@ -27,7 +27,7 @@ private struct KLineRepresentable: UIViewRepresentable {
     typealias UIViewType = KLineView
 
     func makeUIView(context: Context) -> KLineView {
-        let chart = KLineChartConfiguration(
+        let chart = ChartConfiguration(
             data: .deferred,
             appearance: .theme(.midnight),
             content: mode == .candlestick ? .candlestick : .timeSeries,

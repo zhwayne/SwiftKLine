@@ -65,7 +65,7 @@ final class RSIRenderer: KLineRenderer, LegendUpdatable {
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         
         zip(periods, lineLayers).forEach { period, lineLayer in
-            let key = KLineIndicator.Key.rsi(period)
+            let key = KLineIndicator.Parameters.rsi(period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 return
             }
@@ -114,7 +114,7 @@ final class RSIRenderer: KLineRenderer, LegendUpdatable {
     
     func legend(context: Context) -> NSAttributedString? {
         return periods.reduce(NSMutableAttributedString()) { partialResult, period in
-            let key = KLineIndicator.Key.rsi(period)
+            let key = KLineIndicator.Parameters.rsi(period)
             let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
             guard let values = context.scalarValues(for: key), !values.isEmpty,
                   context.currentIndex >= 0,
@@ -134,10 +134,10 @@ final class RSIRenderer: KLineRenderer, LegendUpdatable {
         }
     }
     
-    func dataBounds(context: Context) -> KLineMetricBounds {
-        var bounds = KLineMetricBounds.empty
+    func dataBounds(context: Context) -> ValueBounds {
+        var bounds = ValueBounds.empty
         for period in periods {
-            let key = KLineIndicator.Key.rsi(period)
+            let key = KLineIndicator.Parameters.rsi(period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 continue
             }
@@ -151,10 +151,10 @@ final class RSIRenderer: KLineRenderer, LegendUpdatable {
                 maxValue = Swift.max(maxValue, value)
             }
             if hasValue {
-                bounds.merge(other: KLineMetricBounds(min: minValue, max: maxValue))
+                bounds.merge(other: ValueBounds(min: minValue, max: maxValue))
             }
         }
-        bounds.merge(other: KLineMetricBounds(range: range))
+        bounds.merge(other: ValueBounds(range: range))
         return bounds
     }
 }

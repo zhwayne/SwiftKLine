@@ -66,7 +66,7 @@ final class PriceIndicatorRenderer: KLineRenderer {
         // MARK: - 最高价指示
         if let (idx, item) = visibleItems.upperBoundItem {
             let x = layout.minX(at: idx) + candleStyle.width * 0.5
-            let y = layout.minY(for: item.highest, viewPort: viewPort)
+            let y = layout.minY(for: item.high, viewPort: viewPort)
             
             let rightSide = (x + viewPort.origin.x) < layer.bounds.midX
             let startPoint = CGPoint(x: x, y: y)
@@ -74,7 +74,7 @@ final class PriceIndicatorRenderer: KLineRenderer {
             priceLinePath.move(to: startPoint)
             priceLinePath.addLine(to: endPoint)
             
-            highestTextLayer.string = formatter.format(item.highest as NSNumber)
+            highestTextLayer.string = formatter.format(item.high as NSNumber)
             let textSize = highestTextLayer.preferredFrameSize()
             let textOrigin = CGPoint(
                 x: endPoint.x + (rightSide ? 0 : -textSize.width),
@@ -86,7 +86,7 @@ final class PriceIndicatorRenderer: KLineRenderer {
         // MARK: - 最低价指示
         if let (idx, item) = visibleItems.lowerBoundItem {
             let x = layout.minX(at: idx) + candleStyle.width * 0.5
-            let y = layout.minY(for: item.lowest, viewPort: viewPort)
+            let y = layout.minY(for: item.low, viewPort: viewPort)
             
             let rightSide = (x + viewPort.origin.x) < layer.bounds.midX
             let startPoint = CGPoint(x: x, y: y)
@@ -94,7 +94,7 @@ final class PriceIndicatorRenderer: KLineRenderer {
             priceLinePath.move(to: startPoint)
             priceLinePath.addLine(to: endPoint)
             
-            lowestTextLayer.string = formatter.format(item.lowest as NSNumber)
+            lowestTextLayer.string = formatter.format(item.low as NSNumber)
             let textSize = lowestTextLayer.preferredFrameSize()
             let textOrigin = CGPoint(
                 x: endPoint.x + (rightSide ? 0 : -textSize.width),
@@ -111,7 +111,7 @@ final class PriceIndicatorRenderer: KLineRenderer {
             let minY = layout.minY(for: dataBounds.max, viewPort: viewPort)
             let maxY = layout.minY(for: dataBounds.min, viewPort: viewPort)
             let rect = CGRectMake(0, viewPort.minY, layer.bounds.width, viewPort.height)
-            var y = layout.minY(for: item.closing, viewPort: viewPort)
+            var y = layout.minY(for: item.close, viewPort: viewPort)
             y = min(max(y, minY), maxY)
             let index = context.items.count - context.visibleRange.lowerBound - 1
             var x = layout.minX(at: index)
@@ -125,7 +125,7 @@ final class PriceIndicatorRenderer: KLineRenderer {
             dashLineLayer.path = path
             
             priceMarkView.showArrow = end.x == 0
-            priceMarkView.label.text = formatter.format(item.closing as NSNumber)
+            priceMarkView.label.text = formatter.format(item.close as NSNumber)
             let indicatorSize = priceMarkView.systemLayoutSizeFitting(rect.size)
             priceMarkView.bounds.size = indicatorSize
             priceMarkView.frame.origin.y = y - indicatorSize.height * 0.5

@@ -28,7 +28,7 @@ public enum KLineIndicator: String, CaseIterable, Sendable, Codable {
 // TODO: 需要能动态配置每个 indicator 下对应的 key
 extension KLineIndicator {
     
-    static let defaultKeyMap: [KLineIndicator: [KLineIndicator.Key]] = [
+    static let defaultKeyMap: [KLineIndicator: [KLineIndicator.Parameters]] = [
         .ma:    [.ma(5), .ma(10), .ma(20)],
         .ema:   [.ema(5), .ema(10), .ema(20)],
         .wma:   [.wma(5), .wma(10), .wma(20)],
@@ -72,11 +72,11 @@ extension KLineIndicator {
 }
 
 public extension KLineIndicator {
-    var kLineID: KLineIndicatorID {
-        KLineIndicatorID("builtin.\(rawValue.lowercased())")
+    var kLineID: IndicatorID {
+        IndicatorID("builtin.\(rawValue.lowercased())")
     }
 
-    init?(kLineID: KLineIndicatorID) {
+    init?(kLineID: IndicatorID) {
         let prefix = "builtin."
         guard kLineID.rawValue.hasPrefix(prefix) else { return nil }
         let rawValue = String(kLineID.rawValue.dropFirst(prefix.count)).uppercased()
@@ -84,25 +84,25 @@ public extension KLineIndicator {
     }
 }
 
-public extension KLineIndicator.Key {
-    var kLineSeriesKey: KLineSeriesKey {
+public extension KLineIndicator.Parameters {
+    var kLineSeriesKey: SeriesKey {
         switch self {
         case let .ma(period):
-            return KLineSeriesKey(indicatorID: KLineIndicator.ma.kLineID, name: "MA", parameters: ["period": "\(period)"])
+            return SeriesKey(indicatorID: KLineIndicator.ma.kLineID, name: "MA", parameters: ["period": "\(period)"])
         case let .ema(period):
-            return KLineSeriesKey(indicatorID: KLineIndicator.ema.kLineID, name: "EMA", parameters: ["period": "\(period)"])
+            return SeriesKey(indicatorID: KLineIndicator.ema.kLineID, name: "EMA", parameters: ["period": "\(period)"])
         case let .wma(period):
-            return KLineSeriesKey(indicatorID: KLineIndicator.wma.kLineID, name: "WMA", parameters: ["period": "\(period)"])
+            return SeriesKey(indicatorID: KLineIndicator.wma.kLineID, name: "WMA", parameters: ["period": "\(period)"])
         case let .boll(period, k):
-            return KLineSeriesKey(indicatorID: KLineIndicator.boll.kLineID, name: "BOLL", parameters: ["k": "\(k)", "period": "\(period)"])
+            return SeriesKey(indicatorID: KLineIndicator.boll.kLineID, name: "BOLL", parameters: ["k": "\(k)", "period": "\(period)"])
         case .sar:
-            return KLineSeriesKey(indicatorID: KLineIndicator.sar.kLineID, name: "SAR")
+            return SeriesKey(indicatorID: KLineIndicator.sar.kLineID, name: "SAR")
         case .vol:
-            return KLineSeriesKey(indicatorID: KLineIndicator.vol.kLineID, name: "VOL")
+            return SeriesKey(indicatorID: KLineIndicator.vol.kLineID, name: "VOL")
         case let .rsi(period):
-            return KLineSeriesKey(indicatorID: KLineIndicator.rsi.kLineID, name: "RSI", parameters: ["period": "\(period)"])
+            return SeriesKey(indicatorID: KLineIndicator.rsi.kLineID, name: "RSI", parameters: ["period": "\(period)"])
         case let .macd(shortPeriod, longPeriod, signalPeriod):
-            return KLineSeriesKey(
+            return SeriesKey(
                 indicatorID: KLineIndicator.macd.kLineID,
                 name: "MACD",
                 parameters: [

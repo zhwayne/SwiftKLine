@@ -7,20 +7,20 @@
 
 import Foundation
 
-enum KLineItemLoaderEvent {
+enum DataLoaderEvent {
     case page(index: Int, items: [any KLineItem])
     case recovery(items: [any KLineItem])
     case liveTick(any KLineItem)
-    case failed(KLineItemLoaderError)
+    case failed(DataLoaderError)
 }
 
-enum KLineItemLoaderError: Error {
+enum DataLoaderError: Error {
     case page(Error)
     case recovery(Error)
 }
 
 actor KLineItemLoader {
-    typealias EventHandler = @MainActor (KLineItemLoaderEvent) -> Void
+    typealias EventHandler = @MainActor (DataLoaderEvent) -> Void
 
     private let provider: any KLineItemProvider
     private let eventHandler: EventHandler

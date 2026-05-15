@@ -4,7 +4,7 @@
 
 **Goal:** Refactor SwiftKLine so its public API is easier to use, indicators/renderers are extensible without editing built-in enums, internal responsibilities are maintainable, and multiple chart instances can use isolated configuration.
 
-**Architecture:** Keep `KLineView` as the public UIKit entry point while moving data, indicator, and render orchestration into focused internal modules. Add a new `KLineChartConfiguration` facade, open indicator/plugin identifiers, an instance-level plugin registry, and compatibility mappings for the existing `Indicator` API.
+**Architecture:** Keep `KLineView` as the public UIKit entry point while moving data, indicator, and render orchestration into focused internal modules. Add a new `ChartConfiguration` facade, open indicator/plugin identifiers, an instance-level plugin registry, and compatibility mappings for the existing `Indicator` API.
 
 **Tech Stack:** Swift 6, UIKit, Swift Package Manager, Xcode iOS build, Swift Testing, SnapKit.
 
@@ -30,9 +30,9 @@ When a real device is configured and signing is available, prefer a device build
 
 Create these files:
 
-- `Sources/SwiftKLine/API/KLineChartConfiguration.swift`: new facade configuration types, feature options, and appearance/data source wrappers.
+- `Sources/SwiftKLine/API/ChartConfiguration.swift`: new facade configuration types, feature options, and appearance/data source wrappers.
 - `Sources/SwiftKLine/API/KLineIndicatorIdentity.swift`: open indicator IDs, series keys, placement enums, and compatibility helpers.
-- `Sources/SwiftKLine/API/KLinePluginRegistry.swift`: instance-level plugin and renderer registry.
+- `Sources/SwiftKLine/API/PluginRegistry.swift`: instance-level plugin and renderer registry.
 - `Sources/SwiftKLine/Indicator/KLineIndicatorPlugin.swift`: public plugin and calculator protocols plus type erasure.
 - `Sources/SwiftKLine/Indicator/BuiltInIndicatorPlugins.swift`: built-in MA/EMA/WMA/BOLL/SAR/VOL/RSI/MACD plugins.
 - `Sources/SwiftKLine/Data/KLineChartState.swift`: internal chart state snapshot.
@@ -47,9 +47,9 @@ Modify these files:
 - `Sources/SwiftKLine/Renderer/KLineDescriptorFactory.swift`: stop reading global `IndicatorRendererRegistry.shared`; accept registry/pipeline inputs.
 - `Sources/SwiftKLine/View/IndicatorRendererRegistry.swift`: turn into compatibility bridge for old global renderer registration.
 - `Sources/SwiftKLine/Data/RendererContext.swift`: add open-key series access while keeping existing typed helpers.
-- `Sources/SwiftKLine/Data/IndicatorSeriesStore.swift`: migrate storage to `KLineSeriesKey` while preserving compatibility readers.
+- `Sources/SwiftKLine/Data/IndicatorSeriesStore.swift`: migrate storage to `SeriesKey` while preserving compatibility readers.
 - `Sources/SwiftKLine/Calculator/IndicatorCalculator.swift`: bridge existing calculators to the public calculator protocol.
-- `Sources/SwiftKLine/Indicator/Indicator.swift`: add compatibility mapping to `KLineIndicatorID` and `KLineSeriesKey`.
+- `Sources/SwiftKLine/Indicator/Indicator.swift`: add compatibility mapping to `IndicatorID` and `SeriesKey`.
 - `Sources/SwiftKLine/Indicator/IndicatorCatalog.swift`: migrate built-in specs toward plugin registration.
 - `SwiftKLineExample/KLineSwiftUIView.swift`: demonstrate the new facade initializer.
 - `README.md`: document new facade API, plugin API, registry isolation, and old API migration.
@@ -70,15 +70,15 @@ import Testing
 @testable import SwiftKLine
 
 @Test func indicatorIDSupportsStringLiteralAndRawValue() {
-    let id: KLineIndicatorID = "custom.vwap"
+    let id: IndicatorID = "custom.vwap"
 
     #expect(id.rawValue == "custom.vwap")
     #expect(String(describing: id) == "custom.vwap")
 }
 
 @Test func builtInIndicatorMapsToStableOpenID() {
-    #expect(Indicator.ma.kLineID == KLineIndicatorID("builtin.ma"))
-    #expect(Indicator.macd.kLineID == KLineIndicatorID("builtin.macd"))
+    #expect(Indicator.ma.kLineID == IndicatorID("builtin.ma"))
+    #expect(Indicator.macd.kLineID == IndicatorID("builtin.macd"))
 }
 
 @Test func builtInIndicatorKeysMapToStableSeriesKeys() {
@@ -104,7 +104,7 @@ Run:
 swift test --filter 'indicatorIDSupportsStringLiteralAndRawValue|builtInIndicatorMapsToStableOpenID|builtInIndicatorKeysMapToStableSeriesKeys'
 ```
 
-Expected: FAIL because `KLineIndicatorID`, `KLineSeriesKey`, and mapping properties do not exist. If it fails earlier with `no such module 'UIKit'`, record that as the current SwiftPM limitation and continue with the implementation plus iOS build gate.
+Expected: FAIL because `IndicatorID`, `SeriesKey`, and mapping properties do not exist. If it fails earlier with `no such module 'UIKit'`, record that as the current SwiftPM limitation and continue with the implementation plus iOS build gate.
 
 - [ ] **Step 3: Add identity types**
 
@@ -113,7 +113,7 @@ Create `Sources/SwiftKLine/API/KLineIndicatorIdentity.swift`:
 ```swift
 import Foundation
 
-public struct KLineIndicatorID: Hashable, Sendable, Codable, ExpressibleByStringLiteral, CustomStringConvertible {
+public struct IndicatorID: Hashable, Sendable, Codable, ExpressibleByStringLiteral, CustomStringConvertible {
     public let rawValue: String
 
     public init(_ rawValue: String) {
@@ -129,13 +129,13 @@ public struct KLineIndicatorID: Hashable, Sendable, Codable, ExpressibleByString
     }
 }
 
-public struct KLineSeriesKey: Hashable, Sendable, CustomStringConvertible {
-    public let indicatorID: KLineIndicatorID
+public struct SeriesKey: Hashable, Sendable, CustomStringConvertible {
+    public let indicatorID: IndicatorID
     public let name: String
     public let parameters: [String: String]
 
     public init(
-        indicatorID: KLineIndicatorID,
+        indicatorID: IndicatorID,
         name: String,
         parameters: [String: String] = [:]
     ) {
@@ -156,15 +156,15 @@ public struct KLineSeriesKey: Hashable, Sendable, CustomStringConvertible {
     }
 }
 
-public enum KLineIndicatorPlacement: Sendable, Equatable {
+public enum IndicatorPlacement: Sendable, Equatable {
     case main
     case sub
     case overlay
 }
 
-public enum KLineRendererPlacement: Sendable, Equatable {
+public enum RendererPlacement: Sendable, Equatable {
     case main
-    case sub(KLineIndicatorID)
+    case sub(IndicatorID)
     case overlay
     case crosshair
 }
@@ -176,30 +176,30 @@ Modify `Sources/SwiftKLine/Indicator/Indicator.swift` by adding this extension a
 
 ```swift
 public extension Indicator {
-    var kLineID: KLineIndicatorID {
-        KLineIndicatorID("builtin.\(rawValue.lowercased())")
+    var kLineID: IndicatorID {
+        IndicatorID("builtin.\(rawValue.lowercased())")
     }
 }
 
 public extension Indicator.Key {
-    var kLineSeriesKey: KLineSeriesKey {
+    var kLineSeriesKey: SeriesKey {
         switch self {
         case let .ma(period):
-            return KLineSeriesKey(indicatorID: Indicator.ma.kLineID, name: "MA", parameters: ["period": "\(period)"])
+            return SeriesKey(indicatorID: Indicator.ma.kLineID, name: "MA", parameters: ["period": "\(period)"])
         case let .ema(period):
-            return KLineSeriesKey(indicatorID: Indicator.ema.kLineID, name: "EMA", parameters: ["period": "\(period)"])
+            return SeriesKey(indicatorID: Indicator.ema.kLineID, name: "EMA", parameters: ["period": "\(period)"])
         case let .wma(period):
-            return KLineSeriesKey(indicatorID: Indicator.wma.kLineID, name: "WMA", parameters: ["period": "\(period)"])
+            return SeriesKey(indicatorID: Indicator.wma.kLineID, name: "WMA", parameters: ["period": "\(period)"])
         case let .boll(period, k):
-            return KLineSeriesKey(indicatorID: Indicator.boll.kLineID, name: "BOLL", parameters: ["k": "\(k)", "period": "\(period)"])
+            return SeriesKey(indicatorID: Indicator.boll.kLineID, name: "BOLL", parameters: ["k": "\(k)", "period": "\(period)"])
         case .sar:
-            return KLineSeriesKey(indicatorID: Indicator.sar.kLineID, name: "SAR")
+            return SeriesKey(indicatorID: Indicator.sar.kLineID, name: "SAR")
         case .vol:
-            return KLineSeriesKey(indicatorID: Indicator.vol.kLineID, name: "VOL")
+            return SeriesKey(indicatorID: Indicator.vol.kLineID, name: "VOL")
         case let .rsi(period):
-            return KLineSeriesKey(indicatorID: Indicator.rsi.kLineID, name: "RSI", parameters: ["period": "\(period)"])
+            return SeriesKey(indicatorID: Indicator.rsi.kLineID, name: "RSI", parameters: ["period": "\(period)"])
         case let .macd(shortPeriod, longPeriod, signalPeriod):
-            return KLineSeriesKey(
+            return SeriesKey(
                 indicatorID: Indicator.macd.kLineID,
                 name: "MACD",
                 parameters: [
@@ -233,7 +233,7 @@ git commit -m "feat: add open indicator identity types"
 ## Task 2: Add Facade Chart Configuration
 
 **Files:**
-- Create: `Sources/SwiftKLine/API/KLineChartConfiguration.swift`
+- Create: `Sources/SwiftKLine/API/ChartConfiguration.swift`
 - Modify: `Sources/SwiftKLine/View/KLineView.swift`
 - Test: `Tests/SwiftKLineTests/ArchitectureRefactorTests.swift`
 
@@ -243,7 +243,7 @@ Append:
 
 ```swift
 @Test @MainActor func chartConfigurationThemeBuildsAppearanceConfiguration() {
-    let chart = KLineChartConfiguration(
+    let chart = ChartConfiguration(
         data: .deferred,
         appearance: .theme(.midnight),
         content: .candlestick,
@@ -267,31 +267,31 @@ Run:
 swift test --filter chartConfigurationThemeBuildsAppearanceConfiguration
 ```
 
-Expected: FAIL because `KLineChartConfiguration` and related types do not exist. If SwiftPM fails on UIKit, use the iOS build gate after implementation.
+Expected: FAIL because `ChartConfiguration` and related types do not exist. If SwiftPM fails on UIKit, use the iOS build gate after implementation.
 
 - [ ] **Step 3: Implement facade configuration types**
 
-Create `Sources/SwiftKLine/API/KLineChartConfiguration.swift`:
+Create `Sources/SwiftKLine/API/ChartConfiguration.swift`:
 
 ```swift
 import Foundation
 
 @MainActor
-public struct KLineChartConfiguration {
-    public var data: KLineDataSourceConfiguration
+public struct ChartConfiguration {
+    public var data: DataSourceConfiguration
     public var appearance: KLineAppearanceConfiguration
     public var content: KLineChartContentStyle
-    public var indicators: KLineIndicatorSelectionConfiguration
-    public var features: KLineFeatureOptions
-    public var plugins: KLinePluginRegistry
+    public var indicators: IndicatorSelectionConfiguration
+    public var features: ChartFeatures
+    public var plugins: PluginRegistry
 
     public init(
-        data: KLineDataSourceConfiguration = .deferred,
+        data: DataSourceConfiguration = .deferred,
         appearance: KLineAppearanceConfiguration = .configuration(KLineConfiguration()),
         content: KLineChartContentStyle = .candlestick,
-        indicators: KLineIndicatorSelectionConfiguration = .init(),
-        features: KLineFeatureOptions = .default,
-        plugins: KLinePluginRegistry = .default
+        indicators: IndicatorSelectionConfiguration = .init(),
+        features: ChartFeatures = .default,
+        plugins: PluginRegistry = .default
     ) {
         self.data = data
         self.appearance = appearance
@@ -306,7 +306,7 @@ public struct KLineChartConfiguration {
     }
 }
 
-public enum KLineDataSourceConfiguration {
+public enum DataSourceConfiguration {
     case provider(any KLineItemProvider)
     case deferred
 }
@@ -326,31 +326,31 @@ public enum KLineAppearanceConfiguration {
     }
 }
 
-public enum KLineIndicatorSelection: Hashable, Sendable {
+public enum IndicatorSelection: Hashable, Sendable {
     case builtIn(Indicator)
-    case custom(KLineIndicatorID)
+    case custom(IndicatorID)
 }
 
-public struct KLineIndicatorSelectionConfiguration: Equatable, Sendable {
-    public var main: [KLineIndicatorSelection]
-    public var sub: [KLineIndicatorSelection]
+public struct IndicatorSelectionConfiguration: Equatable, Sendable {
+    public var main: [IndicatorSelection]
+    public var sub: [IndicatorSelection]
 
     public init(
-        main: [KLineIndicatorSelection] = [],
-        sub: [KLineIndicatorSelection] = []
+        main: [IndicatorSelection] = [],
+        sub: [IndicatorSelection] = []
     ) {
         self.main = main
         self.sub = sub
     }
 }
 
-public struct KLineFeatureOptions: OptionSet, Sendable {
+public struct ChartFeatures: OptionSet, Sendable {
     public let rawValue: Int
 
-    public static let liveUpdates = KLineFeatureOptions(rawValue: 1 << 0)
-    public static let gapRecovery = KLineFeatureOptions(rawValue: 1 << 1)
-    public static let indicatorPersistence = KLineFeatureOptions(rawValue: 1 << 2)
-    public static let `default`: KLineFeatureOptions = [.liveUpdates, .gapRecovery, .indicatorPersistence]
+    public static let liveUpdates = ChartFeatures(rawValue: 1 << 0)
+    public static let gapRecovery = ChartFeatures(rawValue: 1 << 1)
+    public static let indicatorPersistence = ChartFeatures(rawValue: 1 << 2)
+    public static let `default`: ChartFeatures = [.liveUpdates, .gapRecovery, .indicatorPersistence]
 
     public init(rawValue: Int) {
         self.rawValue = rawValue
@@ -365,7 +365,7 @@ Modify `Sources/SwiftKLine/View/KLineView.swift` by adding a convenience initial
 ```swift
 public convenience init(
     frame: CGRect = .zero,
-    chart: KLineChartConfiguration,
+    chart: ChartConfiguration,
     indicatorSelectionStore: IndicatorSelectionStore? = UserDefaultsIndicatorSelectionStore()
 ) {
     self.init(
@@ -391,7 +391,7 @@ xcodebuild -project SwiftKLineExample.xcodeproj -scheme SwiftKLineExample -desti
 Commit:
 
 ```bash
-git add Sources/SwiftKLine/API/KLineChartConfiguration.swift Sources/SwiftKLine/View/KLineView.swift Tests/SwiftKLineTests/ArchitectureRefactorTests.swift
+git add Sources/SwiftKLine/API/ChartConfiguration.swift Sources/SwiftKLine/View/KLineView.swift Tests/SwiftKLineTests/ArchitectureRefactorTests.swift
 git commit -m "feat: add chart facade configuration"
 ```
 
@@ -399,7 +399,7 @@ git commit -m "feat: add chart facade configuration"
 
 **Files:**
 - Create: `Sources/SwiftKLine/Indicator/KLineIndicatorPlugin.swift`
-- Create: `Sources/SwiftKLine/API/KLinePluginRegistry.swift`
+- Create: `Sources/SwiftKLine/API/PluginRegistry.swift`
 - Test: `Tests/SwiftKLineTests/ArchitectureRefactorTests.swift`
 
 - [ ] **Step 1: Write failing plugin registry tests**
@@ -408,7 +408,7 @@ Append:
 
 ```swift
 private struct TestScalarCalculator: KLineIndicatorCalculator {
-    let id = KLineSeriesKey(indicatorID: "test.scalar", name: "TEST")
+    let id = SeriesKey(indicatorID: "test.scalar", name: "TEST")
 
     func calculate(for items: [any KLineItem]) -> [Double?] {
         items.map { Optional($0.closing) }
@@ -416,10 +416,10 @@ private struct TestScalarCalculator: KLineIndicatorCalculator {
 }
 
 private struct TestIndicatorPlugin: KLineIndicatorPlugin {
-    let id: KLineIndicatorID = "test.scalar"
+    let id: IndicatorID = "test.scalar"
     let title = "TEST"
-    let placement: KLineIndicatorPlacement = .sub
-    let defaultSeriesKeys = [KLineSeriesKey(indicatorID: "test.scalar", name: "TEST")]
+    let placement: IndicatorPlacement = .sub
+    let defaultSeriesKeys = [SeriesKey(indicatorID: "test.scalar", name: "TEST")]
 
     func makeCalculators(configuration: KLineConfiguration) -> [any KLineIndicatorCalculator] {
         [TestScalarCalculator()]
@@ -431,8 +431,8 @@ private struct TestIndicatorPlugin: KLineIndicatorPlugin {
 }
 
 @Test @MainActor func pluginRegistryStoresPluginsPerInstance() {
-    let first = KLinePluginRegistry()
-    let second = KLinePluginRegistry()
+    let first = PluginRegistry()
+    let second = PluginRegistry()
 
     first.register(TestIndicatorPlugin())
 
@@ -461,22 +461,22 @@ import Foundation
 public protocol KLineIndicatorCalculator: Sendable {
     associatedtype Value: Sendable
 
-    var id: KLineSeriesKey { get }
+    var id: SeriesKey { get }
     func calculate(for items: [any KLineItem]) -> [Value?]
 }
 
 public protocol KLineIndicatorPlugin: Sendable {
-    var id: KLineIndicatorID { get }
+    var id: IndicatorID { get }
     var title: String { get }
-    var placement: KLineIndicatorPlacement { get }
-    var defaultSeriesKeys: [KLineSeriesKey] { get }
+    var placement: IndicatorPlacement { get }
+    var defaultSeriesKeys: [SeriesKey] { get }
 
     func makeCalculators(configuration: KLineConfiguration) -> [any KLineIndicatorCalculator]
     @MainActor func makeRenderers(configuration: KLineConfiguration) -> [any Renderer]
 }
 
 struct AnyKLineIndicatorCalculator: Sendable {
-    let id: KLineSeriesKey
+    let id: SeriesKey
     private let calculateValues: @Sendable ([any KLineItem]) -> AnyIndicatorSeries
 
     init<C: KLineIndicatorCalculator>(_ calculator: C) {
@@ -496,25 +496,25 @@ struct AnyKLineIndicatorCalculator: Sendable {
 
 - [ ] **Step 4: Implement registry**
 
-Create `Sources/SwiftKLine/API/KLinePluginRegistry.swift`:
+Create `Sources/SwiftKLine/API/PluginRegistry.swift`:
 
 ```swift
 import Foundation
 
 public typealias KLineRendererProvider = @MainActor (
-    KLineRendererPlacement,
+    RendererPlacement,
     KLineConfiguration
 ) -> [any Renderer]
 
-@MainActor public final class KLinePluginRegistry {
-    public static var `default`: KLinePluginRegistry {
-        let registry = KLinePluginRegistry()
+@MainActor public final class PluginRegistry {
+    public static var `default`: PluginRegistry {
+        let registry = PluginRegistry()
         registry.registerBuiltInPlugins()
         return registry
     }
 
-    private var pluginsByID: [KLineIndicatorID: any KLineIndicatorPlugin] = [:]
-    private var rendererProviders: [KLineRendererPlacement: [KLineRendererProvider]] = [:]
+    private var pluginsByID: [IndicatorID: any KLineIndicatorPlugin] = [:]
+    private var rendererProviders: [RendererPlacement: [KLineRendererProvider]] = [:]
 
     public init() {}
 
@@ -522,23 +522,23 @@ public typealias KLineRendererProvider = @MainActor (
         pluginsByID[plugin.id] = plugin
     }
 
-    public func plugin(for id: KLineIndicatorID) -> (any KLineIndicatorPlugin)? {
+    public func plugin(for id: IndicatorID) -> (any KLineIndicatorPlugin)? {
         pluginsByID[id]
     }
 
-    public func plugins(for placement: KLineIndicatorPlacement) -> [any KLineIndicatorPlugin] {
+    public func plugins(for placement: IndicatorPlacement) -> [any KLineIndicatorPlugin] {
         pluginsByID.values.filter { $0.placement == placement }
     }
 
     public func registerRenderer(
-        placement: KLineRendererPlacement,
+        placement: RendererPlacement,
         provider: @escaping KLineRendererProvider
     ) {
         rendererProviders[placement, default: []].append(provider)
     }
 
     func renderers(
-        for placement: KLineRendererPlacement,
+        for placement: RendererPlacement,
         configuration: KLineConfiguration
     ) -> [AnyRenderer] {
         rendererProviders[placement, default: []]
@@ -556,7 +556,7 @@ public typealias KLineRendererProvider = @MainActor (
 Run the iOS build gate. Commit:
 
 ```bash
-git add Sources/SwiftKLine/Indicator/KLineIndicatorPlugin.swift Sources/SwiftKLine/API/KLinePluginRegistry.swift Tests/SwiftKLineTests/ArchitectureRefactorTests.swift
+git add Sources/SwiftKLine/Indicator/KLineIndicatorPlugin.swift Sources/SwiftKLine/API/PluginRegistry.swift Tests/SwiftKLineTests/ArchitectureRefactorTests.swift
 git commit -m "feat: add indicator plugin registry"
 ```
 
@@ -575,7 +575,7 @@ Append:
 ```swift
 @Test func indicatorSeriesStoreStoresAndReadsOpenKeySeries() {
     var store = IndicatorSeriesStore()
-    let key = KLineSeriesKey(indicatorID: "test.scalar", name: "TEST")
+    let key = SeriesKey(indicatorID: "test.scalar", name: "TEST")
 
     store.setValues(ContiguousArray<Double?>([1, nil, 3]), for: key)
 
@@ -610,10 +610,10 @@ Replace `Sources/SwiftKLine/Data/IndicatorSeriesStore.swift` with:
 import Foundation
 
 struct AnyIndicatorSeries {
-    let key: KLineSeriesKey
+    let key: SeriesKey
     private let valuesStorage: Any
 
-    init<Value>(key: KLineSeriesKey, values: ContiguousArray<Value?>) {
+    init<Value>(key: SeriesKey, values: ContiguousArray<Value?>) {
         self.key = key
         valuesStorage = values
     }
@@ -624,7 +624,7 @@ struct AnyIndicatorSeries {
 }
 
 struct IndicatorSeriesStore {
-    private var series: [KLineSeriesKey: AnyIndicatorSeries] = [:]
+    private var series: [SeriesKey: AnyIndicatorSeries] = [:]
 
     var scalarSeries: [Indicator.Key: ContiguousArray<Double?>] {
         get {
@@ -677,15 +677,15 @@ struct IndicatorSeriesStore {
         }
     }
 
-    mutating func setSeries(_ value: AnyIndicatorSeries, for key: KLineSeriesKey) {
+    mutating func setSeries(_ value: AnyIndicatorSeries, for key: SeriesKey) {
         series[key] = value
     }
 
-    mutating func setValues<Value>(_ values: ContiguousArray<Value?>, for key: KLineSeriesKey) {
+    mutating func setValues<Value>(_ values: ContiguousArray<Value?>, for key: SeriesKey) {
         series[key] = AnyIndicatorSeries(key: key, values: values)
     }
 
-    func values<Value>(for key: KLineSeriesKey, as type: Value.Type) -> ContiguousArray<Value?>? {
+    func values<Value>(for key: SeriesKey, as type: Value.Type) -> ContiguousArray<Value?>? {
         series[key]?.values(as: type)
     }
 
@@ -700,7 +700,7 @@ struct IndicatorSeriesStore {
 Append to `Sources/SwiftKLine/API/KLineIndicatorIdentity.swift`:
 
 ```swift
-extension KLineSeriesKey {
+extension SeriesKey {
     var legacyIndicatorKey: Indicator.Key? {
         switch indicatorID.rawValue {
         case "builtin.ma":
@@ -746,7 +746,7 @@ Append to `Sources/SwiftKLine/Data/RendererContext.swift`:
 ```swift
 public extension RendererContext {
     func values<Value>(
-        for key: KLineSeriesKey,
+        for key: SeriesKey,
         as type: Value.Type
     ) -> ContiguousArray<Value?>? {
         indicatorSeriesStore.values(for: key, as: type)
@@ -808,7 +808,7 @@ Modify `Sources/SwiftKLine/Calculator/IndicatorCalculator.swift`:
 
 ```swift
 extension IndicatorCalculator {
-    var seriesKey: KLineSeriesKey {
+    var seriesKey: SeriesKey {
         key.kLineSeriesKey
     }
 
@@ -824,7 +824,7 @@ private struct LegacyIndicatorCalculatorAdapter<Base: IndicatorCalculator>: KLin
         self.base = base
     }
 
-    var id: KLineSeriesKey {
+    var id: SeriesKey {
         base.key.kLineSeriesKey
     }
 
@@ -892,7 +892,7 @@ git commit -m "refactor: bridge legacy calculators to open series"
 
 **Files:**
 - Create: `Sources/SwiftKLine/Indicator/BuiltInIndicatorPlugins.swift`
-- Modify: `Sources/SwiftKLine/API/KLinePluginRegistry.swift`
+- Modify: `Sources/SwiftKLine/API/PluginRegistry.swift`
 - Modify: `Sources/SwiftKLine/Indicator/IndicatorCatalog.swift`
 - Test: `Tests/SwiftKLineTests/ArchitectureRefactorTests.swift`
 
@@ -902,14 +902,14 @@ Append:
 
 ```swift
 @Test @MainActor func defaultRegistryContainsBuiltInPlugins() {
-    let registry = KLinePluginRegistry.default
+    let registry = PluginRegistry.default
 
     #expect(registry.plugin(for: Indicator.ma.kLineID) != nil)
     #expect(registry.plugin(for: Indicator.macd.kLineID) != nil)
 }
 
 @Test @MainActor func builtInMAPluginCreatesCalculatorsAndRenderers() {
-    let plugin = KLinePluginRegistry.default.plugin(for: Indicator.ma.kLineID)
+    let plugin = PluginRegistry.default.plugin(for: Indicator.ma.kLineID)
     let configuration = KLineConfiguration()
 
     #expect(plugin?.defaultSeriesKeys == Indicator.ma.defaultKeys.map(\.kLineSeriesKey))
@@ -939,7 +939,7 @@ import Foundation
 struct BuiltInIndicatorPlugin: KLineIndicatorPlugin {
     let indicator: Indicator
 
-    var id: KLineIndicatorID {
+    var id: IndicatorID {
         indicator.kLineID
     }
 
@@ -947,11 +947,11 @@ struct BuiltInIndicatorPlugin: KLineIndicatorPlugin {
         indicator.rawValue
     }
 
-    var placement: KLineIndicatorPlacement {
+    var placement: IndicatorPlacement {
         indicator.isMain ? .main : .sub
     }
 
-    var defaultSeriesKeys: [KLineSeriesKey] {
+    var defaultSeriesKeys: [SeriesKey] {
         indicator.defaultKeys.map(\.kLineSeriesKey)
     }
 
@@ -972,7 +972,7 @@ struct BuiltInIndicatorPlugin: KLineIndicatorPlugin {
 
 - [ ] **Step 4: Register built-ins in default registry**
 
-Modify `registerBuiltInPlugins()` in `Sources/SwiftKLine/API/KLinePluginRegistry.swift`:
+Modify `registerBuiltInPlugins()` in `Sources/SwiftKLine/API/PluginRegistry.swift`:
 
 ```swift
 private func registerBuiltInPlugins() {
@@ -987,7 +987,7 @@ private func registerBuiltInPlugins() {
 Run the iOS build gate. Commit:
 
 ```bash
-git add Sources/SwiftKLine/Indicator/BuiltInIndicatorPlugins.swift Sources/SwiftKLine/API/KLinePluginRegistry.swift Tests/SwiftKLineTests/ArchitectureRefactorTests.swift
+git add Sources/SwiftKLine/Indicator/BuiltInIndicatorPlugins.swift Sources/SwiftKLine/API/PluginRegistry.swift Tests/SwiftKLineTests/ArchitectureRefactorTests.swift
 git commit -m "feat: register built-in indicator plugins"
 ```
 
@@ -1104,7 +1104,7 @@ struct KLineDataPipeline {
         dataMerger.reset()
     }
 
-    mutating func apply(_ event: KLineItemLoaderEvent, to state: inout KLineChartState) async {
+    mutating func apply(_ event: DataLoaderEvent, to state: inout KLineChartState) async {
         switch event {
         case let .page(index, items):
             if index == 0 {
@@ -1223,14 +1223,14 @@ struct KLineIndicatorPipeline {
     private let configuration: KLineConfiguration
     private let normalizer: IndicatorSelectionNormalizer
     private let selectionStore: IndicatorSelectionStore?
-    private let registry: KLinePluginRegistry
+    private let registry: PluginRegistry
     private let calculationEngine = IndicatorCalculationEngine()
 
     init(
         configuration: KLineConfiguration,
         normalizer: IndicatorSelectionNormalizer,
         selectionStore: IndicatorSelectionStore?,
-        registry: KLinePluginRegistry
+        registry: PluginRegistry
     ) {
         self.configuration = configuration
         self.normalizer = normalizer
@@ -1333,8 +1333,8 @@ Append:
 }
 
 @Test @MainActor func renderPipelineUsesInstanceRegistry() {
-    let firstRegistry = KLinePluginRegistry.default
-    let secondRegistry = KLinePluginRegistry.default
+    let firstRegistry = PluginRegistry.default
+    let secondRegistry = PluginRegistry.default
     firstRegistry.registerRenderer(placement: .overlay) { _, _ in [TestRenderer()] }
 
     let factory = KLineDescriptorFactory()
@@ -1385,7 +1385,7 @@ func makeDescriptor(
     customRenderers: [AnyRenderer],
     configuration: KLineConfiguration,
     layoutMetrics: LayoutMetrics,
-    registry: KLinePluginRegistry
+    registry: PluginRegistry
 ) -> ChartDescriptor
 ```
 
@@ -1423,9 +1423,9 @@ import Foundation
 @MainActor
 struct KLineRenderPipeline {
     private let descriptorFactory = KLineDescriptorFactory()
-    private let registry: KLinePluginRegistry
+    private let registry: PluginRegistry
 
-    init(registry: KLinePluginRegistry) {
+    init(registry: PluginRegistry) {
         self.registry = registry
     }
 
@@ -1454,7 +1454,7 @@ struct KLineRenderPipeline {
 
 Modify `KLineView`:
 
-- Add `private let pluginRegistry: KLinePluginRegistry`
+- Add `private let pluginRegistry: PluginRegistry`
 - Add `private let renderPipeline: KLineRenderPipeline`
 - In old initializer, use `.default`.
 - In new chart initializer, pass `chart.plugins`.
@@ -1473,7 +1473,7 @@ var newDescriptor = renderPipeline.makeDescriptor(
 
 - [ ] **Step 6: Preserve old global registration**
 
-Modify `IndicatorRendererRegistry` so old `KLineView.registerRenderer(for:)` stores compatibility providers. When creating `KLinePluginRegistry.default`, merge these providers into the default registry by registering providers for `.sub(indicator.kLineID)` or `.main` based on `indicator.isMain`.
+Modify `IndicatorRendererRegistry` so old `KLineView.registerRenderer(for:)` stores compatibility providers. When creating `PluginRegistry.default`, merge these providers into the default registry by registering providers for `.sub(indicator.kLineID)` or `.main` based on `indicator.isMain`.
 
 - [ ] **Step 7: Verify and commit**
 
@@ -1565,7 +1565,7 @@ struct KLineChartController {
         }
     }
 
-    mutating func applyLoaderEvent(_ event: KLineItemLoaderEvent) async {
+    mutating func applyLoaderEvent(_ event: DataLoaderEvent) async {
         await dataPipeline.apply(event, to: &state)
     }
 
@@ -1636,7 +1636,7 @@ Append:
 
 ```swift
 private struct CloseEchoCalculator: KLineIndicatorCalculator {
-    let id = KLineSeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho")
+    let id = SeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho")
 
     func calculate(for items: [any KLineItem]) -> [Double?] {
         items.map { Optional($0.closing) }
@@ -1644,10 +1644,10 @@ private struct CloseEchoCalculator: KLineIndicatorCalculator {
 }
 
 private struct CloseEchoPlugin: KLineIndicatorPlugin {
-    let id: KLineIndicatorID = "custom.closeEcho"
+    let id: IndicatorID = "custom.closeEcho"
     let title = "Close Echo"
-    let placement = KLineIndicatorPlacement.overlay
-    let defaultSeriesKeys = [KLineSeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho")]
+    let placement = IndicatorPlacement.overlay
+    let defaultSeriesKeys = [SeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho")]
 
     func makeCalculators(configuration: KLineConfiguration) -> [any KLineIndicatorCalculator] {
         [CloseEchoCalculator()]
@@ -1659,7 +1659,7 @@ private struct CloseEchoPlugin: KLineIndicatorPlugin {
 }
 
 @Test @MainActor func externalCustomIndicatorCanBeRegisteredCalculatedAndRendered() async {
-    let registry = KLinePluginRegistry.default
+    let registry = PluginRegistry.default
     registry.register(CloseEchoPlugin())
     let plugin = registry.plugin(for: "custom.closeEcho")
     let items: [any KLineItem] = [
@@ -1671,7 +1671,7 @@ private struct CloseEchoPlugin: KLineIndicatorPlugin {
         $0.eraseToAnyKLineIndicatorCalculator()
     } ?? []
     let store = await calculators.calculate(items: items)
-    let values = store.values(for: KLineSeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho"), as: Double.self)
+    let values = store.values(for: SeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho"), as: Double.self)
 
     #expect(values == ContiguousArray<Double?>([10, 11]))
     #expect(plugin?.makeRenderers(configuration: KLineConfiguration()).isEmpty == false)
@@ -1723,7 +1723,7 @@ Modify `makeUIView(context:)` in `SwiftKLineExample/KLineSwiftUIView.swift`:
 
 ```swift
 func makeUIView(context: Context) -> KLineView {
-    let chart = KLineChartConfiguration(
+    let chart = ChartConfiguration(
         data: .deferred,
         appearance: .theme(.midnight),
         content: mode == .candlestick ? .candlestick : .timeSeries,
@@ -1783,7 +1783,7 @@ import UIKit
 import SwiftKLine
 
 let provider = BinanceDataProvider(symbol: "BTCUSDT", period: .m1)
-let chart = KLineChartConfiguration(
+let chart = ChartConfiguration(
     data: .provider(provider),
     appearance: .theme(.midnight),
     content: .candlestick,
@@ -1813,7 +1813,7 @@ view.loadData(using: provider)
 view.setChartContentStyle(.candlestick)
 ```
 
-这些 API 会转发到新的 chart controller 和配置模型。新接入建议优先使用 `KLineChartConfiguration`。
+这些 API 会转发到新的 chart controller 和配置模型。新接入建议优先使用 `ChartConfiguration`。
 ```
 ```
 
@@ -1826,7 +1826,7 @@ Add:
 
 ```swift
 struct MyCalculator: KLineIndicatorCalculator {
-    let id = KLineSeriesKey(indicatorID: "custom.myIndicator", name: "MY")
+    let id = SeriesKey(indicatorID: "custom.myIndicator", name: "MY")
 
     func calculate(for items: [any KLineItem]) -> [Double?] {
         items.map { Optional($0.closing) }
@@ -1834,10 +1834,10 @@ struct MyCalculator: KLineIndicatorCalculator {
 }
 
 struct MyPlugin: KLineIndicatorPlugin {
-    let id: KLineIndicatorID = "custom.myIndicator"
+    let id: IndicatorID = "custom.myIndicator"
     let title = "MY"
-    let placement: KLineIndicatorPlacement = .overlay
-    let defaultSeriesKeys = [KLineSeriesKey(indicatorID: "custom.myIndicator", name: "MY")]
+    let placement: IndicatorPlacement = .overlay
+    let defaultSeriesKeys = [SeriesKey(indicatorID: "custom.myIndicator", name: "MY")]
 
     func makeCalculators(configuration: KLineConfiguration) -> [any KLineIndicatorCalculator] {
         [MyCalculator()]
@@ -1848,9 +1848,9 @@ struct MyPlugin: KLineIndicatorPlugin {
     }
 }
 
-let registry = KLinePluginRegistry.default
+let registry = PluginRegistry.default
 registry.register(MyPlugin())
-let chart = KLineChartConfiguration(plugins: registry)
+let chart = ChartConfiguration(plugins: registry)
 ```
 ```
 
@@ -1859,7 +1859,7 @@ let chart = KLineChartConfiguration(plugins: registry)
 Run:
 
 ```bash
-rg -n "KLineChartConfiguration|KLineIndicatorPlugin|兼容旧 API" README.md
+rg -n "ChartConfiguration|KLineIndicatorPlugin|兼容旧 API" README.md
 ```
 
 Expected: all three terms are present.
@@ -1881,7 +1881,7 @@ git commit -m "docs: document chart facade and plugin API"
 Create a local checklist in the final task notes with these rows:
 
 ```text
-API 易用性 -> KLineChartConfiguration implemented, example uses it, README quick start uses it.
+API 易用性 -> ChartConfiguration implemented, example uses it, README quick start uses it.
 高扩展 -> Custom plugin test defines external plugin without editing Indicator enum.
 易维护 -> KLineView no longer directly owns data merger, calculation engine, or global registry.
 灵活特性 -> Registry isolation test passes.
@@ -1904,7 +1904,7 @@ Expected: no direct ownership of `KLineDataMerger`, `IndicatorCalculationEngine`
 Run:
 
 ```bash
-rg -n "public (struct|enum|protocol|final class) KLineChartConfiguration|KLineIndicatorID|KLineSeriesKey|KLineIndicatorPlugin|KLineIndicatorCalculator|KLinePluginRegistry" Sources/SwiftKLine
+rg -n "public (struct|enum|protocol|final class) ChartConfiguration|IndicatorID|SeriesKey|KLineIndicatorPlugin|KLineIndicatorCalculator|PluginRegistry" Sources/SwiftKLine
 ```
 
 Expected: all public symbols appear in the intended API/Indicator files.

@@ -4,7 +4,7 @@
 
 ## 背景
 
-SwiftKLine 当前已经具备较好的内部模块雏形：数据加载由 `KLineItemLoader` 承担，指标计算集中在 `IndicatorCalculationEngine` 和 `IndicatorCatalog`，渲染描述符由 `KLineDescriptorFactory` 生成，`KLineRendererReconciler` 负责 renderer 复用。但公共 API 和扩展边界仍然偏窄。
+SwiftKLine 当前已经具备较好的内部模块雏形：数据加载由 `DataLoader` 承担，指标计算集中在 `IndicatorCalculationEngine` 和 `IndicatorCatalog`，渲染描述符由 `KLineDescriptorFactory` 生成，`KLineRendererReconciler` 负责 renderer 复用。但公共 API 和扩展边界仍然偏窄。
 
 当前主要问题：
 
@@ -33,13 +33,13 @@ SwiftKLine 当前已经具备较好的内部模块雏形：数据加载由 `KLin
 
 ## 公共 API 设计
 
-新增 `KLineChartConfiguration` 作为业务接入的一站式入口，`KLineConfiguration` 收窄为外观和样式层。
+新增 `ChartConfiguration` 作为业务接入的一站式入口，`KLineConfiguration` 收窄为外观和样式层。
 
 示例 API：
 
 ```swift
 let view = KLineView(
-    chart: KLineChartConfiguration(
+    chart: ChartConfiguration(
         data: .provider(provider),
         appearance: .theme(.midnight),
         content: .candlestick,
@@ -56,23 +56,23 @@ let view = KLineView(
 
 - `KLineView` 继续作为公开 UIKit 入口，降低迁移成本。
 - 新 initializer 面向新接入者，旧 initializer 作为兼容层保留。
-- `KLineChartConfiguration` 负责组合数据、外观、内容模式、指标、插件和功能开关。
+- `ChartConfiguration` 负责组合数据、外观、内容模式、指标、插件和功能开关。
 - `KLineConfiguration` 继续承载 `CandleStyle`、`LayoutMetrics`、字体、watermark、indicator style 等视觉配置。
 - 旧的 `loadData(using:)` 和 `setChartContentStyle(_:)` 内部转发为 controller command。
 
 建议类型：
 
 ```swift
-public struct KLineChartConfiguration {
-    public var data: KLineDataSourceConfiguration
+public struct ChartConfiguration {
+    public var data: DataSourceConfiguration
     public var appearance: KLineAppearanceConfiguration
     public var content: KLineChartContentStyle
-    public var indicators: KLineIndicatorSelectionConfiguration
-    public var features: KLineFeatureOptions
-    public var plugins: KLinePluginRegistry
+    public var indicators: IndicatorSelectionConfiguration
+    public var features: ChartFeatures
+    public var plugins: PluginRegistry
 }
 
-public enum KLineDataSourceConfiguration {
+public enum DataSourceConfiguration {
     case provider(any KLineItemProvider)
     case deferred
 }
@@ -105,7 +105,7 @@ public enum KLineAppearanceConfiguration {
 
 承接当前数据相关职责：
 
-- `KLineItemLoader`
+- `DataLoader`
 - `KLineDataMerger`
 - 分页加载
 - 前后台缺口补齐
@@ -163,17 +163,17 @@ public enum KLineAppearanceConfiguration {
 当前扩展性瓶颈来自 `Indicator` / `Indicator.Key` 的封闭 enum。新设计引入开放 ID 和序列 key。
 
 ```swift
-public struct KLineIndicatorID: Hashable, Sendable, Codable, ExpressibleByStringLiteral {
+public struct IndicatorID: Hashable, Sendable, Codable, ExpressibleByStringLiteral {
     public let rawValue: String
 }
 
-public struct KLineSeriesKey: Hashable, Sendable, CustomStringConvertible {
-    public let indicatorID: KLineIndicatorID
+public struct SeriesKey: Hashable, Sendable, CustomStringConvertible {
+    public let indicatorID: IndicatorID
     public let name: String
     public let parameters: [String: String]
 }
 
-public enum KLineIndicatorPlacement: Sendable {
+public enum IndicatorPlacement: Sendable {
     case main
     case sub
     case overlay
@@ -184,10 +184,10 @@ public enum KLineIndicatorPlacement: Sendable {
 
 ```swift
 public protocol KLineIndicatorPlugin: Sendable {
-    var id: KLineIndicatorID { get }
+    var id: IndicatorID { get }
     var title: String { get }
-    var placement: KLineIndicatorPlacement { get }
-    var defaultSeriesKeys: [KLineSeriesKey] { get }
+    var placement: IndicatorPlacement { get }
+    var defaultSeriesKeys: [SeriesKey] { get }
 
     func makeCalculators(configuration: KLineConfiguration) -> [any KLineIndicatorCalculator]
     @MainActor func makeRenderers(configuration: KLineConfiguration) -> [any Renderer]
@@ -200,7 +200,7 @@ public protocol KLineIndicatorPlugin: Sendable {
 public protocol KLineIndicatorCalculator: Sendable {
     associatedtype Value: Sendable
 
-    var id: KLineSeriesKey { get }
+    var id: SeriesKey { get }
     func calculate(for items: [any KLineItem]) -> [Value?]
 }
 ```
@@ -209,18 +209,18 @@ public protocol KLineIndicatorCalculator: Sendable {
 
 ```swift
 struct IndicatorSeriesStore {
-    private var series: [KLineSeriesKey: AnyIndicatorSeries]
+    private var series: [SeriesKey: AnyIndicatorSeries]
 }
 ```
 
-`AnyIndicatorSeries` 是内部类型擦除容器，保存同一 `KLineSeriesKey` 对应的 `ContiguousArray<Value?>`。外部不直接操作该容器，只通过 `RendererContext` 的类型化读取 API 访问。
+`AnyIndicatorSeries` 是内部类型擦除容器，保存同一 `SeriesKey` 对应的 `ContiguousArray<Value?>`。外部不直接操作该容器，只通过 `RendererContext` 的类型化读取 API 访问。
 
 渲染上下文提供类型安全读取 API：
 
 ```swift
 extension RendererContext {
     public func values<Value>(
-        for key: KLineSeriesKey,
+        for key: SeriesKey,
         as type: Value.Type
     ) -> ContiguousArray<Value?>?
 }
@@ -228,8 +228,8 @@ extension RendererContext {
 
 内置指标迁移：
 
-- `Indicator.ma` 映射到 `KLineIndicatorID("builtin.ma")`
-- `.ma(5)` 映射到 `KLineSeriesKey(indicatorID: "builtin.ma", name: "MA", parameters: ["period": "5"])`
+- `Indicator.ma` 映射到 `IndicatorID("builtin.ma")`
+- `.ma(5)` 映射到 `SeriesKey(indicatorID: "builtin.ma", name: "MA", parameters: ["period": "5"])`
 - MA/EMA/WMA/BOLL/SAR/VOL/RSI/MACD 都改为内置 plugin
 - 旧 renderer 先保留，内部读取新 series key
 
@@ -238,10 +238,10 @@ extension RendererContext {
 替代当前 `IndicatorRendererRegistry.shared` 的新入口：
 
 ```swift
-public final class KLinePluginRegistry {
+public final class PluginRegistry {
     public func register(_ plugin: any KLineIndicatorPlugin)
     public func registerRenderer(
-        placement: KLineRendererPlacement,
+        placement: RendererPlacement,
         provider: @escaping KLineRendererProvider
     )
 }
@@ -250,22 +250,22 @@ public final class KLinePluginRegistry {
 建议补齐的 renderer 注册模型：
 
 ```swift
-public enum KLineRendererPlacement: Sendable {
+public enum RendererPlacement: Sendable {
     case main
-    case sub(KLineIndicatorID)
+    case sub(IndicatorID)
     case overlay
     case crosshair
 }
 
 public typealias KLineRendererProvider = @MainActor (
-    KLineRendererPlacement,
+    RendererPlacement,
     KLineConfiguration
 ) -> [any Renderer]
 ```
 
 设计要求：
 
-- 每个 `KLineChartConfiguration` 持有自己的 registry。
+- 每个 `ChartConfiguration` 持有自己的 registry。
 - 默认 registry 注册所有内置指标和默认 renderer。
 - `KLineView.registerRenderer(for:)` 作为旧全局兼容 API 保留，但新代码推荐使用实例 registry。
 - 两个 `KLineView` 使用不同 registry 时，renderer 和插件互不影响。
@@ -288,10 +288,10 @@ public typealias KLineRendererProvider = @MainActor (
 
 兼容层行为：
 
-- 旧 initializer 构造默认 `KLineChartConfiguration`。
+- 旧 initializer 构造默认 `ChartConfiguration`。
 - `loadData(using:)` 转为 controller 的 provider replacement command。
 - `setChartContentStyle(_:)` 转为 controller 的 content style command。
-- `Indicator` / `Indicator.Key` 映射为新 `KLineIndicatorID` / `KLineSeriesKey`。
+- `Indicator` / `Indicator.Key` 映射为新 `IndicatorID` / `SeriesKey`。
 - 旧全局 renderer registry 在创建默认 registry 时合并，避免已有启动期注册丢失。
 
 ## 实施拆分
@@ -305,10 +305,10 @@ public typealias KLineRendererProvider = @MainActor (
 3. 把指标选择、持久化、calculator 调度迁入 `KLineIndicatorPipeline`。
    verify: 指标选择 normalize、持久化、计算结果归并有独立单测。
 
-4. 引入 `KLineIndicatorID` / `KLineSeriesKey` 和旧 `Indicator` 映射层。
+4. 引入 `IndicatorID` / `SeriesKey` 和旧 `Indicator` 映射层。
    verify: 内置指标计算结果可以通过新 key 读取；旧 key API 仍可用。
 
-5. 引入 `KLineIndicatorPlugin`、`KLineIndicatorCalculator` 和实例级 `KLinePluginRegistry`。
+5. 引入 `KLineIndicatorPlugin`、`KLineIndicatorCalculator` 和实例级 `PluginRegistry`。
    verify: 内置指标走插件路径注册。
 
 6. 改造 `IndicatorSeriesStore` 和 `RendererContext`。
@@ -324,7 +324,7 @@ public typealias KLineRendererProvider = @MainActor (
 
 ### API 易用性
 
-- 新增测试或示例验证 `KLineChartConfiguration` 可以一次性配置 provider、主题、默认指标、主图样式和功能开关。
+- 新增测试或示例验证 `ChartConfiguration` 可以一次性配置 provider、主题、默认指标、主图样式和功能开关。
 
 ### 兼容性
 

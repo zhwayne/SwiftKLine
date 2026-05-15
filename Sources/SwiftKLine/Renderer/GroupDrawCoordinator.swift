@@ -11,9 +11,9 @@ import UIKit
 struct GroupDrawCoordinator {
     func dataBounds(
         for renderers: [AnyRenderer],
-        context: KLineRendererContext<any KLineItem>
-    ) -> (bounds: KLineMetricBounds, cost: CFTimeInterval) {
-        var dataBounds: KLineMetricBounds = .empty
+        context: RendererContext
+    ) -> (bounds: ValueBounds, cost: CFTimeInterval) {
+        var dataBounds: ValueBounds = .empty
         let start = CACurrentMediaTime()
         for renderer in renderers {
             dataBounds.merge(other: renderer.dataBounds(context: context))
@@ -24,7 +24,7 @@ struct GroupDrawCoordinator {
     func drawRenderers(
         _ renderers: [AnyRenderer],
         canvas: CALayer,
-        context: KLineRendererContext<any KLineItem>
+        context: RendererContext
     ) -> CFTimeInterval {
         let start = CACurrentMediaTime()
         for renderer in renderers {
