@@ -1,5 +1,5 @@
 //
-//  KLineGroupDrawCoordinator.swift
+//  GroupDrawCoordinator.swift
 //  SwiftKLine
 //
 //  Created by zhwayne on 2026/4/27.
@@ -8,12 +8,12 @@
 import UIKit
 
 @MainActor
-struct KLineGroupDrawCoordinator {
+struct GroupDrawCoordinator {
     func dataBounds(
         for renderers: [AnyRenderer],
-        context: RendererContext<any KLineItem>
-    ) -> (bounds: MetricBounds, cost: CFTimeInterval) {
-        var dataBounds: MetricBounds = .empty
+        context: KLineRendererContext<any KLineItem>
+    ) -> (bounds: KLineMetricBounds, cost: CFTimeInterval) {
+        var dataBounds: KLineMetricBounds = .empty
         let start = CACurrentMediaTime()
         for renderer in renderers {
             dataBounds.merge(other: renderer.dataBounds(context: context))
@@ -24,7 +24,7 @@ struct KLineGroupDrawCoordinator {
     func drawRenderers(
         _ renderers: [AnyRenderer],
         canvas: CALayer,
-        context: RendererContext<any KLineItem>
+        context: KLineRendererContext<any KLineItem>
     ) -> CFTimeInterval {
         let start = CACurrentMediaTime()
         for renderer in renderers {

@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class CrosshairRenderer: Renderer {
+final class CrosshairRenderer: KLineRenderer {
     
     var id: some Hashable { ObjectIdentifier(CrosshairRenderer.self) }
     
@@ -17,7 +17,7 @@ final class CrosshairRenderer: Renderer {
     private var lastLocation: CGPoint = .zero
     private let dashLineLayer = CAShapeLayer()
     private let pointLayer = CAShapeLayer()
-    private let klineMarkView: KLineMarkView
+    private let klineMarkView: MarkView
     private let dateLabel = PaddedLabel()
     private let yAxisValueLabel = PaddedLabel()
     
@@ -26,7 +26,7 @@ final class CrosshairRenderer: Renderer {
     var timelineGroup: RendererGroup?
         
     init(configuration: KLineConfiguration) {
-        klineMarkView = KLineMarkView(configuration: configuration)
+        klineMarkView = MarkView(configuration: configuration)
         dashLineLayer.lineWidth = 1 / UIScreen.main.scale
         dashLineLayer.lineDashPattern = [2, 2]
         dashLineLayer.strokeColor = UIColor.label.cgColor
@@ -156,7 +156,7 @@ final class CrosshairRenderer: Renderer {
 //    private let dateFormatter: DateFormatter
 //    private let dateLabel = PaddedLabel()
 //    private let yAxisValueLabel = PaddedLabel()
-//    private let klineMarkView = KLineMarkView()
+//    private let klineMarkView = MarkView()
 //    private var lastLocationX: CGFloat = 0
 //    var location: CGPoint = .zero
 //    var locationRect: CGRect = .zero

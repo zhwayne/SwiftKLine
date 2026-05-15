@@ -35,18 +35,26 @@
 
 ## 基本使用
 
+新的推荐方式是通过 `KLineChartConfiguration` 一站式配置：
+
 ```swift
 import UIKit
 import SwiftKLine
 
-let configuration = KLineConfiguration.themed(.midnight)
-let klineView = KLineView(configuration: configuration)
-view.addSubview(klineView)
-
-// 选择周期并初始化数据提供者（示例用 Binance）
-// 如需要切换周期，可重新构建 Provider
 let provider = BinanceDataProvider(symbol: "BTCUSDT", period: .m1)
-klineView.loadData(using: provider)
+let chart = KLineChartConfiguration(
+    data: .provider(provider),
+    appearance: .theme(.midnight),
+    contentStyle: .candlestick,
+    indicators: .init(
+        main: [.builtIn(.ma)],
+        sub: [.builtIn(.vol), .builtIn(.macd)]
+    ),
+    features: [.liveUpdates, .gapRecovery, .indicatorPersistence],
+    plugins: .default
+)
+let klineView = KLineView(chart: chart)
+view.addSubview(klineView)
 ```
 
 - `KLineItemProvider` 负责提供分页历史数据、按时间区间补数以及实时流。
@@ -60,7 +68,7 @@ klineView.setChartContentStyle(.candlestick)
 klineView.setChartContentStyle(.timeSeries)
 ```
 
-`KLineChartContentStyle` 当前支持：
+`ChartContentStyle` 当前支持：
 
 - `.candlestick`：蜡烛图主图。
 - `.timeSeries`：分时图主图。
@@ -152,43 +160,57 @@ let configuration = KLineConfiguration(
 )
 ```
 
-自定义指标 key 和样式：
-
-```swift
-configuration.setIndicatorKeys([.ma(7), .ma(30)], for: .ma)
-configuration.setIndicatorStyle(LineStyle(strokeColor: .systemPurple), for: .ma(7))
-```
-
 # 扩展框架
 
 ## 扩展内置指标渲染
 
-框架当前提供的是“按指标注册渲染器 provider”的扩展点。  
-你可以覆盖内置指标对应的渲染器实现，或追加同指标的额外渲染器。
+通过 `KLinePluginRegistry` 的 `registerRenderer(placement:provider:)` 可为指定位置注册额外的渲染器。
 
 ```swift
-import UIKit
-import SwiftKLine
-
-final class MyMARenderer: Renderer {
-    var id: some Hashable { "my-ma-renderer" }
-    var zIndex: Int { 10 } // 值越大越靠上绘制
-    func install(to layer: CALayer) {}
-    func uninstall(from layer: CALayer) {}
-    func draw(in layer: CALayer, context: Context) {}
+let registry = KLinePluginRegistry.default
+registry.registerRenderer(placement: .overlay) { _, configuration in
+    [MyOverlayRenderer()]
 }
-
-// 例如：为 MA 指标注册自定义渲染器 provider
-KLineView.registerRenderer(for: .ma) { indicator, configuration in
-    MyMARenderer()
-}
+let chart = KLineChartConfiguration(plugins: registry)
 ```
 
-说明：
+## 兼容旧 API
 
-- `registerRenderer` 是全局注册（静态），建议在 App 启动阶段完成。
-- provider 会收到当前 `indicator` 与 `configuration`，可据此生成 renderer。
-- 尚未提供按 `pass/zIndex` 管理任意 overlay renderer 的公开 API。
+`loadData(using:)`、`setChartContentStyle(_:)`、`resetIndicatorsToDefault()` 等命令式 API 仍可用。
+新接入建议优先使用 `KLineChartConfiguration` 一站式配置。
+
+## 自定义指标插件
+
+通过 `KLineIndicatorPlugin` 和 `KLineIndicatorCalculator` 协议，可以在不修改内置 `Indicator` enum 的前提下新增完整指标：
+
+```swift
+struct MyCalculator: KLineIndicatorCalculator {
+    let id = KLineSeriesKey(indicatorID: "custom.myIndicator", name: "MY")
+
+    func calculate(for items: [any KLineItem]) -> [Double?] {
+        items.map { Optional($0.closing) }
+    }
+}
+
+struct MyPlugin: KLineIndicatorPlugin {
+    let id: KLineIndicatorID = "custom.myIndicator"
+    let title = "MY"
+    let placement: KLineIndicatorPlacement = .overlay
+    let defaultSeriesKeys = [KLineSeriesKey(indicatorID: "custom.myIndicator", name: "MY")]
+
+    func makeCalculators(configuration: KLineConfiguration) -> [any KLineIndicatorCalculator] {
+        [MyCalculator()]
+    }
+
+    @MainActor func makeRenderers(configuration: KLineConfiguration) -> [any Renderer] {
+        [MyRenderer()]
+    }
+}
+
+let registry = KLinePluginRegistry.default
+registry.register(MyPlugin())
+let chart = KLineChartConfiguration(plugins: registry)
+```
 
 # 许可证
 

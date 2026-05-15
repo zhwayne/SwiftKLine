@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class PriceIndicatorRenderer: Renderer {
+final class PriceIndicatorRenderer: KLineRenderer {
         
     var id: some Hashable { ObjectIdentifier(PriceIndicatorRenderer.self) }
     private let style: PriceIndicatorStyle

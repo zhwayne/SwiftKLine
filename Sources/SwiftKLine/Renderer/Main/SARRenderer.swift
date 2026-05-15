@@ -7,13 +7,13 @@
 
 import UIKit
 
-final class SARRenderer: Renderer {
+final class SARRenderer: KLineRenderer {
     
     private let priceFormatter = PriceFormatter()
     
     private let rectLayer = CAShapeLayer()
 
-    var id: some Hashable { Indicator.sar }
+    var id: some Hashable { KLineIndicator.sar }
 
     init() {
         rectLayer.lineWidth = 1
@@ -34,7 +34,7 @@ final class SARRenderer: Renderer {
         let candleStyle = klineConfig.candleStyle
         let layout = context.layout
 
-        let key = Indicator.Key.sar
+        let key = KLineIndicator.Key.sar
         guard let visibleValues = context.visibleScalarValues(for: key) else {
             return
         }
@@ -57,7 +57,7 @@ final class SARRenderer: Renderer {
     }
     
     func legend(context: Context) -> NSAttributedString? {
-        let key = Indicator.Key.sar
+        let key = KLineIndicator.Key.sar
         let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
         guard let values = context.scalarValues(for: key), !values.isEmpty,
               context.currentIndex >= 0,
@@ -76,7 +76,7 @@ final class SARRenderer: Renderer {
         return partialResult
     }
     
-    func dataBounds(context: Context) -> MetricBounds {
+    func dataBounds(context: Context) -> KLineMetricBounds {
         let visibleValues = context.visibleScalarValues(for: .sar)
         guard let visibleValues else {
             return .empty
@@ -91,6 +91,6 @@ final class SARRenderer: Renderer {
             maxValue = Swift.max(maxValue, value)
         }
         guard hasValue else { return .empty }
-        return MetricBounds(min: minValue, max: maxValue)
+        return KLineMetricBounds(min: minValue, max: maxValue)
     }
 }

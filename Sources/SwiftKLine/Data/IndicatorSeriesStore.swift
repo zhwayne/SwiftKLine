@@ -1,29 +1,42 @@
-//
-//  IndicatorSeriesStore.swift
-//  SwiftKLine
-//
-//  Created by iya on 2026/2/7.
-//
-
 import Foundation
+
+// 计算结果在 task group 之间以不可变快照传递，内部 Any 只承载值类型序列。
+struct AnyIndicatorSeries: @unchecked Sendable {
+    let key: KLineSeriesKey
+    private let valuesStorage: Any
+
+    init<Value>(key: KLineSeriesKey, values: ContiguousArray<Value?>) {
+        self.key = key
+        valuesStorage = values
+    }
+
+    func values<Value>(as type: Value.Type) -> ContiguousArray<Value?>? {
+        valuesStorage as? ContiguousArray<Value?>
+    }
+}
 
 /// 指标序列的统一存储。
 ///
-/// 通过 `Indicator.Key` 作为主索引，按 value family 分桶，避免新增指标时创建额外 Key 类型。
-struct IndicatorSeriesStore {
-    /// 标量指标 bucket。
-    var scalarSeries: [Indicator.Key: ContiguousArray<Double?>] = [:]
-    /// BOLL 指标 bucket。
-    var bollSeries: [Indicator.Key: ContiguousArray<BOLLIndicatorValue?>] = [:]
-    /// MACD 指标 bucket。
-    var macdSeries: [Indicator.Key: ContiguousArray<MACDIndicatorValue?>] = [:]
+/// 内部以开放的 `KLineSeriesKey` 索引，无旧兼容层。
+struct IndicatorSeriesStore: @unchecked Sendable {
+    private var series: [KLineSeriesKey: AnyIndicatorSeries] = [:]
+
+    mutating func setSeries(_ value: AnyIndicatorSeries, for key: KLineSeriesKey) {
+        series[key] = value
+    }
+
+    mutating func setValues<Value>(_ values: ContiguousArray<Value?>, for key: KLineSeriesKey) {
+        series[key] = AnyIndicatorSeries(key: key, values: values)
+    }
+
+    func values<Value>(for key: KLineSeriesKey, as type: Value.Type) -> ContiguousArray<Value?>? {
+        series[key]?.values(as: type)
+    }
 
     /// 将另一个局部存储合并到当前存储。
     ///
     /// 语义为“同 key 覆盖”，适用于并发计算后归并结果。
     mutating func merge(_ other: IndicatorSeriesStore) {
-        scalarSeries.merge(other.scalarSeries) { _, new in new }
-        bollSeries.merge(other.bollSeries) { _, new in new }
-        macdSeries.merge(other.macdSeries) { _, new in new }
+        series.merge(other.series) { _, new in new }
     }
 }

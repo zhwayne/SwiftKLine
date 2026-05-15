@@ -1,8 +1,3 @@
-//  KLineTests.swift
-//  SwiftKLineTests
-//
-//  Created by zhwayne on 2026/4/27.
-
 import Testing
 @testable import SwiftKLine
 
@@ -27,7 +22,7 @@ private struct TestKLineItem: KLineItem {
 }
 
 @Test func dataMergerSortsAndOverwritesByTimestamp() {
-    var merger = KLineDataMerger()
+    var merger = DataMerger()
     let current: [any KLineItem] = [
         TestKLineItem(timestamp: 120, closing: 2),
         TestKLineItem(timestamp: 60, closing: 1),
@@ -44,7 +39,7 @@ private struct TestKLineItem: KLineItem {
 }
 
 @Test func dataMergerReplacesLiveTickInExistingBucket() {
-    var merger = KLineDataMerger()
+    var merger = DataMerger()
     var items: [any KLineItem] = [
         TestKLineItem(timestamp: 60, closing: 1),
         TestKLineItem(timestamp: 120, closing: 2),
@@ -60,7 +55,7 @@ private struct TestKLineItem: KLineItem {
 }
 
 @Test func dataMergerInsertsLiveTickAtSortedBucketPosition() {
-    var merger = KLineDataMerger()
+    var merger = DataMerger()
     var items: [any KLineItem] = [
         TestKLineItem(timestamp: 60, closing: 1),
         TestKLineItem(timestamp: 180, closing: 3),
@@ -77,7 +72,7 @@ private struct TestKLineItem: KLineItem {
 }
 
 @Test func dataMergerReportsTailAppend() {
-    var merger = KLineDataMerger()
+    var merger = DataMerger()
     var items: [any KLineItem] = [
         TestKLineItem(timestamp: 60, closing: 1),
         TestKLineItem(timestamp: 120, closing: 2),
@@ -90,14 +85,14 @@ private struct TestKLineItem: KLineItem {
     #expect(items.map(\.timestamp) == [60, 120, 180])
 }
 
-@Test func indicatorSelectionNormalizerFiltersInvalidAndDuplicateIndicators() {
+@Test @MainActor func indicatorSelectionNormalizerFiltersInvalidAndDuplicateIndicators() {
     let normalizer = IndicatorSelectionNormalizer(
         availableMain: [.ma, .ema],
         availableSub: [.vol, .macd]
     )
 
     let normalized = normalizer.normalize(
-        IndicatorSelectionState(
+        KLineIndicatorSelectionState(
             mainIndicators: [.ma, .vol, .ma, .ema],
             subIndicators: [.macd, .ema, .vol, .macd]
         )
@@ -144,11 +139,15 @@ private struct TestKLineItem: KLineItem {
 @MainActor
 @Test func indicatorCalculationEngineReturnsEmptyStoreWithoutCalculators() async {
     let engine = IndicatorCalculationEngine()
-    let store = await engine.calculate(items: [], calculators: [])
+    let store = await engine.calculate(
+        items: [],
+        mainIndicators: [],
+        subIndicators: [],
+        configuration: KLineConfiguration()
+    )
 
-    #expect(store.scalarSeries.isEmpty)
-    #expect(store.bollSeries.isEmpty)
-    #expect(store.macdSeries.isEmpty)
+    let maKey = KLineIndicator.Key.ma(5).kLineSeriesKey
+    #expect(store.values(for: maKey, as: Double.self) == nil)
 }
 
 @MainActor
@@ -159,15 +158,23 @@ private struct TestKLineItem: KLineItem {
         TestKLineItem(timestamp: 3, closing: 3),
         TestKLineItem(timestamp: 4, closing: 4),
     ]
-    let calculators: [any IndicatorCalculator] = [
-        MACalculator(period: 2),
-        EMACalculator(period: 3),
-    ]
+    let configuration = KLineConfiguration(
+        defaultMainIndicators: [.ma, .ema],
+        defaultSubIndicators: [],
+        indicatorKeyOverrides: [
+            .ma: [.ma(2)],
+            .ema: [.ema(3)]
+        ]
+    )
 
-    let store = await IndicatorCalculationEngine().calculate(items: items, calculators: calculators)
+    let store = await IndicatorCalculationEngine().calculate(
+        items: items,
+        mainIndicators: [.ma, .ema],
+        subIndicators: [],
+        configuration: configuration
+    )
 
-    #expect(store.scalarSeries[.ma(2)]?.count == 4)
-    #expect(store.scalarSeries[.ema(3)]?.count == 4)
-    #expect(store.scalarSeries[.ma(2)]?[1] == 1.5)
-    #expect(store.scalarSeries[.ema(3)]?[3] == 3)
+    let maKey = KLineIndicator.Key.ma(2).kLineSeriesKey
+    #expect(store.values(for: maKey, as: Double.self)?.count == 4)
+    #expect(store.values(for: maKey, as: Double.self)?[1] == 1.5)
 }

@@ -1,5 +1,5 @@
 //
-//  KLineLegendCache.swift
+//  LegendCache.swift
 //  SwiftKLine
 //
 //  Created by zhwayne on 2026/4/27.
@@ -7,7 +7,7 @@
 
 import UIKit
 
-struct KLineLegendCache<Key: Hashable> {
+struct LegendCache<Key: Hashable> {
     struct Value {
         let text: NSAttributedString
         let size: CGSize
@@ -48,7 +48,7 @@ struct KLineLegendCache<Key: Hashable> {
     @MainActor
     static func makeLegendText(
         for renderers: [AnyRenderer],
-        context: RendererContext<any KLineItem>
+        context: KLineRendererContext<any KLineItem>
     ) -> NSMutableAttributedString {
         let legendText = NSMutableAttributedString()
         for renderer in renderers {

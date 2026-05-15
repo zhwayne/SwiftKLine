@@ -1,5 +1,5 @@
 //
-//  KLineDataMerger.swift
+//  DataMerger.swift
 //  SwiftKLine
 //
 //  Created by zhwayne on 2026/4/27.
@@ -7,12 +7,12 @@
 
 import Foundation
 
-enum KLineLiveTickMergeResult: Equatable {
+enum LiveTickMergeResult: Equatable {
     case inserted(index: Int, appendedToTail: Bool)
     case replaced(index: Int)
 }
 
-struct KLineDataMerger {
+struct DataMerger {
     private var bucketDuration: Int?
 
     mutating func reset() {
@@ -41,7 +41,7 @@ struct KLineDataMerger {
     mutating func applyLiveTick(
         _ tick: any KLineItem,
         to items: inout [any KLineItem]
-    ) -> KLineLiveTickMergeResult {
+    ) -> LiveTickMergeResult {
         if bucketDuration == nil {
             updateBucketDurationIfNeeded(with: items, additionalTimestamp: tick.timestamp)
         }

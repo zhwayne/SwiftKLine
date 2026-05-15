@@ -9,7 +9,7 @@ import UIKit
 
 /// Renders a high-performance intraday time series line with optional fill.
 @MainActor
-final class TimeSeriesRenderer: Renderer {
+final class TimeSeriesRenderer: KLineRenderer {
     
     var id: some Hashable { ObjectIdentifier(TimeSeriesRenderer.self) }
     private var style: TimeSeriesStyle
@@ -91,7 +91,7 @@ final class TimeSeriesRenderer: Renderer {
         }
     }
     
-    func dataBounds(context: Context) -> MetricBounds {
+    func dataBounds(context: Context) -> KLineMetricBounds {
         let visibleItems = context.visibleItems
         guard !visibleItems.isEmpty else { return .empty }
         var minValue = Double.greatestFiniteMagnitude
@@ -100,7 +100,7 @@ final class TimeSeriesRenderer: Renderer {
             minValue = min(minValue, item.lowest, item.closing)
             maxValue = max(maxValue, item.highest, item.closing)
         }
-        return MetricBounds(min: minValue, max: maxValue)
+        return KLineMetricBounds(min: minValue, max: maxValue)
     }
 }
 

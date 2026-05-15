@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class YAxisRenderer: Renderer {
+final class YAxisRenderer: KLineRenderer {
         
     var id: some Hashable { ObjectIdentifier(YAxisRenderer.self) }
     private let lineLayer = CAShapeLayer()

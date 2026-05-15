@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class BOLLRenderer: Renderer {
+final class BOLLRenderer: KLineRenderer {
     
     private let priceFormatter = PriceFormatter()
     
@@ -16,10 +16,10 @@ final class BOLLRenderer: Renderer {
     private let lowerLayer = CAShapeLayer()
     private let areaLayer = CAShapeLayer()
 
-    var id: some Hashable { Indicator.boll }
-    let key: Indicator.Key
+    var id: some Hashable { KLineIndicator.boll }
+    let key: KLineIndicator.Key
 
-    init(key: Indicator.Key) {
+    init(key: KLineIndicator.Key) {
         self.key = key
         upperLayer.lineWidth = 1
         upperLayer.fillColor = UIColor.clear.cgColor
@@ -132,7 +132,7 @@ final class BOLLRenderer: Renderer {
         return partialResult
     }
     
-    func dataBounds(context: Context) -> MetricBounds {
+    func dataBounds(context: Context) -> KLineMetricBounds {
         let visibleValues = context.visibleBollValues(for: key)
         guard let visibleValues else {
             return .empty
@@ -149,6 +149,6 @@ final class BOLLRenderer: Renderer {
         guard hasValue else {
             return .empty
         }
-        return MetricBounds(min: minValue, max: maxValue)
+        return KLineMetricBounds(min: minValue, max: maxValue)
     }
 }

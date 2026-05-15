@@ -7,28 +7,58 @@
 
 import Foundation
 
+@MainActor
 struct IndicatorSelectionNormalizer {
-    private let availableMain: Set<Indicator>
-    private let availableSub: Set<Indicator>
+    private let availableMain: Set<KLineIndicator>
+    private let availableSub: Set<KLineIndicator>
+    private let pluginRegistry: KLinePluginRegistry
 
-    init(availableMain: [Indicator], availableSub: [Indicator]) {
+    init(
+        availableMain: [KLineIndicator],
+        availableSub: [KLineIndicator],
+        pluginRegistry: KLinePluginRegistry = .default
+    ) {
         self.availableMain = Set(availableMain)
         self.availableSub = Set(availableSub)
+        self.pluginRegistry = pluginRegistry
     }
 
-    func normalize(_ state: IndicatorSelectionState?) -> IndicatorSelectionState {
-        let main = deduplicatedIndicators(state?.mainIndicators ?? [], validSet: availableMain)
-        let sub = deduplicatedIndicators(state?.subIndicators ?? [], validSet: availableSub)
-        return IndicatorSelectionState(mainIndicators: main, subIndicators: sub)
+    func normalize(_ state: KLineIndicatorSelectionState?) -> KLineIndicatorSelectionState {
+        let main = deduplicatedSelections(state?.main ?? [], placement: .main)
+        let sub = deduplicatedSelections(state?.sub ?? [], placement: .sub)
+        return KLineIndicatorSelectionState(main: main, sub: sub)
     }
 
-    private func deduplicatedIndicators(_ indicators: [Indicator], validSet: Set<Indicator>) -> [Indicator] {
-        var seen = Set<Indicator>()
-        var result: [Indicator] = []
-        for indicator in indicators where validSet.contains(indicator) && !seen.contains(indicator) {
-            result.append(indicator)
-            seen.insert(indicator)
+    func using(pluginRegistry: KLinePluginRegistry) -> IndicatorSelectionNormalizer {
+        IndicatorSelectionNormalizer(
+            availableMain: Array(availableMain),
+            availableSub: Array(availableSub),
+            pluginRegistry: pluginRegistry
+        )
+    }
+
+    private func deduplicatedSelections(
+        _ selections: [KLineIndicatorSelection],
+        placement: KLineIndicatorPlacement
+    ) -> [KLineIndicatorSelection] {
+        var seen = Set<KLineIndicatorID>()
+        var result: [KLineIndicatorSelection] = []
+        for selection in selections {
+            guard isValid(selection, placement: placement), !seen.contains(selection.id) else { continue }
+            result.append(selection)
+            seen.insert(selection.id)
         }
         return result
+    }
+
+    private func isValid(_ selection: KLineIndicatorSelection, placement: KLineIndicatorPlacement) -> Bool {
+        switch selection {
+        case let .builtIn(indicator):
+            let validSet = placement == .sub ? availableSub : availableMain
+            return validSet.contains(indicator)
+        case let .custom(id):
+            guard let plugin = pluginRegistry.plugin(for: id) else { return false }
+            return plugin.placement == placement || (plugin.placement == .overlay && placement == .main)
+        }
     }
 }

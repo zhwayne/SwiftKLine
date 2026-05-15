@@ -8,13 +8,12 @@
 import Foundation
 
 /// 相对强弱指数 (RSI) 的计算器。
-struct RSICalculator: IndicatorCalculator {
-    
-    typealias Result = Double
+struct RSICalculator: KLineIndicatorCalculator {
+    typealias Value = Double
     let period: Int       // RSI 的周期
-    var indicator: Indicator { .rsi }
-    var key: Indicator.Key { .rsi(period) }
-    var id: some Hashable { Indicator.Key.rsi(period) }
+    var id: KLineSeriesKey {
+        KLineSeriesKey(indicatorID: KLineIndicatorID("builtin.rsi"), name: "RSI", parameters: ["period": "\(period)"])
+    }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
         guard period > 0 else { return Array(repeating: nil, count: items.count) }

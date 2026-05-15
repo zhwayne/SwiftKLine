@@ -7,14 +7,14 @@
 
 import UIKit
 
-final class VOLRenderer: Renderer, LegendUpdatable {
+final class VOLRenderer: KLineRenderer, LegendUpdatable {
     
     private let risingLayer = CAShapeLayer()
     private let fallingLayer = CAShapeLayer()
     private let legendLayer = CATextLayer()
     private let volumeFormatter = VolumeFormatter()
     
-    var id: some Hashable { Indicator.vol }
+    var id: some Hashable { KLineIndicator.vol }
         
     init() {
         risingLayer.lineWidth = 1
@@ -44,8 +44,8 @@ final class VOLRenderer: Renderer, LegendUpdatable {
         let layout = context.layout
         let viewPort = context.viewPort
         let visibleItems = context.visibleItems
-        let risingColor = KLineTrend.rising.color(using: context.configuration)
-        let fallingColor = KLineTrend.falling.color(using: context.configuration)
+        let risingColor = Trend.rising.color(using: context.configuration)
+        let fallingColor = Trend.falling.color(using: context.configuration)
         risingLayer.fillColor = risingColor.cgColor
         risingLayer.strokeColor = risingColor.cgColor
         fallingLayer.fillColor = fallingColor.cgColor
@@ -94,11 +94,11 @@ final class VOLRenderer: Renderer, LegendUpdatable {
         return string
     }
     
-    func dataBounds(context: Context) -> MetricBounds {
+    func dataBounds(context: Context) -> KLineMetricBounds {
         let visibleItems = context.visibleItems
         guard let max = visibleItems.max(by: { $0.volume < $1.volume }) else {
             return .empty
         }
-        return MetricBounds(min: 0, max: max.volume)
+        return KLineMetricBounds(min: 0, max: max.volume)
     }
 }

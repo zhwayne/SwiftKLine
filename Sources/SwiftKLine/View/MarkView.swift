@@ -1,5 +1,5 @@
 //
-//  KLineMarkView.swift
+//  MarkView.swift
 //  SwiftKLine
 //
 //  Created by iya on 2025/3/29.
@@ -7,7 +7,7 @@
 
 import UIKit
 
-class KLineMarkView: UIView {
+class MarkView: UIView {
     
     private class ItemLabel: UIView {
         

@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class CandleRenderer: Renderer {
+final class CandleRenderer: KLineRenderer {
 
     var id: some Hashable { ObjectIdentifier(CandleRenderer.self) }
     private let risingLayer = CAShapeLayer()
@@ -37,8 +37,8 @@ final class CandleRenderer: Renderer {
         let layout = context.layout
         let viewPort = context.viewPort
         let visibleItems = context.visibleItems
-        let risingColor = KLineTrend.rising.color(using: context.configuration)
-        let fallingColor = KLineTrend.falling.color(using: context.configuration)
+        let risingColor = Trend.rising.color(using: context.configuration)
+        let fallingColor = Trend.falling.color(using: context.configuration)
         risingLayer.fillColor = risingColor.cgColor
         risingLayer.strokeColor = risingColor.cgColor
         fallingLayer.fillColor = fallingColor.cgColor
@@ -81,7 +81,7 @@ final class CandleRenderer: Renderer {
         fallingLayer.path = downPath
     }
     
-    func dataBounds(context: Context) -> MetricBounds {
+    func dataBounds(context: Context) -> KLineMetricBounds {
         return context.visibleItems.dataBounds
     }
 }

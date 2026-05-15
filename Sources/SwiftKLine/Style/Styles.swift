@@ -58,23 +58,23 @@ public struct LayoutMetrics {
     public let legendFont: UIFont
     public let watermarkText: String?
     public let layoutMetrics: LayoutMetrics
-    public let indicators: [Indicator]
-    public let defaultMainIndicators: [Indicator]
-    public let defaultSubIndicators: [Indicator]
+    public let indicators: [KLineIndicator]
+    public let defaultMainIndicators: [KLineIndicator]
+    public let defaultSubIndicators: [KLineIndicator]
     
-    private var indicatorStyleRegistry: [Indicator.Key: any IndicatorStyle]
-    private var indicatorKeyOverrides: [Indicator: [Indicator.Key]]
+    private var indicatorStyleRegistry: [KLineIndicator.Key: any IndicatorStyle]
+    private var indicatorKeyOverrides: [KLineIndicator: [KLineIndicator.Key]]
     
     public init(
         candleStyle: CandleStyle = CandleStyle(),
         legendFont: UIFont = UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
         watermarkText: String? = "Created by iyabb",
         layoutMetrics: LayoutMetrics = LayoutMetrics(),
-        indicators: [Indicator] = Indicator.allCases,
-        defaultMainIndicators: [Indicator] = [],
-        defaultSubIndicators: [Indicator] = [],
-        indicatorStyleRegistry: [Indicator.Key: any IndicatorStyle]? = nil,
-        indicatorKeyOverrides: [Indicator: [Indicator.Key]] = [:]
+        indicators: [KLineIndicator] = KLineIndicator.allCases,
+        defaultMainIndicators: [KLineIndicator] = [],
+        defaultSubIndicators: [KLineIndicator] = [],
+        indicatorStyleRegistry: [KLineIndicator.Key: any IndicatorStyle]? = nil,
+        indicatorKeyOverrides: [KLineIndicator: [KLineIndicator.Key]] = [:]
     ) {
         self.candleStyle = candleStyle
         self.legendFont = legendFont
@@ -92,29 +92,15 @@ public struct LayoutMetrics {
         builder(self)
     }
     
-    public func setIndicatorStyle<S>(_ style: S, for key: Indicator.Key) where S: IndicatorStyle {
-        //objectWillChange.send()
-        indicatorStyleRegistry[key] = style
-    }
-    
-    public func indicatorStyle<S>(for key: Indicator.Key, type: S.Type) -> S? where S: IndicatorStyle {
+    public func indicatorStyle<S>(for key: KLineIndicator.Key, type: S.Type) -> S? where S: IndicatorStyle {
         indicatorStyleRegistry[key] as? S
     }
     
-    public func setIndicatorKeys(_ keys: [Indicator.Key], for indicator: Indicator) {
-        //objectWillChange.send()
-        if keys.isEmpty {
-            indicatorKeyOverrides[indicator] = nil
-        } else {
-            indicatorKeyOverrides[indicator] = keys
-        }
-    }
-    
-    public func indicatorKeys(for indicator: Indicator) -> [Indicator.Key] {
+    public func indicatorKeys(for indicator: KLineIndicator) -> [KLineIndicator.Key] {
         indicatorKeyOverrides[indicator] ?? indicator.defaultKeys
     }
     
-    static func makeDefaultIndicatorStyles() -> [Indicator.Key: any IndicatorStyle] {
+    static func makeDefaultIndicatorStyles() -> [KLineIndicator.Key: any IndicatorStyle] {
         [
             // MA
             .ma(5): LineStyle(strokeColor: .systemOrange),
@@ -150,14 +136,14 @@ public extension KLineConfiguration {
         public var legendFont: UIFont
         public var watermarkText: String?
         public var layout: LayoutMetrics
-        public var indicatorStyles: [Indicator.Key: any IndicatorStyle]
+        public var indicatorStyles: [KLineIndicator.Key: any IndicatorStyle]
         
         public init(
             candleStyle: CandleStyle,
             legendFont: UIFont = UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
             watermarkText: String?,
             layout: LayoutMetrics = LayoutMetrics(),
-            indicatorStyles: [Indicator.Key: any IndicatorStyle]? = nil
+            indicatorStyles: [KLineIndicator.Key: any IndicatorStyle]? = nil
         ) {
             self.candleStyle = candleStyle
             self.legendFont = legendFont
@@ -193,7 +179,7 @@ public extension KLineConfiguration.ThemePreset {
             indicatorHeight: 76,
             indicatorSelectorHeight: 36
         )
-        let indicatorStyles: [Indicator.Key: any IndicatorStyle] = [
+        let indicatorStyles: [KLineIndicator.Key: any IndicatorStyle] = [
             .ma(5): LineStyle(strokeColor: UIColor(red: 1, green: 0.78, blue: 0.32, alpha: 1)),
             .ma(10): LineStyle(strokeColor: UIColor(red: 0.97, green: 0.5, blue: 0.67, alpha: 1)),
             .ma(20): LineStyle(strokeColor: UIColor(red: 0.4, green: 0.85, blue: 1, alpha: 1)),
@@ -236,7 +222,7 @@ public extension KLineConfiguration.ThemePreset {
             indicatorHeight: 70,
             indicatorSelectorHeight: 34
         )
-        let indicatorStyles: [Indicator.Key: any IndicatorStyle] = [
+        let indicatorStyles: [KLineIndicator.Key: any IndicatorStyle] = [
             .ma(5): LineStyle(strokeColor: UIColor(red: 0.98, green: 0.72, blue: 0.18, alpha: 1)),
             .ma(10): LineStyle(strokeColor: UIColor(red: 0.44, green: 0.63, blue: 0.85, alpha: 1)),
             .ma(20): LineStyle(strokeColor: UIColor(red: 0.67, green: 0.76, blue: 0.83, alpha: 1)),

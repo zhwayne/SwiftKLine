@@ -8,7 +8,7 @@
 import UIKit
 
 /// Responsible for drawing the horizontal time axis labels and separators.
-final class TimeAxisRenderer: Renderer {
+final class TimeAxisRenderer: KLineRenderer {
     
     var id: some Hashable { ObjectIdentifier(TimeAxisRenderer.self) }
     private let style: TimeAxisStyle

@@ -1,5 +1,5 @@
 //
-//  KLineRendererReconciler.swift
+//  RendererReconciler.swift
 //  SwiftKLine
 //
 //  Created by zhwayne on 2026/4/27.
@@ -8,7 +8,7 @@
 import Foundation
 
 @MainActor
-struct KLineRendererReconciler {
+struct RendererReconciler {
     struct Transition {
         let added: [AnyRenderer]
         let removed: [AnyRenderer]

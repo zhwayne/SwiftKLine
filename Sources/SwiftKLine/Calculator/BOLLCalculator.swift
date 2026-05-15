@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct BOLLIndicatorValue: ValueBounds {
+struct BOLLIndicatorValue: KLineValueBounds {
     let middle: Double  // 中轨
     let upper: Double   // 上轨
     let lower: Double   // 下轨
@@ -17,29 +17,29 @@ struct BOLLIndicatorValue: ValueBounds {
 }
 
 /// BOLL 指标计算器
-struct BOLLCalculator: IndicatorCalculator {
-    
-    typealias Result = BOLLIndicatorValue
-    var indicator: Indicator { .boll }
-    var key: Indicator.Key { .boll(period: period, k: k) }
-    var id: some Hashable { key }
+struct BOLLCalculator: KLineIndicatorCalculator {
+    typealias Value = BOLLIndicatorValue
     
     /// 计算周期（常用 20）
     let period: Int
     /// 带宽系数（常用 2.0）
     let k: Double
     
+    var id: KLineSeriesKey {
+        KLineSeriesKey(indicatorID: KLineIndicatorID("builtin.boll"), name: "BOLL", parameters: ["period": "\(period)", "k": "\(k)"])
+    }
+    
     init(period: Int = 20, k: Double = 2.0) {
         self.period = period
         self.k = k
     }
 
-    func calculate(for items: [any KLineItem]) -> [Result?] {
+    func calculate(for items: [any KLineItem]) -> [BOLLIndicatorValue?] {
         guard period > 0, items.count >= period else {
             return Array(repeating: nil, count: items.count)
         }
         
-        var results: [Result?] = Array(repeating: nil, count: items.count)
+        var results: [BOLLIndicatorValue?] = Array(repeating: nil, count: items.count)
         
         for i in (period - 1)..<items.count {
             let window = items[(i - period + 1)...i]
@@ -58,7 +58,7 @@ struct BOLLCalculator: IndicatorCalculator {
             let upper = avg + k * stdDev
             let lower = avg - k * stdDev
             
-            results[i] = Result(middle: avg, upper: upper, lower: lower)
+            results[i] = BOLLIndicatorValue(middle: avg, upper: upper, lower: lower)
         }
         
         return results

@@ -8,31 +8,38 @@
 import UIKit
 import Combine
 
+struct KLineIndicatorListItem: Hashable {
+    var selection: KLineIndicatorSelection
+    var title: String
+}
+
 final class IndicatorTypeView: UIView, UICollectionViewDelegate {
     
     private enum SectionItem: Hashable {
-        case main(Indicator)
+        case main(KLineIndicatorListItem)
         case separator
-        case sub(Indicator)
+        case sub(KLineIndicatorListItem)
     }
 
-    var drawIndicatorPublisher: AnyPublisher<(ChartSection, Indicator), Never> {
+    var drawIndicatorPublisher: AnyPublisher<(ChartSection, KLineIndicatorSelection), Never> {
         drawPublisher.eraseToAnyPublisher()
     }
     
-    var eraseIndicatorPublisher: AnyPublisher<(ChartSection, Indicator), Never> {
+    var eraseIndicatorPublisher: AnyPublisher<(ChartSection, KLineIndicatorSelection), Never> {
         erasePublisher.eraseToAnyPublisher()
     }
     
-    var mainIndicators: [Indicator] = [] { didSet { reloadData() } }
-    var subIndicators: [Indicator] = [] { didSet { reloadData() } }
+    var mainIndicators: [KLineIndicator] = [] { didSet { reloadData() } }
+    var subIndicators: [KLineIndicator] = [] { didSet { reloadData() } }
+    var mainCustomIndicators: [KLineIndicatorListItem] = [] { didSet { reloadData() } }
+    var subCustomIndicators: [KLineIndicatorListItem] = [] { didSet { reloadData() } }
     
-    private let drawPublisher = PassthroughSubject<(ChartSection, Indicator), Never>()
-    private let erasePublisher = PassthroughSubject<(ChartSection, Indicator), Never>()
+    private let drawPublisher = PassthroughSubject<(ChartSection, KLineIndicatorSelection), Never>()
+    private let erasePublisher = PassthroughSubject<(ChartSection, KLineIndicatorSelection), Never>()
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Int, SectionItem>!
-    private var selectedMainIndicators = Set<Indicator>()
-    private var selectedSubIndicators = Set<Indicator>()
+    private var selectedMainIndicators = Set<KLineIndicatorSelection>()
+    private var selectedSubIndicators = Set<KLineIndicatorSelection>()
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -83,11 +90,11 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
     private func setupIndicatorListDataSource() {
         dataSource = .init(collectionView: collectionView, cellProvider: { collectionView, indexPath, itemIdentifier in
             switch itemIdentifier {
-            case let .main(type), let .sub(type):
+            case let .main(item), let .sub(item):
                 guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "cell", for: indexPath) as? IndicatorCell else {
                     return UICollectionViewCell()
                 }
-                cell.label.text = type.rawValue
+                cell.label.text = item.title
                 return cell
             case .separator:
                 return collectionView.dequeueReusableCell(withReuseIdentifier: "separator", for: indexPath)
@@ -99,17 +106,23 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
 
         var snapshot = NSDiffableDataSourceSnapshot<Int, SectionItem>()
         snapshot.appendSections([0, 1, 2])
-        snapshot.appendItems(mainIndicators.map({ .main($0) }), toSection: 0)
+        snapshot.appendItems(mainItems.map({ .main($0) }), toSection: 0)
         snapshot.appendItems([.separator], toSection: 1)
-        snapshot.appendItems(subIndicators.map({ .sub($0) }), toSection: 2)
+        snapshot.appendItems(subItems.map({ .sub($0) }), toSection: 2)
         dataSource.apply(snapshot)
         applySelection(for: .mainChart)
         applySelection(for: .subChart)
     }
     
-    func setSelectedIndicators(main: [Indicator], sub: [Indicator]) {
-        selectedMainIndicators = Set(main).intersection(mainIndicators)
-        selectedSubIndicators = Set(sub).intersection(subIndicators)
+    func setSelectedIndicators(main: [KLineIndicator], sub: [KLineIndicator]) {
+        setSelectedIndicators(
+            KLineIndicatorSelectionState(mainIndicators: main, subIndicators: sub)
+        )
+    }
+
+    func setSelectedIndicators(_ state: KLineIndicatorSelectionState) {
+        selectedMainIndicators = Set(state.main).intersection(Set(mainItems.map(\.selection)))
+        selectedSubIndicators = Set(state.sub).intersection(Set(subItems.map(\.selection)))
         applySelection(for: .mainChart)
         applySelection(for: .subChart)
     }
@@ -121,16 +134,16 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
         let selectedSet = section == .mainChart ? selectedMainIndicators : selectedSubIndicators
         for (idx, item) in items.enumerated() {
             switch (section, item) {
-            case (.mainChart, .main(let indicator)):
+            case (.mainChart, .main(let item)):
                 let indexPath = IndexPath(item: idx, section: sectionIndex)
-                if selectedSet.contains(indicator) {
+                if selectedSet.contains(item.selection) {
                     collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
                 } else {
                     collectionView.deselectItem(at: indexPath, animated: false)
                 }
-            case (.subChart, .sub(let indicator)):
+            case (.subChart, .sub(let item)):
                 let indexPath = IndexPath(item: idx, section: sectionIndex)
-                if selectedSet.contains(indicator) {
+                if selectedSet.contains(item.selection) {
                     collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
                 } else {
                     collectionView.deselectItem(at: indexPath, animated: false)
@@ -145,12 +158,12 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
         let snapshot = dataSource.snapshot()
         let type = snapshot.itemIdentifiers(inSection: indexPath.section)[indexPath.item]
         switch type {
-        case let .main(type):
-            selectedMainIndicators.insert(type)
-            drawPublisher.send((.mainChart, type))
-        case let .sub(type):
-            selectedSubIndicators.insert(type)
-            drawPublisher.send((.subChart, type))
+        case let .main(item):
+            selectedMainIndicators.insert(item.selection)
+            drawPublisher.send((.mainChart, item.selection))
+        case let .sub(item):
+            selectedSubIndicators.insert(item.selection)
+            drawPublisher.send((.subChart, item.selection))
         default: break
         }
 
@@ -160,12 +173,12 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
         let snapshot = dataSource.snapshot()
         let type = snapshot.itemIdentifiers(inSection: indexPath.section)[indexPath.item]
         switch type {
-        case let .main(type):
-            selectedMainIndicators.remove(type)
-            erasePublisher.send((.mainChart, type))
-        case let .sub(type):
-            selectedSubIndicators.remove(type)
-            erasePublisher.send((.subChart, type))
+        case let .main(item):
+            selectedMainIndicators.remove(item.selection)
+            erasePublisher.send((.mainChart, item.selection))
+        case let .sub(item):
+            selectedSubIndicators.remove(item.selection)
+            erasePublisher.send((.subChart, item.selection))
         default: break
         }
     }
@@ -177,6 +190,18 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
             return false
         }
         return true
+    }
+
+    var debugTitles: (main: [String], sub: [String]) {
+        (mainItems.map(\.title), subItems.map(\.title))
+    }
+
+    private var mainItems: [KLineIndicatorListItem] {
+        mainIndicators.map { KLineIndicatorListItem(selection: .builtIn($0), title: $0.rawValue) } + mainCustomIndicators
+    }
+
+    private var subItems: [KLineIndicatorListItem] {
+        subIndicators.map { KLineIndicatorListItem(selection: .builtIn($0), title: $0.rawValue) } + subCustomIndicators
     }
 }
 

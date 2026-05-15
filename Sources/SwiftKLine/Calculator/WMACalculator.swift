@@ -8,13 +8,12 @@
 import Foundation
 
 /// 加权移动平均线 (WMA) 计算器，近期数据权重大、远期数据权重小。
-struct WMACalculator: IndicatorCalculator {
-    
-    typealias Result = Double
+struct WMACalculator: KLineIndicatorCalculator {
+    typealias Value = Double
     let period: Int
-    var indicator: Indicator { .wma }
-    var key: Indicator.Key { .wma(period) }
-    var id: some Hashable { Indicator.Key.wma(period) }
+    var id: KLineSeriesKey {
+        KLineSeriesKey(indicatorID: KLineIndicatorID("builtin.wma"), name: "WMA", parameters: ["period": "\(period)"])
+    }
     
     func calculate(for items: [any KLineItem]) -> [Double?] {
         guard period > 0 else { return Array(repeating: nil, count: items.count) }

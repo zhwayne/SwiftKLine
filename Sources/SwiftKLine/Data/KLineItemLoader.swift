@@ -24,6 +24,8 @@ actor KLineItemLoader {
 
     private let provider: any KLineItemProvider
     private let eventHandler: EventHandler
+    private let enablesLiveUpdates: Bool
+    private let enablesGapRecovery: Bool
 
     private var page = 0
     private var isLoading = false
@@ -36,9 +38,13 @@ actor KLineItemLoader {
 
     init(
         provider: some KLineItemProvider,
+        enablesLiveUpdates: Bool = true,
+        enablesGapRecovery: Bool = true,
         eventHandler: @escaping EventHandler
     ) {
         self.provider = provider
+        self.enablesLiveUpdates = enablesLiveUpdates
+        self.enablesGapRecovery = enablesGapRecovery
         self.eventHandler = eventHandler
     }
 
@@ -59,7 +65,9 @@ actor KLineItemLoader {
         hasMorePages = true
         isLoading = false
         startLoadingMore()
-        startLiveStream()
+        if enablesLiveUpdates {
+            startLiveStream()
+        }
     }
 
     func stop() {
@@ -80,8 +88,16 @@ actor KLineItemLoader {
     }
 
     func willEnterForeground(latestTimestamp: Int?) {
+        guard enablesGapRecovery else {
+            if enablesLiveUpdates {
+                startLiveStream()
+            }
+            return
+        }
         guard let timestamp = latestTimestamp ?? lastKnownTimestamp else {
-            startLiveStream()
+            if enablesLiveUpdates {
+                startLiveStream()
+            }
             return
         }
         guard !isRecovering else { return }
@@ -121,6 +137,7 @@ actor KLineItemLoader {
     }
 
     private func startLiveStream() {
+        guard enablesLiveUpdates else { return }
         liveTask?.cancel()
         liveTask = Task { [weak self] in
             await self?.consumeLiveStream()
@@ -154,6 +171,8 @@ actor KLineItemLoader {
             guard !Task.isCancelled else { return }
             await eventHandler(.failed(.recovery(error)))
         }
-        startLiveStream()
+        if enablesLiveUpdates {
+            startLiveStream()
+        }
     }
 }

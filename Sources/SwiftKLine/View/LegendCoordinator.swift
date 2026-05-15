@@ -1,5 +1,5 @@
 //
-//  KLineLegendCoordinator.swift
+//  LegendCoordinator.swift
 //  SwiftKLine
 //
 //  Created by zhwayne on 2026/4/27.
@@ -8,18 +8,18 @@
 import UIKit
 
 @MainActor
-struct KLineLegendCoordinator {
+struct LegendCoordinator {
     func configureLegend<Key: Hashable>(
         for group: RendererGroup,
         groupFrame: CGRect,
         legendKey: Key,
         legendLabel: UILabel,
-        legendCache: inout KLineLegendCache<Key>,
-        context: RendererContext<any KLineItem>
+        legendCache: inout LegendCache<Key>,
+        context: KLineRendererContext<any KLineItem>
     ) -> (viewPortOffsetY: CGFloat, cost: CFTimeInterval) {
         let legendStart = CACurrentMediaTime()
         let cachedLegend = legendCache[legendKey]
-        let legendText = cachedLegend?.text ?? KLineLegendCache<Key>.makeLegendText(
+        let legendText = cachedLegend?.text ?? LegendCache<Key>.makeLegendText(
             for: group.renderers,
             context: context
         )

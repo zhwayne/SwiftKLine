@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class RSIRenderer: Renderer, LegendUpdatable {
+final class RSIRenderer: KLineRenderer, LegendUpdatable {
 
     private let priceFormatter = PriceFormatter()
     
@@ -19,7 +19,7 @@ final class RSIRenderer: Renderer, LegendUpdatable {
     private let dashLayer = CAShapeLayer()
     private let legendLayer = CATextLayer()
 
-    var id: some Hashable { Indicator.rsi }
+    var id: some Hashable { KLineIndicator.rsi }
 
     init(periods: [Int]) {
         self.periods = periods
@@ -65,7 +65,7 @@ final class RSIRenderer: Renderer, LegendUpdatable {
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         
         zip(periods, lineLayers).forEach { period, lineLayer in
-            let key = Indicator.Key.rsi(period)
+            let key = KLineIndicator.Key.rsi(period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 return
             }
@@ -114,7 +114,7 @@ final class RSIRenderer: Renderer, LegendUpdatable {
     
     func legend(context: Context) -> NSAttributedString? {
         return periods.reduce(NSMutableAttributedString()) { partialResult, period in
-            let key = Indicator.Key.rsi(period)
+            let key = KLineIndicator.Key.rsi(period)
             let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
             guard let values = context.scalarValues(for: key), !values.isEmpty,
                   context.currentIndex >= 0,
@@ -134,10 +134,10 @@ final class RSIRenderer: Renderer, LegendUpdatable {
         }
     }
     
-    func dataBounds(context: Context) -> MetricBounds {
-        var bounds = MetricBounds.empty
+    func dataBounds(context: Context) -> KLineMetricBounds {
+        var bounds = KLineMetricBounds.empty
         for period in periods {
-            let key = Indicator.Key.rsi(period)
+            let key = KLineIndicator.Key.rsi(period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 continue
             }
@@ -151,10 +151,10 @@ final class RSIRenderer: Renderer, LegendUpdatable {
                 maxValue = Swift.max(maxValue, value)
             }
             if hasValue {
-                bounds.merge(other: MetricBounds(min: minValue, max: maxValue))
+                bounds.merge(other: KLineMetricBounds(min: minValue, max: maxValue))
             }
         }
-        bounds.merge(other: MetricBounds(range: range))
+        bounds.merge(other: KLineMetricBounds(range: range))
         return bounds
     }
 }

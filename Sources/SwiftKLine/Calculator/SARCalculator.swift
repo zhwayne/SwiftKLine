@@ -7,12 +7,11 @@
 
 import Foundation
 
-struct SARCalculator: IndicatorCalculator {
-    
-    typealias Result = Double
-    var indicator: Indicator { .sar }
-    var key: Indicator.Key { .sar }
-    var id: some Hashable { Indicator.Key.sar }
+struct SARCalculator: KLineIndicatorCalculator {
+    typealias Value = Double
+    var id: KLineSeriesKey {
+        KLineSeriesKey(indicatorID: KLineIndicatorID("builtin.sar"), name: "SAR")
+    }
     
     /// 初始加速因子
     private let afStart: Double
@@ -31,12 +30,12 @@ struct SARCalculator: IndicatorCalculator {
         self.afMax = afMax
     }
     
-    public func calculate(for items: [any KLineItem]) -> [Result?] {
+    public func calculate(for items: [any KLineItem]) -> [Double?] {
         guard items.count >= 2 else {
             return Array(repeating: nil, count: items.count)
         }
         
-        var results: [Result?] = Array(repeating: nil, count: items.count)
+        var results: [Double?] = Array(repeating: nil, count: items.count)
         
         // 初始趋势判断
         var isUpTrend = items[1].closing > items[0].closing

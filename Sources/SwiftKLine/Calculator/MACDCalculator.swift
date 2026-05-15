@@ -8,7 +8,7 @@
 import Foundation
 
 /// 用于存储 MACD 相关指标值的结构体
-struct MACDIndicatorValue: ValueBounds {
+struct MACDIndicatorValue: KLineValueBounds {
     let macd: Double     // MACD 线(DIF)
     let signal: Double   // 信号线(DEA)
     let histogram: Double // 柱状图(BAR)
@@ -18,15 +18,22 @@ struct MACDIndicatorValue: ValueBounds {
 }
 
 /// MACD 计算器
-struct MACDCalculator: IndicatorCalculator {
-    
-    typealias Result = MACDIndicatorValue
+struct MACDCalculator: KLineIndicatorCalculator {
+    typealias Value = MACDIndicatorValue
     let shortPeriod: Int
     let longPeriod: Int
     let signalPeriod: Int
-    var indicator: Indicator { .macd }
-    var key: Indicator.Key { .macd(shortPeriod: shortPeriod, longPeriod: longPeriod, signalPeriod: signalPeriod) }
-    var id: some Hashable { key }
+    var id: KLineSeriesKey {
+        KLineSeriesKey(
+            indicatorID: KLineIndicatorID("builtin.macd"),
+            name: "MACD",
+            parameters: [
+                "longPeriod": "\(longPeriod)",
+                "shortPeriod": "\(shortPeriod)",
+                "signalPeriod": "\(signalPeriod)"
+            ]
+        )
+    }
     
     init(shortPeriod: Int = 12, longPeriod: Int = 26, signalPeriod: Int = 9) {
         self.shortPeriod = shortPeriod

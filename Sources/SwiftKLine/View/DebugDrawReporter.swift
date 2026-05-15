@@ -1,5 +1,5 @@
 //
-//  KLineDebugDrawReporter.swift
+//  DebugDrawReporter.swift
 //  SwiftKLine
 //
 //  Created by zhwayne on 2026/4/27.
@@ -9,7 +9,7 @@
 import QuartzCore
 import Foundation
 
-struct KLineDebugDrawReporter {
+struct DebugDrawReporter {
     private var frameCount: Int = 0
     private var lastReportTime: CFTimeInterval = CACurrentMediaTime()
 
@@ -18,7 +18,7 @@ struct KLineDebugDrawReporter {
         legendCost: CFTimeInterval,
         boundsCost: CFTimeInterval,
         rendererCost: CFTimeInterval,
-        mode: KLineRedrawMode
+        mode: RedrawMode
     ) {
         frameCount += 1
         let now = CACurrentMediaTime()

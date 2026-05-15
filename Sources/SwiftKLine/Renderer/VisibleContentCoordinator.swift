@@ -1,5 +1,5 @@
 //
-//  KLineVisibleContentCoordinator.swift
+//  VisibleContentCoordinator.swift
 //  SwiftKLine
 //
 //  Created by zhwayne on 2026/4/27.
@@ -8,13 +8,13 @@
 import UIKit
 
 @MainActor
-struct KLineVisibleContentCoordinator {
+struct VisibleContentCoordinator {
     typealias LegendConfigurator = (_ group: RendererGroup, _ groupIndex: Int, _ groupFrame: CGRect) -> CGFloat
 
     func updateCrosshairFastPath(
         descriptor: inout ChartDescriptor,
         contentRect: CGRect,
-        context: RendererContext<any KLineItem>,
+        context: KLineRendererContext<any KLineItem>,
         configureLegend: LegendConfigurator
     ) {
         for idx in descriptor.groups.indices {
@@ -34,8 +34,8 @@ struct KLineVisibleContentCoordinator {
         descriptor: inout ChartDescriptor,
         contentRect: CGRect,
         canvas: CALayer,
-        context: RendererContext<any KLineItem>,
-        groupDrawCoordinator: KLineGroupDrawCoordinator,
+        context: KLineRendererContext<any KLineItem>,
+        groupDrawCoordinator: GroupDrawCoordinator,
         configureLegend: LegendConfigurator
     ) -> (boundsCost: CFTimeInterval, rendererCost: CFTimeInterval) {
         var boundsCost: CFTimeInterval = 0

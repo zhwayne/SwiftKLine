@@ -15,8 +15,6 @@ enum ChartSection: Sendable {
 
 @MainActor public final class KLineView: UIView {
     
-    typealias IndicatorProvider = IndicatorRendererRegistry.Provider
-    
     // MARK: - Views
     private let chartView = UIView()
     private let scrollView = ChartScrollView()
@@ -25,8 +23,6 @@ enum ChartSection: Sendable {
     private let watermarkLabel = UILabel()
     private lazy var layout = KLineLayout(scrollView: scrollView, configuration: klineConfig)
     private let klineConfig: KLineConfiguration
-    private var indicatorSelectionStore: IndicatorSelectionStore?
-    private let indicatorSelectionNormalizer: IndicatorSelectionNormalizer
     private var layoutMetrics: LayoutMetrics { klineConfig.layoutMetrics }
     
     // MARK: - Height defines
@@ -60,10 +56,10 @@ enum ChartSection: Sendable {
         let colorSignature: ColorAppearanceSignature
         let rendererIDsHash: Int
     }
-    private var redrawScheduler = KLineRedrawScheduler()
-    private var legendCache = KLineLegendCache<LegendCacheKey>()
+    private var redrawScheduler = RedrawScheduler()
+    private var legendCache = LegendCache<LegendCacheKey>()
     #if DEBUG
-    private var debugDrawReporter = KLineDebugDrawReporter()
+    private var debugDrawReporter = DebugDrawReporter()
     #endif
     private var mainChartContent: KLineChartContentStyle = .candlestick
     private var descriptorUpdateTask: Task<Void, Never>? {
@@ -71,54 +67,70 @@ enum ChartSection: Sendable {
     }
     
     // MARK: - Data
-    private var mainIndicatorTypes: [Indicator] = []
-    private var subIndicatorTypes: [Indicator] = []
+    private let features: KLineFeatureOptions
+    private var controller = ChartController()
     private var klineItems: [any KLineItem] = []
     private var indicatorSeriesStore = IndicatorSeriesStore()
-    private let indicatorCalculationEngine = IndicatorCalculationEngine()
-    private let descriptorFactory = KLineDescriptorFactory()
-    private let rendererReconciler = KLineRendererReconciler()
-    private let crosshairDrawCoordinator = KLineCrosshairDrawCoordinator()
-    private let groupDrawCoordinator = KLineGroupDrawCoordinator()
-    private let legendCoordinator = KLineLegendCoordinator()
-    private let visibleContentCoordinator = KLineVisibleContentCoordinator()
+    private let renderPipeline: RenderPipeline
+    private let rendererReconciler = RendererReconciler()
+    private let crosshairDrawCoordinator = CrosshairDrawCoordinator()
+    private let groupDrawCoordinator = GroupDrawCoordinator()
+    private let legendCoordinator = LegendCoordinator()
+    private let visibleContentCoordinator = VisibleContentCoordinator()
     private var selectedIndex: Int?
     private var selectedLocation: CGPoint?
     private var longPressLocation: CGPoint = .zero
-    private var dataMerger = KLineDataMerger()
-    public var indicatorSelectionDidChange: ((IndicatorSelectionState) -> Void)?
+    public var indicatorSelectionDidChange: ((KLineIndicatorSelectionState) -> Void)?
     public var onLoadError: ((Error) -> Void)?
     
     private var disposeBag = Set<AnyCancellable>()
-    private var liveRedrawThrottle = KLineLiveRedrawThrottle()
+    private var liveRedrawThrottle = LiveRedrawThrottle()
     private var klineItemLoader: KLineItemLoader?
     private var loaderGeneration = UUID()
-    private let networkObserver = KLineNetworkObserver()
+    private let networkObserver = NetworkObserver()
     
     // MARK: - Initializers
     public init(
         frame: CGRect = .zero,
         configuration: KLineConfiguration = KLineConfiguration(),
-        indicatorSelectionStore: IndicatorSelectionStore? = UserDefaultsIndicatorSelectionStore()
+        indicatorSelectionStore: KLineIndicatorSelectionStore? = KLineUserDefaultsIndicatorSelectionStore(),
+        pluginRegistry: KLinePluginRegistry = .default,
+        initialIndicatorSelection: KLineIndicatorSelectionConfiguration? = nil,
+        features: KLineFeatureOptions = .default
     ) {
         self.klineConfig = configuration
-        self.indicatorSelectionStore = indicatorSelectionStore
+        self.features = features
+        self.renderPipeline = RenderPipeline(registry: pluginRegistry)
         let availableMain = configuration.indicators.filter { $0.isMain && !$0.defaultKeys.isEmpty }
         let availableSub = configuration.indicators.filter { !$0.isMain && !$0.defaultKeys.isEmpty }
-        self.indicatorSelectionNormalizer = IndicatorSelectionNormalizer(
+        let indicatorSelectionNormalizer = IndicatorSelectionNormalizer(
             availableMain: availableMain,
-            availableSub: availableSub
+            availableSub: availableSub,
+            pluginRegistry: pluginRegistry
         )
         super.init(frame: frame)
+        let indicatorPipeline = IndicatorPipeline(
+            configuration: configuration,
+            normalizer: indicatorSelectionNormalizer,
+            selectionStore: indicatorSelectionStore,
+            registry: pluginRegistry
+        )
+        controller = ChartController(
+            indicatorPipeline: indicatorPipeline
+        )
         chartView.layer.masksToBounds = true
         indicatorTypeView.mainIndicators = availableMain
         indicatorTypeView.subIndicators = availableSub
-        let persistedState = indicatorSelectionNormalizer.normalize(indicatorSelectionStore?.load())
-        let normalizedMain = persistedState.mainIndicators
-        let normalizedSub = persistedState.subIndicators
-        mainIndicatorTypes = normalizedMain.isEmpty ? klineConfig.defaultMainIndicators : normalizedMain
-        subIndicatorTypes = normalizedSub.isEmpty ? klineConfig.defaultSubIndicators : normalizedSub
-        indicatorTypeView.setSelectedIndicators(main: mainIndicatorTypes, sub: subIndicatorTypes)
+        let persistedState = indicatorPipeline.initialSelection()
+        let initialSelection = resolveInitialIndicatorSelection(
+            initialIndicatorSelection,
+            persistedState: persistedState,
+            pluginRegistry: pluginRegistry
+        )
+        controller.setIndicatorSelection(initialSelection)
+        indicatorTypeView.mainCustomIndicators = customIndicatorItems(for: .main, pluginRegistry: pluginRegistry)
+        indicatorTypeView.subCustomIndicators = customIndicatorItems(for: .sub, pluginRegistry: pluginRegistry)
+        indicatorTypeView.setSelectedIndicators(controller.state.indicatorSelection)
         
         addSubview(chartView)
         addSubview(indicatorTypeView)
@@ -161,7 +173,9 @@ enum ChartSection: Sendable {
         addInteractions()
         observeScrollViewLayoutChange()
         setupBindings()
-        setupNetworkObservation()
+        if features.contains(.gapRecovery) {
+            setupNetworkObservation()
+        }
         updateDescriptorAndDrawContent()
         scheduleDescriptorUpdate()
     }
@@ -210,24 +224,16 @@ enum ChartSection: Sendable {
     
     private func setupBindings() {
         indicatorTypeView.drawIndicatorPublisher
-            .sink { [unowned self] section, type in
+            .sink { [unowned self] section, selection in
                 Task(priority: .userInitiated) {
-                    if section == .mainChart {
-                        await drawMainIndicator(type: type)
-                    } else {
-                        await drawSubIndicator(type: type)
-                    }
+                    await drawIndicator(selection, in: section)
                 }
             }
             .store(in: &disposeBag)
         
         indicatorTypeView.eraseIndicatorPublisher
-            .sink { [unowned self] section, type in
-                if section == .mainChart {
-                    eraseMainIndicator(type: type)
-                } else {
-                    eraseSubIndicator(type: type)
-                }
+            .sink { [unowned self] section, selection in
+                eraseIndicator(selection, in: section)
             }
             .store(in: &disposeBag)
         
@@ -252,6 +258,96 @@ enum ChartSection: Sendable {
 }
 
 extension KLineView {
+    private func resolveInitialIndicatorSelection(
+        _ declaredSelection: KLineIndicatorSelectionConfiguration?,
+        persistedState: KLineIndicatorSelectionState,
+        pluginRegistry: KLinePluginRegistry
+    ) -> KLineIndicatorSelectionState {
+        if !persistedState.main.isEmpty || !persistedState.sub.isEmpty {
+            return persistedState
+        }
+
+        guard let declaredSelection else {
+            return KLineIndicatorSelectionState(
+                mainIndicators: klineConfig.defaultMainIndicators,
+                subIndicators: klineConfig.defaultSubIndicators
+            )
+        }
+
+        let main = resolveSelections(
+            declaredSelection.main,
+            placement: .main,
+            pluginRegistry: pluginRegistry
+        )
+        let sub = resolveSelections(
+            declaredSelection.sub,
+            placement: .sub,
+            pluginRegistry: pluginRegistry
+        )
+        return KLineIndicatorSelectionState(main: main, sub: sub)
+    }
+
+    private func resolveSelections(
+        _ selections: [KLineIndicatorSelection],
+        placement: KLineIndicatorPlacement,
+        pluginRegistry: KLinePluginRegistry
+    ) -> [KLineIndicatorSelection] {
+        var result: [KLineIndicatorSelection] = []
+        var seen = Set<KLineIndicatorID>()
+        for selection in selections {
+            switch selection {
+            case let .builtIn(indicator):
+                guard indicator.isMain == (placement != .sub) else { continue }
+            case let .custom(customID):
+                guard let plugin = pluginRegistry.plugin(for: customID),
+                      plugin.placement == placement || (plugin.placement == .overlay && placement == .main)
+                else { continue }
+            }
+            guard !seen.contains(selection.id) else { continue }
+            result.append(selection)
+            seen.insert(selection.id)
+        }
+        return result
+    }
+
+    private func customIndicatorItems(
+        for placement: KLineIndicatorPlacement,
+        pluginRegistry: KLinePluginRegistry
+    ) -> [KLineIndicatorListItem] {
+        customPlugins(for: placement, pluginRegistry: pluginRegistry)
+            .filter { KLineIndicator(kLineID: $0.id) == nil }
+            .map { KLineIndicatorListItem(selection: .custom($0.id), title: $0.title) }
+    }
+
+    private func customPlugins(
+        for placement: KLineIndicatorPlacement,
+        pluginRegistry: KLinePluginRegistry
+    ) -> [any KLineIndicatorPlugin] {
+        var plugins = pluginRegistry.plugins(for: placement)
+        if placement == .main {
+            plugins.append(contentsOf: pluginRegistry.plugins(for: .overlay))
+        }
+        return plugins
+    }
+
+    public convenience init(
+        frame: CGRect = .zero,
+        chart: KLineChartConfiguration,
+        indicatorSelectionStore: KLineIndicatorSelectionStore? = KLineUserDefaultsIndicatorSelectionStore()
+    ) {
+        self.init(
+            frame: frame,
+            configuration: chart.resolvedConfiguration,
+            indicatorSelectionStore: chart.features.contains(.indicatorPersistence) ? indicatorSelectionStore : nil,
+            pluginRegistry: chart.plugins,
+            initialIndicatorSelection: chart.indicators,
+            features: chart.features
+        )
+        setChartContentStyle(chart.content)
+        if case let .provider(provider) = chart.data {
+            loadData(using: provider)
+        }
+    }
     
     public func loadData(using provider: some KLineItemProvider) {
         descriptorUpdateTask?.cancel()
@@ -260,13 +356,15 @@ extension KLineView {
         klineItemLoader = nil
         klineItems = []
         indicatorSeriesStore = IndicatorSeriesStore()
+        controller.reset()
         liveRedrawThrottle.reset()
-        dataMerger.reset()
         let generation = UUID()
         loaderGeneration = generation
         
         klineItemLoader = KLineItemLoader(
             provider: provider,
+            enablesLiveUpdates: features.contains(.liveUpdates),
+            enablesGapRecovery: features.contains(.gapRecovery),
             eventHandler: { [weak self] event in
                 guard let self, self.loaderGeneration == generation else { return }
                 self.handleLoaderEvent(event)
@@ -279,12 +377,14 @@ extension KLineView {
 
 private extension KLineView {
     func handleDidEnterBackground() {
+        guard features.contains(.gapRecovery) else { return }
         let latestTimestamp = klineItems.last?.timestamp
         let loader = klineItemLoader
         Task { await loader?.didEnterBackground(latestTimestamp: latestTimestamp) }
     }
     
     func handleWillEnterForeground() {
+        guard features.contains(.gapRecovery) else { return }
         let latestTimestamp = klineItems.last?.timestamp
         let loader = klineItemLoader
         Task { await loader?.willEnterForeground(latestTimestamp: latestTimestamp) }
@@ -293,23 +393,33 @@ private extension KLineView {
     func handleLoaderEvent(_ event: KLineItemLoaderEvent) {
         Task { [weak self] in
             guard let self else { return }
+            let shouldStickToRightEdge = self.scrollView.isNearRightEdge
+            let liveTickMergeResult = controller.applyLoaderEvent(event)
+            synchronizeLegacyFieldsFromController()
             switch event {
-            case let .page(index, items):
+            case let .page(index, _):
                 if index == 0 {
-                    await self.draw(items: items, scrollPosition: .right)
+                    await self.draw(items: self.klineItems, scrollPosition: .right)
                 } else {
-                    let merged = self.dataMerger.merge(current: self.klineItems, patch: items)
-                    await self.draw(items: merged, scrollPosition: .current)
+                    await self.draw(items: self.klineItems, scrollPosition: .current)
                 }
-            case let .recovery(items):
-                let merged = self.dataMerger.merge(current: self.klineItems, patch: items)
-                await self.draw(items: merged, scrollPosition: .right)
-            case let .liveTick(tick):
-                await self.applyLiveTick(tick)
+            case .recovery:
+                guard self.features.contains(.gapRecovery) else { return }
+                await self.draw(items: self.klineItems, scrollPosition: .right)
+            case .liveTick:
+                await self.applyLiveTickMergeResult(
+                    liveTickMergeResult,
+                    shouldStickToRightEdge: shouldStickToRightEdge
+                )
             case let .failed(error):
                 onLoadError?(error)
             }
         }
+    }
+
+    func synchronizeLegacyFieldsFromController() {
+        klineItems = controller.state.items
+        indicatorSeriesStore = controller.state.indicatorSeriesStore
     }
 }
 
@@ -319,6 +429,7 @@ extension KLineView {
     public func setChartContentStyle(_ style: KLineChartContentStyle) {
         guard mainChartContent != style else { return }
         mainChartContent = style
+        controller.setChartContentStyle(style)
         scheduleDescriptorUpdate()
     }
 }
@@ -338,24 +449,23 @@ extension KLineView {
         guard !Task.isCancelled else { return }
         
         if recalculateValues {
-            let store = await indicatorCalculationEngine.calculate(
+            let store = await calculateIndicators(
                 items: klineItems,
-                mainIndicators: mainIndicatorTypes,
-                subIndicators: subIndicatorTypes,
-                configuration: klineConfig
+                selection: controller.state.indicatorSelection
             )
             guard !Task.isCancelled else { return }
             indicatorSeriesStore = store
+            controller.state.indicatorSeriesStore = store
         }
         
         updateDescriptorAndDrawContent()
     }
     
     private func updateDescriptorAndDrawContent() {
-        var newDescriptor = descriptorFactory.makeDescriptor(
+        var newDescriptor = renderPipeline.makeDescriptor(
             contentStyle: mainChartContent,
-            mainIndicators: mainIndicatorTypes,
-            subIndicators: subIndicatorTypes,
+            mainIndicatorIDs: selectedMainIndicatorIDs,
+            subIndicatorIDs: selectedSubIndicatorIDs,
             customRenderers: customRenderers,
             configuration: klineConfig,
             layoutMetrics: layoutMetrics
@@ -385,89 +495,151 @@ extension KLineView {
         // 取消之前的更新任务
         descriptorUpdateTask?.cancel()
         
-        let newIndicatorSeriesStore = await indicatorCalculationEngine.calculate(
+        let newIndicatorSeriesStore = await calculateIndicators(
             items: items,
-            mainIndicators: mainIndicatorTypes,
-            subIndicators: subIndicatorTypes,
-            configuration: klineConfig
+            selection: controller.state.indicatorSelection
         )
         guard !Task.isCancelled else { return }
         
-        dataMerger.prepareBucketsIfNeeded(with: items)
-        // 3. 回到主线程，原子性地一次性更新所有状态
-        // 此时数据已经准备好，避免中间状态
-        klineItems = items
-        indicatorSeriesStore = newIndicatorSeriesStore
-        layout.itemCount = items.count  // 现在可以安全地触发 layoutSubviews
+        controller.state.items = items
+        controller.state.indicatorSeriesStore = newIndicatorSeriesStore
+        synchronizeLegacyFieldsFromController()
+        layout.itemCount = items.count
         
-        // 4. 调整滚动位置
         scrollView.scroll(to: scrollPosition)
         
-        // 5. 更新渲染器描述符（不需要重新计算指标序列）
         await updateDescriptor(recalculateValues: false)
     }
     
-    private func drawMainIndicator(type: Indicator) async {
-        guard !mainIndicatorTypes.contains(type) else { return }
-        mainIndicatorTypes.append(type)
+    private func drawIndicator(_ selection: KLineIndicatorSelection, in section: ChartSection) async {
+        guard section == .mainChart || section == .subChart else { return }
+        guard !selections(in: section).contains(where: { $0.id == selection.id }) else { return }
+        var state = controller.state.indicatorSelection
+        if section == .mainChart {
+            state.main.append(selection)
+        } else {
+            state.sub.append(selection)
+        }
+        controller.setIndicatorSelection(state)
+        indicatorTypeView.setSelectedIndicators(controller.state.indicatorSelection)
         saveIndicatorSelection()
         descriptorUpdateTask?.cancel()
         await updateDescriptor(recalculateValues: true)
     }
     
-    private func eraseMainIndicator(type: Indicator) {
-        guard let index = mainIndicatorTypes.firstIndex(of: type) else { return }
-        mainIndicatorTypes.remove(at: index)
+    private func eraseIndicator(_ selection: KLineIndicatorSelection, in section: ChartSection) {
+        guard section == .mainChart || section == .subChart else { return }
+        var state = controller.state.indicatorSelection
+        let oldState = state
+        if section == .mainChart {
+            state.main.removeAll { $0.id == selection.id }
+        } else {
+            state.sub.removeAll { $0.id == selection.id }
+        }
+        guard state != oldState else { return }
+        controller.setIndicatorSelection(state)
+        indicatorTypeView.setSelectedIndicators(controller.state.indicatorSelection)
         saveIndicatorSelection()
         scheduleDescriptorUpdate()
     }
     
-    private func drawSubIndicator(type: Indicator) async {
-        guard !subIndicatorTypes.contains(type) else { return }
-        subIndicatorTypes.append(type)
-        saveIndicatorSelection()
-        descriptorUpdateTask?.cancel()
-        await updateDescriptor(recalculateValues: true)
-    }
-    
-    private func eraseSubIndicator(type: Indicator) {
-        guard let index = subIndicatorTypes.firstIndex(of: type) else { return }
-        subIndicatorTypes.remove(at: index)
-        saveIndicatorSelection()
-        scheduleDescriptorUpdate()
+    private func selections(in section: ChartSection) -> [KLineIndicatorSelection] {
+        switch section {
+        case .mainChart:
+            return controller.state.indicatorSelection.main
+        case .subChart:
+            return controller.state.indicatorSelection.sub
+        case .timeline:
+            return []
+        }
     }
     
     public func resetIndicatorsToDefault() {
-        mainIndicatorTypes = klineConfig.defaultMainIndicators
-        subIndicatorTypes = klineConfig.defaultSubIndicators
-        indicatorSelectionStore?.reset()
-        indicatorTypeView.setSelectedIndicators(main: mainIndicatorTypes, sub: subIndicatorTypes)
+        controller.resetIndicatorSelection()
+        indicatorTypeView.setSelectedIndicators(controller.state.indicatorSelection)
         saveIndicatorSelection()
         scheduleDescriptorUpdate()
     }
     
     private func saveIndicatorSelection() {
-        let normalized = indicatorSelectionNormalizer.normalize(
-            IndicatorSelectionState(
-                mainIndicators: mainIndicatorTypes,
-                subIndicators: subIndicatorTypes
-            )
+        indicatorSelectionDidChange?(controller.state.indicatorSelection)
+    }
+
+    private func calculateIndicators(
+        items: [any KLineItem],
+        selection: KLineIndicatorSelectionState
+    ) async -> IndicatorSeriesStore {
+        await controller.calculateIndicators(
+            items: items,
+            selection: selection,
+            configuration: klineConfig
         )
-        indicatorSelectionStore?.save(state: normalized)
-        indicatorSelectionDidChange?(normalized)
+    }
+
+    private var selectedMainIndicatorIDs: [KLineIndicatorID] {
+        controller.state.indicatorSelection.main.map(\.id)
+    }
+
+    private var selectedSubIndicatorIDs: [KLineIndicatorID] {
+        controller.state.indicatorSelection.sub.map(\.id)
     }
     
-    private func scheduleRedraw(_ mode: KLineRedrawMode) {
+    private func scheduleRedraw(_ mode: RedrawMode) {
         redrawScheduler.schedule(mode) { [weak self] redrawMode in
             self?.drawVisibleContent(mode: redrawMode)
         }
     }
 }
 
+#if DEBUG
+extension KLineView {
+    var debugSelectedBuiltInIndicators: (main: [KLineIndicator], sub: [KLineIndicator]) {
+        (controller.state.mainIndicators, controller.state.subIndicators)
+    }
+
+    var debugSelectedIndicators: (main: [KLineIndicatorSelection], sub: [KLineIndicatorSelection]) {
+        (controller.state.indicatorSelection.main, controller.state.indicatorSelection.sub)
+    }
+
+    var debugIndicatorTypeTitles: (main: [String], sub: [String]) {
+        indicatorTypeView.debugTitles
+    }
+
+    func debugToggleIndicator(_ selection: KLineIndicatorSelection, in section: ChartSection) {
+        if selections(in: section).contains(where: { $0.id == selection.id }) {
+            eraseIndicator(selection, in: section)
+        } else {
+            var state = controller.state.indicatorSelection
+            if section == .mainChart {
+                state.main.append(selection)
+            } else if section == .subChart {
+                state.sub.append(selection)
+            }
+            controller.setIndicatorSelection(state)
+            indicatorTypeView.setSelectedIndicators(controller.state.indicatorSelection)
+            saveIndicatorSelection()
+            scheduleDescriptorUpdate()
+        }
+    }
+
+    func debugDraw(items: [any KLineItem]) async {
+        await draw(items: items, scrollPosition: .current)
+    }
+
+    var debugItemTimestamps: [Int] {
+        klineItems.map(\.timestamp)
+    }
+
+    var debugControllerItemTimestamps: [Int] {
+        controller.state.items.map(\.timestamp)
+    }
+}
+#endif
+
 // MARK: - 绘制内容
 extension KLineView {
     
-    private func drawVisibleContent(mode: KLineRedrawMode = .full) {
+    private func drawVisibleContent(mode: RedrawMode = .full) {
         let drawStartTime = CACurrentMediaTime()
         var legendCost: CFTimeInterval = 0
         var boundsCost: CFTimeInterval = 0
@@ -489,7 +661,7 @@ extension KLineView {
         let visibleRange = layout.visibleRange
         if visibleRange.isEmpty { return }
         
-        let context = RendererContext(
+        let context = KLineRendererContext(
             indicatorSeriesStore: indicatorSeriesStore,
             items: klineItems,
             configuration: klineConfig,
@@ -511,7 +683,7 @@ extension KLineView {
                 groupIndex: groupIndex,
                 currentIndex: context.currentIndex,
                 colorSignature: currentColorSignature,
-                rendererIDsHash: KLineLegendCache<LegendCacheKey>.rendererIDsHash(group.renderers)
+                rendererIDsHash: LegendCache<LegendCacheKey>.rendererIDsHash(group.renderers)
             )
             let result = legendCoordinator.configureLegend(
                 for: group,
@@ -597,6 +769,8 @@ extension KLineView {
                 defer { CATransaction.commit() }
                 selectedIndex = nil
                 selectedLocation = nil
+                controller.state.selectedIndex = nil
+                controller.state.selectedLocation = nil
                 crosshairRenderer?.uninstall(from: self.scrollView.contentView.canvas)
                 crosshairRenderer = nil
             }
@@ -616,9 +790,10 @@ extension KLineView {
 
 // MARK: - Live merging
 private extension KLineView {
-    func applyLiveTick(_ tick: any KLineItem) async {
-        let shouldStickToRightEdge = scrollView.isNearRightEdge
-        let result = dataMerger.applyLiveTick(tick, to: &klineItems)
+    func applyLiveTickMergeResult(
+        _ result: LiveTickMergeResult?,
+        shouldStickToRightEdge: Bool
+    ) async {
         layout.itemCount = klineItems.count
         if shouldStickToRightEdge {
             switch result {
@@ -654,6 +829,7 @@ extension KLineView {
     }
     
     private func handleNetworkRecovery() {
+        guard features.contains(.gapRecovery) else { return }
         // 网络恢复时，触发数据补全
         let latestTimestamp = klineItems.last?.timestamp
         let loader = klineItemLoader
@@ -661,6 +837,7 @@ extension KLineView {
     }
     
     private func handleNetworkDisconnection() {
+        guard features.contains(.gapRecovery) else { return }
         // 网络断开时，记录当前状态
         let latestTimestamp = klineItems.last?.timestamp
         let loader = klineItemLoader
@@ -674,6 +851,8 @@ extension KLineView: CrosshairInteractionDelegate {
         // 根据 location 定位当前所在的 group
         selectedLocation = location
         selectedIndex = itemIndex
+        controller.state.selectedLocation = location
+        controller.state.selectedIndex = itemIndex
         if crosshairRenderer == nil {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
@@ -683,15 +862,5 @@ extension KLineView: CrosshairInteractionDelegate {
             crosshairRenderer?.install(to: scrollView.contentView.canvas)
         }
         scheduleRedraw(.crosshairOnly)
-    }
-}
-
-extension KLineView {
-    
-    public static func registerRenderer(
-        for indicator: Indicator,
-        provider: @escaping (Indicator, KLineConfiguration) -> (some Renderer)
-    ) {
-        IndicatorRendererRegistry.shared.register(for: indicator, provider: provider)
     }
 }

@@ -1,15 +1,8 @@
-//
-//  RendererContext.swift
-//  SwiftKLine
-//
-//  Created by iya on 2025/4/19.
-//
-
 import UIKit
 
 /// 渲染器上下文
 /// 包含渲染K线图所需的所有上下文信息
-@MainActor public final class RendererContext<Item> {
+@MainActor public final class KLineRendererContext<Item> {
     /// 存储指标计算结果
     let indicatorSeriesStore: IndicatorSeriesStore
     /// K线数据数组
@@ -32,7 +25,7 @@ import UIKit
     public internal(set) var legendFrame: CGRect = .zero
     /// 图例的文本
     public internal(set) var legendText: NSAttributedString?
-    
+
     init(
         indicatorSeriesStore: IndicatorSeriesStore,
         items: [Item],
@@ -53,8 +46,8 @@ import UIKit
 }
 
 /// 渲染器上下文的扩展方法
-extension RendererContext {
-    
+extension KLineRendererContext {
+
     public var visibleItems: ArraySlice<Item> {
         guard !items.isEmpty,
               visibleRange.lowerBound >= 0,
@@ -63,12 +56,11 @@ extension RendererContext {
         }
         return items[visibleRange]
     }
-    
+
     /// 通用可见区间切片工具。
     /// 仅负责边界校验和切片，不关心具体指标类型。
     private func visibleValues<T>(from values: ContiguousArray<T>?) -> ArraySlice<T>? {
         guard let values else { return nil }
-        // 确保 visibleRange 在数组有效范围内
         guard !values.isEmpty,
               visibleRange.lowerBound >= 0,
               visibleRange.upperBound <= values.count else {
@@ -76,34 +68,43 @@ extension RendererContext {
         }
         return values[visibleRange]
     }
-    
-    /// 读取标量指标全量序列。
-    func scalarValues(for key: Indicator.Key) -> ContiguousArray<Double?>? {
-        indicatorSeriesStore.scalarSeries[key]
+
+    public func values<Value>(
+        for key: KLineSeriesKey,
+        as type: Value.Type
+    ) -> ContiguousArray<Value?>? {
+        indicatorSeriesStore.values(for: key, as: type)
     }
-    
+}
+
+extension KLineRendererContext {
+    /// 读取标量指标全量序列。
+    func scalarValues(for key: KLineIndicator.Key) -> ContiguousArray<Double?>? {
+        indicatorSeriesStore.values(for: key.kLineSeriesKey, as: Double.self)
+    }
+
     /// 读取标量指标可见区间序列。
-    func visibleScalarValues(for key: Indicator.Key) -> ArraySlice<Double?>? {
+    func visibleScalarValues(for key: KLineIndicator.Key) -> ArraySlice<Double?>? {
         visibleValues(from: scalarValues(for: key))
     }
-    
+
     /// 读取 BOLL 指标全量序列。
-    func bollValues(for key: Indicator.Key = .boll(period: 20, k: 2.0)) -> ContiguousArray<BOLLIndicatorValue?>? {
-        indicatorSeriesStore.bollSeries[key]
+    func bollValues(for key: KLineIndicator.Key = .boll(period: 20, k: 2.0)) -> ContiguousArray<BOLLIndicatorValue?>? {
+        indicatorSeriesStore.values(for: key.kLineSeriesKey, as: BOLLIndicatorValue.self)
     }
-    
+
     /// 读取 BOLL 指标可见区间序列。
-    func visibleBollValues(for key: Indicator.Key = .boll(period: 20, k: 2.0)) -> ArraySlice<BOLLIndicatorValue?>? {
+    func visibleBollValues(for key: KLineIndicator.Key = .boll(period: 20, k: 2.0)) -> ArraySlice<BOLLIndicatorValue?>? {
         visibleValues(from: bollValues(for: key))
     }
-    
+
     /// 读取 MACD 指标全量序列。
-    func macdValues(for key: Indicator.Key = .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)) -> ContiguousArray<MACDIndicatorValue?>? {
-        indicatorSeriesStore.macdSeries[key]
+    func macdValues(for key: KLineIndicator.Key = .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)) -> ContiguousArray<MACDIndicatorValue?>? {
+        indicatorSeriesStore.values(for: key.kLineSeriesKey, as: MACDIndicatorValue.self)
     }
-    
+
     /// 读取 MACD 指标可见区间序列。
-    func visibleMacdValues(for key: Indicator.Key = .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)) -> ArraySlice<MACDIndicatorValue?>? {
+    func visibleMacdValues(for key: KLineIndicator.Key = .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)) -> ArraySlice<MACDIndicatorValue?>? {
         visibleValues(from: macdValues(for: key))
     }
 }

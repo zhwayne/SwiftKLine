@@ -7,10 +7,10 @@
 
 import UIKit
 
-final class MACDRenderer: Renderer, LegendUpdatable {
+final class MACDRenderer: KLineRenderer, LegendUpdatable {
     
-    var id: some Hashable { Indicator.macd }
-    let key: Indicator.Key
+    var id: some Hashable { KLineIndicator.macd }
+    let key: KLineIndicator.Key
     private let priceFormatter = PriceFormatter()
     
     private let legendLayer = CATextLayer()
@@ -22,7 +22,7 @@ final class MACDRenderer: Renderer, LegendUpdatable {
     private let negativeFilledBarsLayer = CAShapeLayer()
     private let negativeHollowBarsLayer = CAShapeLayer()
     
-    init(key: Indicator.Key) {
+    init(key: KLineIndicator.Key) {
         self.key = key
         legendLayer.alignmentMode = .center
         legendLayer.contentsScale = UIScreen.main.scale
@@ -79,8 +79,8 @@ final class MACDRenderer: Renderer, LegendUpdatable {
         let candleHalfWidth = candleStyle.width * 0.5
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
 
-        let risingColor = KLineTrend.rising.color(using: klineConfig).cgColor
-        let fallingColor = KLineTrend.falling.color(using: klineConfig).cgColor
+        let risingColor = Trend.rising.color(using: klineConfig).cgColor
+        let fallingColor = Trend.falling.color(using: klineConfig).cgColor
         
         positiveFilledBarsLayer.frame = barLayer.bounds
         positiveHollowBarsLayer.frame = barLayer.bounds
@@ -209,7 +209,7 @@ final class MACDRenderer: Renderer, LegendUpdatable {
         return partialResult
     }
     
-    func dataBounds(context: Context) -> MetricBounds {
+    func dataBounds(context: Context) -> KLineMetricBounds {
         let visibleValues = context.visibleMacdValues(for: key)
         guard let visibleValues else {
             return .empty
@@ -227,6 +227,6 @@ final class MACDRenderer: Renderer, LegendUpdatable {
             return .empty
         }
         let symmetricMax = Swift.max(abs(minValue), abs(maxValue))
-        return MetricBounds(min: -symmetricMax, max: symmetricMax)
+        return KLineMetricBounds(min: -symmetricMax, max: symmetricMax)
     }
 }

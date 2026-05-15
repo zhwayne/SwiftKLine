@@ -7,7 +7,7 @@
 
 import UIKit
 
-enum KLineTrend: Sendable {
+enum Trend: Sendable {
     case rising, falling
     
     @MainActor func color(using configuration: KLineConfiguration) -> UIColor {
@@ -35,8 +35,8 @@ extension KLineItem {
 
 extension KLineItem {
     
-    var dataBounds: MetricBounds {
-        return MetricBounds(min: lowest, max: highest)
+    var dataBounds: KLineMetricBounds {
+        return KLineMetricBounds(min: lowest, max: highest)
     }
 }
 
@@ -64,7 +64,7 @@ extension Collection where Element == any KLineItem {
         return (idx, element)
     }
     
-    var dataBounds: MetricBounds {
+    var dataBounds: KLineMetricBounds {
         return reduce(into: .empty) { partialResult, item in
             partialResult.merge(other: item.dataBounds)
         }
@@ -73,7 +73,7 @@ extension Collection where Element == any KLineItem {
 
 extension KLineItem {
     
-    var trend: KLineTrend {
+    var trend: Trend {
         if opening > closing { return .falling }
         return .rising
     }

@@ -1,5 +1,5 @@
 //
-//  KLineNetworkObserver.swift
+//  NetworkObserver.swift
 //  SwiftKLine
 //
 //  Created by zhwayne on 2026/4/27.
@@ -9,7 +9,7 @@ import Foundation
 import Network
 
 @MainActor
-final class KLineNetworkObserver {
+final class NetworkObserver {
     enum Status: Equatable {
         case available
         case unavailable

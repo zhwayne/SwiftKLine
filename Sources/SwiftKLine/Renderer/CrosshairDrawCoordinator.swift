@@ -1,5 +1,5 @@
 //
-//  KLineCrosshairDrawCoordinator.swift
+//  CrosshairDrawCoordinator.swift
 //  SwiftKLine
 //
 //  Created by zhwayne on 2026/4/27.
@@ -8,13 +8,13 @@
 import UIKit
 
 @MainActor
-struct KLineCrosshairDrawCoordinator {
+struct CrosshairDrawCoordinator {
     @discardableResult
     func drawCrosshair(
         renderer: CrosshairRenderer?,
         descriptor: ChartDescriptor,
         canvas: CALayer,
-        context: RendererContext<any KLineItem>,
+        context: KLineRendererContext<any KLineItem>,
         at location: CGPoint
     ) -> Bool {
         guard let renderer,

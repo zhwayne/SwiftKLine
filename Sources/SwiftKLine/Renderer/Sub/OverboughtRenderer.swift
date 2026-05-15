@@ -7,7 +7,7 @@
 
 import UIKit
 
-//final class OverboughtRenderer: Renderer {
+//final class OverboughtRenderer: KLineRenderer {
 //    
 //    typealias Calculator = NothingCalculator
 //    
@@ -61,7 +61,7 @@ import UIKit
 ////        dashLayer.strokeColor = color.cgColor
 //    }
 //    
-//    func dataBounds(context: Context) -> MetricBounds {
-//        return MetricBounds(range: range)
+//    func dataBounds(context: Context) -> KLineMetricBounds {
+//        return KLineMetricBounds(range: range)
 //    }
 //}

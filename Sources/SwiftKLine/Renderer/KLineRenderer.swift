@@ -1,5 +1,5 @@
 //
-//  Renderer.swift
+//  KLineRenderer.swift
 //  KLineDemo
 //
 //  Created by iya on 2024/11/1.
@@ -7,8 +7,8 @@
 
 import UIKit
 
-@MainActor public protocol Renderer: AnyObject {
-    typealias Context = RendererContext<any KLineItem>
+@MainActor public protocol KLineRenderer: AnyObject {
+    typealias Context = KLineRendererContext<any KLineItem>
     associatedtype Identifier: Hashable
     
     var id: Identifier { get }
@@ -19,10 +19,10 @@ import UIKit
     func draw(in layer: CALayer, context: Context)
     
     func legend(context: Context) -> NSAttributedString?
-    func dataBounds(context: Context) -> MetricBounds
+    func dataBounds(context: Context) -> KLineMetricBounds
 }
 
-extension Renderer {
+extension KLineRenderer {
     
     public var zIndex: Int {
         0
@@ -32,17 +32,17 @@ extension Renderer {
         return nil
     }
     
-    public func dataBounds(context: Context) -> MetricBounds {
+    public func dataBounds(context: Context) -> KLineMetricBounds {
         return .empty
     }
 }
 
 @MainActor
 protocol LegendUpdatable: AnyObject {
-    func updateLegend(context: RendererContext<any KLineItem>)
+    func updateLegend(context: KLineRendererContext<any KLineItem>)
 }
 
-final class AnyRenderer: Renderer {
+final class AnyRenderer: KLineRenderer {
         
     private let _id: () -> AnyHashable
     private let _zIndex: () -> Int
@@ -50,11 +50,11 @@ final class AnyRenderer: Renderer {
     private let _uninstallFunc: (CALayer) -> Void
     private let _drawFunc: (CALayer, Context) -> Void
     private let _legendStringFunc: (Context) -> NSAttributedString?
-    private let _dataBoundsFunc: (Context) -> MetricBounds
+    private let _dataBoundsFunc: (Context) -> KLineMetricBounds
     
-    let base: any Renderer
+    let base: any KLineRenderer
     
-    init<R: Renderer>(_ base: R) {
+    init<R: KLineRenderer>(_ base: R) {
         self.base = base
         _id = { AnyHashable(base.id) }
         _zIndex = { base.zIndex }
@@ -87,7 +87,7 @@ final class AnyRenderer: Renderer {
         return _legendStringFunc(context)
     }
     
-    func dataBounds(context: Context) -> MetricBounds {
+    func dataBounds(context: Context) -> KLineMetricBounds {
         return _dataBoundsFunc(context)
     }
 }
@@ -104,7 +104,7 @@ extension AnyRenderer: @preconcurrency Hashable {
     }
 }
 
-extension Renderer {
+extension KLineRenderer {
     
     func eraseToAnyRenderer() -> AnyRenderer {
         AnyRenderer(self)
@@ -116,7 +116,7 @@ extension Renderer {
 struct RendererBuilder {
     /// The type of individual statement expressions in the transformed function,
     /// which defaults to Component if buildExpression() is not provided.
-    typealias Expression = any Renderer
+    typealias Expression = any KLineRenderer
     
     /// The type of a partial result, which will be carried through all of the
     /// build methods.
@@ -139,11 +139,11 @@ struct RendererBuilder {
         return [AnyRenderer(expression)]
     }
     
-    static func buildExpression<R: Renderer>(_ expression: R) -> Component {
+    static func buildExpression<R: KLineRenderer>(_ expression: R) -> Component {
         return [AnyRenderer(expression)]
     }
     
-    static func buildExpression<R: Renderer>(_ expression: R?) -> Component {
+    static func buildExpression<R: KLineRenderer>(_ expression: R?) -> Component {
         guard let expression else { return [] }
         return [AnyRenderer(expression)]
     }

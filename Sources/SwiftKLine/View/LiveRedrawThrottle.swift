@@ -1,5 +1,5 @@
 //
-//  KLineLiveRedrawThrottle.swift
+//  LiveRedrawThrottle.swift
 //  SwiftKLine
 //
 //  Created by zhwayne on 2026/4/27.
@@ -7,7 +7,7 @@
 
 import QuartzCore
 
-struct KLineLiveRedrawThrottle {
+struct LiveRedrawThrottle {
     private let interval: CFTimeInterval
     private var lastRedrawTime: CFTimeInterval = 0
 

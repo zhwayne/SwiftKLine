@@ -27,10 +27,19 @@ private struct KLineRepresentable: UIViewRepresentable {
     typealias UIViewType = KLineView
 
     func makeUIView(context: Context) -> KLineView {
-        let config = KLineConfiguration.themed(.midnight)
-        let store = UserDefaultsIndicatorSelectionStore()
-        let view = KLineView(configuration: config, indicatorSelectionStore: store)
-        return view
+        let chart = KLineChartConfiguration(
+            data: .deferred,
+            appearance: .theme(.midnight),
+            content: mode == .candlestick ? .candlestick : .timeSeries,
+            indicators: .init(
+                main: [.builtIn(.ma)],
+                sub: [.builtIn(.vol), .builtIn(.macd)]
+            ),
+            features: [.liveUpdates, .gapRecovery, .indicatorPersistence],
+            plugins: .default
+        )
+        let store = KLineUserDefaultsIndicatorSelectionStore()
+        return KLineView(chart: chart, indicatorSelectionStore: store)
     }
 
     func makeCoordinator() -> Coordinator {

@@ -1,5 +1,5 @@
 //
-//  KLineRedrawScheduler.swift
+//  RedrawScheduler.swift
 //  SwiftKLine
 //
 //  Created by zhwayne on 2026/4/27.
@@ -7,11 +7,11 @@
 
 import Foundation
 
-enum KLineRedrawMode {
+enum RedrawMode {
     case crosshairOnly
     case full
 
-    func merged(with newValue: KLineRedrawMode) -> KLineRedrawMode {
+    func merged(with newValue: RedrawMode) -> RedrawMode {
         if self == .full || newValue == .full {
             return .full
         }
@@ -20,11 +20,11 @@ enum KLineRedrawMode {
 }
 
 @MainActor
-final class KLineRedrawScheduler {
+final class RedrawScheduler {
     private var isScheduled = false
-    private var pendingMode: KLineRedrawMode = .full
+    private var pendingMode: RedrawMode = .full
 
-    func schedule(_ mode: KLineRedrawMode, draw: @escaping @MainActor (KLineRedrawMode) -> Void) {
+    func schedule(_ mode: RedrawMode, draw: @escaping @MainActor (RedrawMode) -> Void) {
         pendingMode = pendingMode.merged(with: mode)
         guard !isScheduled else { return }
         isScheduled = true

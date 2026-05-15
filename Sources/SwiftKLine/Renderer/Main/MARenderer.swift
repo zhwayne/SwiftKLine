@@ -9,9 +9,9 @@ import UIKit
 
 /// 移动平均线(MA)渲染器
 /// 负责计算和绘制K线图上的移动平均线
-final class MARenderer: Renderer {
+final class MARenderer: KLineRenderer {
     private struct ID: Hashable {
-        let indicator: Indicator
+        let indicator: KLineIndicator
         let periods: [Int]
     }
 
@@ -52,7 +52,7 @@ final class MARenderer: Renderer {
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         
         zip(periods, lineLayers).forEach { period, lineLayer in
-            let key = Indicator.Key.ma(period)
+            let key = KLineIndicator.Key.ma(period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 return
             }
@@ -79,7 +79,7 @@ final class MARenderer: Renderer {
     
     func legend(context: Context) -> NSAttributedString? {
         return periods.reduce(NSMutableAttributedString()) { partialResult, period in
-            let key = Indicator.Key.ma(period)
+            let key = KLineIndicator.Key.ma(period)
             let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
             guard let values = context.scalarValues(for: key), !values.isEmpty,
                   context.currentIndex >= 0,
@@ -99,10 +99,10 @@ final class MARenderer: Renderer {
         }
     }
     
-    func dataBounds(context: Context) -> MetricBounds {
-        var bounds = MetricBounds.empty
+    func dataBounds(context: Context) -> KLineMetricBounds {
+        var bounds = KLineMetricBounds.empty
         for period in periods {
-            let key = Indicator.Key.ma(period)
+            let key = KLineIndicator.Key.ma(period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 continue
             }
@@ -116,7 +116,7 @@ final class MARenderer: Renderer {
                 maxValue = Swift.max(maxValue, value)
             }
             if hasValue {
-                bounds.merge(other: MetricBounds(min: minValue, max: maxValue))
+                bounds.merge(other: KLineMetricBounds(min: minValue, max: maxValue))
             }
         }
         return bounds
