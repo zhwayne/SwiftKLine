@@ -8,13 +8,12 @@
 import Foundation
 
 struct VOLCalculator: IndicatorCalculator {
+    typealias Value = Double
+    var id: SeriesKey {
+        SeriesKey(indicatorID: IndicatorID("builtin.vol"), name: "VOL")
+    }
     
-    typealias Result = Double
-    var indicator: Indicator { .vol }
-    var key: Indicator.Key { .vol }
-    var id: some Hashable { Indicator.Key.vol }
-    
-    func calculate(for items: [any KLineItem]) -> [Double?] {
+    func calculate(for items: [any ChartItem]) -> [Double?] {
         return items.map(\.volume)
     }
     

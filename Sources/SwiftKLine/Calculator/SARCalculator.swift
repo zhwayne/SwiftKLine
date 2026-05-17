@@ -8,11 +8,10 @@
 import Foundation
 
 struct SARCalculator: IndicatorCalculator {
-    
-    typealias Result = Double
-    var indicator: Indicator { .sar }
-    var key: Indicator.Key { .sar }
-    var id: some Hashable { Indicator.Key.sar }
+    typealias Value = Double
+    var id: SeriesKey {
+        SeriesKey(indicatorID: IndicatorID("builtin.sar"), name: "SAR")
+    }
     
     /// 初始加速因子
     private let afStart: Double
@@ -31,21 +30,21 @@ struct SARCalculator: IndicatorCalculator {
         self.afMax = afMax
     }
     
-    public func calculate(for items: [any KLineItem]) -> [Result?] {
+    public func calculate(for items: [any ChartItem]) -> [Double?] {
         guard items.count >= 2 else {
             return Array(repeating: nil, count: items.count)
         }
         
-        var results: [Result?] = Array(repeating: nil, count: items.count)
+        var results: [Double?] = Array(repeating: nil, count: items.count)
         
         // 初始趋势判断
-        var isUpTrend = items[1].closing > items[0].closing
+        var isUpTrend = items[1].close > items[0].close
         
         // 初始极值点 EP（上涨取最高价，下跌取最低价）
-        var ep = isUpTrend ? items[0].highest : items[0].lowest
+        var ep = isUpTrend ? items[0].high : items[0].low
         
         // 初始 SAR（上一根 K 的最低价 / 最高价）
-        var sar = isUpTrend ? items[0].lowest : items[0].highest
+        var sar = isUpTrend ? items[0].low : items[0].high
         
         var af = afStart
         
@@ -54,10 +53,10 @@ struct SARCalculator: IndicatorCalculator {
             
             if isUpTrend {
                 // SAR 不能高于前两天最低价
-                sar = min(sar, items[i-1].lowest, items[i-2 >= 0 ? i-2 : i-1].lowest)
+                sar = min(sar, items[i-1].low, items[i-2 >= 0 ? i-2 : i-1].low)
             } else {
                 // SAR 不能低于前两天最高价
-                sar = max(sar, items[i-1].highest, items[i-2 >= 0 ? i-2 : i-1].highest)
+                sar = max(sar, items[i-1].high, items[i-2 >= 0 ? i-2 : i-1].high)
             }
             
             // 保存结果
@@ -65,27 +64,27 @@ struct SARCalculator: IndicatorCalculator {
             
             // 更新趋势和参数
             if isUpTrend {
-                if items[i].highest > ep {
-                    ep = items[i].highest
+                if items[i].high > ep {
+                    ep = items[i].high
                     af = min(af + afStep, afMax)
                 }
                 // 趋势反转
-                if items[i].lowest < sar {
+                if items[i].low < sar {
                     isUpTrend = false
                     sar = ep
-                    ep = items[i].lowest
+                    ep = items[i].low
                     af = afStart
                 }
             } else {
-                if items[i].lowest < ep {
-                    ep = items[i].lowest
+                if items[i].low < ep {
+                    ep = items[i].low
                     af = min(af + afStep, afMax)
                 }
                 // 趋势反转
-                if items[i].highest > sar {
+                if items[i].high > sar {
                     isUpTrend = true
                     sar = ep
-                    ep = items[i].highest
+                    ep = items[i].high
                     af = afStart
                 }
             }

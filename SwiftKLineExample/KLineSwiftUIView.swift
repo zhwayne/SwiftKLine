@@ -10,7 +10,7 @@ import SwiftKLine
 
 struct KLineSwiftUIView: View {
     
-    let period: KLinePeriod
+    let period: ChartPeriod
     let mode: ChartDisplayMode
     
     var body: some View {
@@ -21,23 +21,31 @@ struct KLineSwiftUIView: View {
 
 private struct KLineRepresentable: UIViewRepresentable {
     
-    let period: KLinePeriod
+    let period: ChartPeriod
     let mode: ChartDisplayMode
     
-    typealias UIViewType = KLineView
+    typealias UIViewType = ChartView
 
-    func makeUIView(context: Context) -> KLineView {
-        let config = KLineConfiguration.themed(.midnight)
+    func makeUIView(context: Context) -> ChartView {
+        let options = ChartOptions(
+            appearance: .theme(.midnight),
+            content: mode == .candlestick ? .candlestick : .timeSeries,
+            indicators: IndicatorSelectionState(
+                main: [.ma],
+                sub: [.vol, .macd]
+            ),
+            features: [.liveUpdates, .gapRecovery, .indicatorPersistence],
+            plugins: .default
+        )
         let store = UserDefaultsIndicatorSelectionStore()
-        let view = KLineView(configuration: config, indicatorSelectionStore: store)
-        return view
+        return ChartView(options: options, indicatorSelectionStore: store)
     }
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
 
-    func updateUIView(_ uiView: KLineView, context: Context) {
+    func updateUIView(_ uiView: ChartView, context: Context) {
         if context.coordinator.period != period {
             let provider = BinanceDataProvider(symbol: "BTCUSDT", period: period)
             uiView.loadData(using: provider)
@@ -47,14 +55,14 @@ private struct KLineRepresentable: UIViewRepresentable {
 
         switch mode {
         case .candlestick:
-            uiView.setChartContentStyle(.candlestick)
+            uiView.setContentStyle(.candlestick)
         case .timeSeries:
-            uiView.setChartContentStyle(.timeSeries)
+            uiView.setContentStyle(.timeSeries)
         }
     }
 
     final class Coordinator {
-        var period: KLinePeriod?
+        var period: ChartPeriod?
     }
 }
 

@@ -9,14 +9,13 @@ import Foundation
 
 /// 指数移动平均线 (EMA) 的计算器。
 struct EMACalculator: IndicatorCalculator {
-
-    typealias Result = Double
+    typealias Value = Double
     let period: Int       // 移动平均线的周期
-    var indicator: Indicator { .ema }
-    var key: Indicator.Key { .ema(period) }
-    var id: some Hashable { Indicator.Key.ema(period) }
+    var id: SeriesKey {
+        SeriesKey(indicatorID: IndicatorID("builtin.ema"), name: "EMA", parameters: ["period": "\(period)"])
+    }
     
-    func calculate(for items: [any KLineItem]) -> [Double?] {
+    func calculate(for items: [any ChartItem]) -> [Double?] {
         guard period > 0 else { return Array(repeating: nil, count: items.count) }
 
         var emaValues: [Double?] = Array(repeating: nil, count: items.count)
@@ -29,10 +28,10 @@ struct EMACalculator: IndicatorCalculator {
         
         var previousEMA = 0.0
         for i in 0..<items.count {
-            sum += items[i].closing
+            sum += items[i].close
             if i >= period {
                 // 从第 `period` 个位置开始计算 EMA
-                let currentPrice = items[i].closing
+                let currentPrice = items[i].close
                 let ema = (currentPrice - previousEMA) * alpha + previousEMA
                 emaValues[i] = ema
                 previousEMA = ema

@@ -7,24 +7,16 @@
 
 import UIKit
 
-@MainActor
-protocol CrosshairInteractionDelegate: NSObjectProtocol {
-    
-    func updateCrosshair(location: CGPoint, itemIndex: Int)
-}
-
 class CrosshairInteraction: NSObject, UIInteraction, UIGestureRecognizerDelegate {
     
-    weak var delegate: CrosshairInteractionDelegate?
     weak var view: UIView?
-    private let layout: KLineLayout
+    private let layout: ChartLayout
+    private let onCrosshairUpdate: (CGPoint, Int) -> Void
     private var location: CGPoint = .zero
-    private let klineConfig: KLineConfiguration
     
-    init(layout: KLineLayout, delegate: CrosshairInteractionDelegate, configuration: KLineConfiguration) {
-        self.delegate = delegate
+    init(layout: ChartLayout, onCrosshairUpdate: @escaping (CGPoint, Int) -> Void) {
         self.layout = layout
-        self.klineConfig = configuration
+        self.onCrosshairUpdate = onCrosshairUpdate
     }
     
     func willMove(to view: UIView?) { }
@@ -75,11 +67,11 @@ class CrosshairInteraction: NSObject, UIInteraction, UIGestureRecognizerDelegate
             return
         }
         
-        let index = layout.indexInViewPort(on: location.x) ?? layout.itemCount - 1
-        let candleHalfWidth = klineConfig.candleStyle.width * 0.5
-        let indexInViewPort = index - layout.visibleRange.lowerBound
-        location.x = layout.minX(at: indexInViewPort) + candleHalfWidth
+        let index = layout.indexInViewport(on: location.x) ?? layout.itemCount - 1
+        let candleHalfWidth = layout.candleDimensions.width * 0.5
+        let indexInViewport = index - layout.visibleRange.lowerBound
+        location.x = layout.xPosition(at: indexInViewport) + candleHalfWidth
         location.y = min(max(0, location.y), view.bounds.height - 1)
-        delegate?.updateCrosshair(location: location, itemIndex: index)
+        onCrosshairUpdate(location, index)
     }
 }

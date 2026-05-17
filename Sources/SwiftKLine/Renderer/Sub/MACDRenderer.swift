@@ -7,10 +7,10 @@
 
 import UIKit
 
-final class MACDRenderer: Renderer, LegendUpdatable {
+final class MACDRenderer: ChartRenderer, LegendUpdatable {
     
-    var id: some Hashable { Indicator.macd }
-    let key: Indicator.Key
+    var id: some Hashable { BuiltInIndicator.macd }
+    let key: SeriesKey
     private let priceFormatter = PriceFormatter()
     
     private let legendLayer = CATextLayer()
@@ -22,7 +22,7 @@ final class MACDRenderer: Renderer, LegendUpdatable {
     private let negativeFilledBarsLayer = CAShapeLayer()
     private let negativeHollowBarsLayer = CAShapeLayer()
     
-    init(key: Indicator.Key) {
+    init(key: SeriesKey) {
         self.key = key
         legendLayer.alignmentMode = .center
         legendLayer.contentsScale = UIScreen.main.scale
@@ -64,8 +64,8 @@ final class MACDRenderer: Renderer, LegendUpdatable {
     
     func draw(in layer: CALayer, context: Context) {
         barLayer.frame = context.viewPort
-        let klineConfig = context.configuration
-        let candleStyle = klineConfig.candleStyle
+        let configuration = context.configuration
+        let candleDims = context.candleDimensions
         let layout = context.layout
         
         updateLegend(context: context)
@@ -73,14 +73,14 @@ final class MACDRenderer: Renderer, LegendUpdatable {
         guard let visibleValues = context.visibleMacdValues(for: key) else {
             return
         }
-        let style = klineConfig.indicatorStyle(for: key, type: MACDStyle.self)
+        let style = configuration.indicatorStyle(for: key, type: MACDStyle.self)
 
-        let itemWidth = candleStyle.width + candleStyle.gap
-        let candleHalfWidth = candleStyle.width * 0.5
+        let itemWidth = candleDims.itemWidth
+        let candleHalfWidth = candleDims.width * 0.5
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
 
-        let risingColor = KLineTrend.rising.color(using: klineConfig).cgColor
-        let fallingColor = KLineTrend.falling.color(using: klineConfig).cgColor
+        let risingColor = Trend.rising.color(using: configuration).cgColor
+        let fallingColor = Trend.falling.color(using: configuration).cgColor
         
         positiveFilledBarsLayer.frame = barLayer.bounds
         positiveHollowBarsLayer.frame = barLayer.bounds
@@ -109,10 +109,10 @@ final class MACDRenderer: Renderer, LegendUpdatable {
             
             let histogram = value.histogram
             let x = CGFloat(idx) * itemWidth + visibleMinX - context.viewPort.minX
-            let yTop = layout.minY(for: max(histogram, 0), viewPort: barLayer.bounds)
-            let yBottom = layout.minY(for: min(histogram, 0), viewPort: barLayer.bounds)
+            let yTop = layout.yPosition(for: max(histogram, 0), viewPort: barLayer.bounds)
+            let yBottom = layout.yPosition(for: min(histogram, 0), viewPort: barLayer.bounds)
             let height = max(yBottom - yTop, 0)
-            let rect = CGRect(x: x, y: yTop, width: candleStyle.width, height: height)
+            let rect = CGRect(x: x, y: yTop, width: candleDims.width, height: height)
             
             let isHollow: Bool
             if let previousHistogram {
@@ -153,7 +153,7 @@ final class MACDRenderer: Renderer, LegendUpdatable {
                 let yValue = extractor(value)
                 // 计算 x 坐标
                 let x = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
-                let y = layout.minY(for: yValue, viewPort: context.viewPort)
+                let y = layout.yPosition(for: yValue, viewPort: context.viewPort)
                 let point = CGPoint(x: x, y: y)
                 
                 if !hasStartPoint {
@@ -209,7 +209,7 @@ final class MACDRenderer: Renderer, LegendUpdatable {
         return partialResult
     }
     
-    func dataBounds(context: Context) -> MetricBounds {
+    func dataBounds(context: Context) -> ValueBounds {
         let visibleValues = context.visibleMacdValues(for: key)
         guard let visibleValues else {
             return .empty
@@ -227,6 +227,6 @@ final class MACDRenderer: Renderer, LegendUpdatable {
             return .empty
         }
         let symmetricMax = Swift.max(abs(minValue), abs(maxValue))
-        return MetricBounds(min: -symmetricMax, max: symmetricMax)
+        return ValueBounds(min: -symmetricMax, max: symmetricMax)
     }
 }

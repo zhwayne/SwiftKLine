@@ -9,14 +9,13 @@ import Foundation
 
 /// 加权移动平均线 (WMA) 计算器，近期数据权重大、远期数据权重小。
 struct WMACalculator: IndicatorCalculator {
-    
-    typealias Result = Double
+    typealias Value = Double
     let period: Int
-    var indicator: Indicator { .wma }
-    var key: Indicator.Key { .wma(period) }
-    var id: some Hashable { Indicator.Key.wma(period) }
+    var id: SeriesKey {
+        SeriesKey(indicatorID: IndicatorID("builtin.wma"), name: "WMA", parameters: ["period": "\(period)"])
+    }
     
-    func calculate(for items: [any KLineItem]) -> [Double?] {
+    func calculate(for items: [any ChartItem]) -> [Double?] {
         guard period > 0 else { return Array(repeating: nil, count: items.count) }
         
         var result = [Double?](repeating: nil, count: items.count)
@@ -29,7 +28,7 @@ struct WMACalculator: IndicatorCalculator {
             for offset in 0..<period {
                 let weight = Double(offset + 1)
                 let priceIndex = index - period + 1 + offset
-                weightedSum += items[priceIndex].closing * weight
+                weightedSum += items[priceIndex].close * weight
             }
             result[index] = weightedSum / weightSum
         }

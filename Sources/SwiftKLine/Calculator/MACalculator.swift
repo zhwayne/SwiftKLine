@@ -9,14 +9,13 @@ import Foundation
 
 /// 简单移动平均线 (SMA) 的计算器。
 struct MACalculator: IndicatorCalculator {
-    
-    typealias Result = Double
+    typealias Value = Double
     let period: Int       // 移动平均线的周期
-    var indicator: Indicator { .ma }
-    var key: Indicator.Key { .ma(period) }
-    var id: some Hashable { Indicator.Key.ma(period) }
+    var id: SeriesKey {
+        SeriesKey(indicatorID: IndicatorID("builtin.ma"), name: "MA", parameters: ["period": "\(period)"])
+    }
     
-    func calculate(for items: [any KLineItem]) -> [Double?] {
+    func calculate(for items: [any ChartItem]) -> [Double?] {
         guard period > 0 else { return Array(repeating: nil, count: items.count) }
         guard items.count >= period else { return Array(repeating: nil, count: items.count) }
         
@@ -24,10 +23,10 @@ struct MACalculator: IndicatorCalculator {
         var sum: Double = 0
         
         for i in 0..<items.count {
-            sum += items[i].closing
+            sum += items[i].close
             
             if i >= period {
-                sum -= items[i - period].closing
+                sum -= items[i - period].close
             }
             
             if i >= period - 1 {

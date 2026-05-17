@@ -9,14 +9,13 @@ import Foundation
 
 /// 相对强弱指数 (RSI) 的计算器。
 struct RSICalculator: IndicatorCalculator {
-    
-    typealias Result = Double
+    typealias Value = Double
     let period: Int       // RSI 的周期
-    var indicator: Indicator { .rsi }
-    var key: Indicator.Key { .rsi(period) }
-    var id: some Hashable { Indicator.Key.rsi(period) }
+    var id: SeriesKey {
+        SeriesKey(indicatorID: IndicatorID("builtin.rsi"), name: "RSI", parameters: ["period": "\(period)"])
+    }
     
-    func calculate(for items: [any KLineItem]) -> [Double?] {
+    func calculate(for items: [any ChartItem]) -> [Double?] {
         guard period > 0 else { return Array(repeating: nil, count: items.count) }
         guard items.count > period else { return Array(repeating: nil, count: items.count) }
         
@@ -27,7 +26,7 @@ struct RSICalculator: IndicatorCalculator {
         
         // 初始化：计算第一个平均涨幅和平均跌幅
         for i in 1...period {
-            let change = items[i].closing - items[i - 1].closing
+            let change = items[i].close - items[i - 1].close
             if change > 0 {
                 gains.append(change)
                 losses.append(0)
@@ -50,7 +49,7 @@ struct RSICalculator: IndicatorCalculator {
         
         // 迭代计算后续的 RSI 值
         for i in (period + 1)..<items.count {
-            let change = items[i].closing - items[i - 1].closing
+            let change = items[i].close - items[i - 1].close
             let gain = max(change, 0)
             let loss = max(-change, 0)
             

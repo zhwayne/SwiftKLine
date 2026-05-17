@@ -11,35 +11,35 @@ import SwiftKLine
 import SwiftyJSON
 
 /// 表示单个 K 线数据点。
-struct BinanceKLineItem: KLineItem {
-    let opening: Double      // 开盘价
-    let closing: Double      // 收盘价
-    let highest: Double      // 最高价
-    let lowest: Double       // 最低价
+struct BinanceChartItem: ChartItem {
+    let open: Double         // 开盘价
+    let close: Double        // 收盘价
+    let high: Double         // 最高价
+    let low: Double          // 最低价
     let volume: Double       // 成交量
     let value: Double        // 成交额
     let timestamp: Int       // 时间戳
 }
 
-final class BinanceDataProvider: KLineItemProvider {
+final class BinanceDataProvider: ChartItemProvider {
     private let symbol: String
-    private let period: KLinePeriod
+    private let period: ChartPeriod
     private let size = 1000
     private let endDate = Date()
     private let session = URLSession(configuration: URLSessionConfiguration.default)
     
-    init(symbol: String, period: KLinePeriod) {
+    init(symbol: String, period: ChartPeriod) {
         self.symbol = symbol
         self.period = period
     }
     
-    func fetchKLineItems(forPage page: Int) async throws -> [any KLineItem] {
+    func fetchChartItems(forPage page: Int) async throws -> [any ChartItem] {
         let end = endDate.addingTimeInterval(TimeInterval(-period.seconds * size * page))
         let start = end.addingTimeInterval(TimeInterval(-period.seconds * size))
-        return try await fetchKLineItems(from: start, to: end)
+        return try await fetchChartItems(from: start, to: end)
     }
 
-    func fetchKLineItems(from start: Date, to end: Date) async throws -> [any KLineItem] {
+    func fetchChartItems(from start: Date, to end: Date) async throws -> [any ChartItem] {
         let startMs = Int(start.timeIntervalSince1970 * 1000)
         let endMs = Int(end.timeIntervalSince1970 * 1000)
         var urlComponents = URLComponents(string: "https://data-api.binance.vision/api/v3/klines")!
@@ -57,7 +57,7 @@ final class BinanceDataProvider: KLineItemProvider {
     }
 
     // MARK: - Live Stream （Provider 自行管理连接与解码）
-    func liveStream() -> AsyncStream<any KLineItem> {
+    func liveStream() -> AsyncStream<any ChartItem> {
         let path = "wss://stream.binance.com:443/ws/\(symbol.lowercased())@kline_\(period.identifier)"
         guard let url = URL(string: path) else { return AsyncStream { $0.finish() } }
         return AsyncStream { continuation in
@@ -79,31 +79,31 @@ final class BinanceDataProvider: KLineItemProvider {
         }
     }
 
-    private static func decodeItem(from data: Data) -> (any KLineItem)? {
+    private static func decodeItem(from data: Data) -> (any ChartItem)? {
         // Binance kline 结构：{"k":{ "t": startTime(ms), "o": "open", "h": "high", "l": "low", "c": "close", "v": "volume", "q": "quoteVolume" }}
         let json = try? JSON(data: data)
         let k = json?["k"]
         guard let k else { return nil }
         let ts = k["t"].intValue / 1000
-        return BinanceKLineItem(
-            opening: k["o"].doubleValue,
-            closing: k["c"].doubleValue,
-            highest: k["h"].doubleValue,
-            lowest:  k["l"].doubleValue,
+        return BinanceChartItem(
+            open: k["o"].doubleValue,
+            close: k["c"].doubleValue,
+            high: k["h"].doubleValue,
+            low:  k["l"].doubleValue,
             volume:  k["v"].doubleValue,
             value:   k["q"].doubleValue,
             timestamp: ts
         )
     }
 
-    private static func decodeItems(from json: JSON) -> [any KLineItem] {
-        json.arrayValue.map { json -> any KLineItem in
+    private static func decodeItems(from json: JSON) -> [any ChartItem] {
+        json.arrayValue.map { json -> any ChartItem in
             let array = json.arrayValue
-            return BinanceKLineItem(
-                opening: array[1].doubleValue,
-                closing: array[4].doubleValue,
-                highest: array[2].doubleValue,
-                lowest: array[3].doubleValue,
+            return BinanceChartItem(
+                open: array[1].doubleValue,
+                close: array[4].doubleValue,
+                high: array[2].doubleValue,
+                low: array[3].doubleValue,
                 volume: array[5].doubleValue,
                 value: array[7].doubleValue,
                 timestamp: array[0].intValue / 1000

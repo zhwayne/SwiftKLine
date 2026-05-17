@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class CrosshairRenderer: Renderer {
+final class CrosshairRenderer: ChartRenderer {
     
     var id: some Hashable { ObjectIdentifier(CrosshairRenderer.self) }
     
@@ -17,7 +17,7 @@ final class CrosshairRenderer: Renderer {
     private var lastLocation: CGPoint = .zero
     private let dashLineLayer = CAShapeLayer()
     private let pointLayer = CAShapeLayer()
-    private let klineMarkView: KLineMarkView
+    private let klineMarkView: MarkView
     private let dateLabel = PaddedLabel()
     private let yAxisValueLabel = PaddedLabel()
     
@@ -25,8 +25,8 @@ final class CrosshairRenderer: Renderer {
     var candleGroup: RendererGroup?
     var timelineGroup: RendererGroup?
         
-    init(configuration: KLineConfiguration) {
-        klineMarkView = KLineMarkView(configuration: configuration)
+    init(configuration: ChartConfiguration) {
+        klineMarkView = MarkView(configuration: configuration)
         dashLineLayer.lineWidth = 1 / UIScreen.main.scale
         dashLineLayer.lineDashPattern = [2, 2]
         dashLineLayer.strokeColor = UIColor.label.cgColor
@@ -101,7 +101,7 @@ final class CrosshairRenderer: Renderer {
         let pointRect = CGRect(x: location.x - 2, y: location.y - 2, width: 4, height: 4)
         pointLayer.path = CGPath(ellipseIn: pointRect, transform: nil)
         
-        if let index = context.layout.indexInViewPort(on: location.x) {
+        if let index = context.layout.indexInViewport(on: location.x) {
             let item = context.items[index]
             
             // MARK: - 绘制 mark view
@@ -152,11 +152,11 @@ final class CrosshairRenderer: Renderer {
 }
 //
 //    private let feedback = UISelectionFeedbackGenerator()
-//    private var klineConfig: klineConfig { .shared }
+//    private var configuration: configuration { .shared }
 //    private let dateFormatter: DateFormatter
 //    private let dateLabel = PaddedLabel()
 //    private let yAxisValueLabel = PaddedLabel()
-//    private let klineMarkView = KLineMarkView()
+//    private let klineMarkView = MarkView()
 //    private var lastLocationX: CGFloat = 0
 //    var location: CGPoint = .zero
 //    var locationRect: CGRect = .zero
@@ -218,7 +218,7 @@ final class CrosshairRenderer: Renderer {
 //
 //        // 调整x轴，使其始终和蜡烛图item居中对齐
 //        let index = transformer.indexOfVisibleItem(xAxis: location.x, extend: true)!
-//        let candleHalfWidth = klineConfig.candleStyle.width * 0.5
+//        let candleHalfWidth = configuration.candleStyle.width * 0.5
 //        let indexInVisibaleRect = index - data.visibleRange.lowerBound
 //        location.x = transformer.xAxis(at: indexInVisibaleRect, space: .layer) + candleHalfWidth
 //        // x轴变化时反馈
@@ -230,7 +230,7 @@ final class CrosshairRenderer: Renderer {
 //                feedback.selectionChanged()
 //            }
 //            if index >= 0 && index < data.items.count {
-//                NotificationCenter.default.post(name: .didSelectKLineItem, object: index)
+//                NotificationCenter.default.post(name: .didSelectChartItem, object: index)
 //            }
 //        }
 //        lastLocationX = location.x
@@ -269,7 +269,7 @@ final class CrosshairRenderer: Renderer {
 //            yAxisValueLabel.isHidden = false
 //            let value = transformer.valueOf(yAxis: location.y - locationRect.minY)
 //
-//            yAxisValueLabel.text = klineConfig.format(value: value)
+//            yAxisValueLabel.text = configuration.format(value: value)
 //            let size = yAxisValueLabel.systemLayoutSizeFitting(rect.size)
 //            yAxisValueLabel.frame = CGRect(
 //                x: rect.width - size.width - 12,

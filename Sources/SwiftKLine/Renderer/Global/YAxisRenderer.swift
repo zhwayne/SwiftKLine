@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class YAxisRenderer: Renderer {
+final class YAxisRenderer: ChartRenderer {
         
     var id: some Hashable { ObjectIdentifier(YAxisRenderer.self) }
     private let lineLayer = CAShapeLayer()
@@ -38,7 +38,7 @@ final class YAxisRenderer: Renderer {
         lineLayer.strokeColor = UIColor.systemGray5.cgColor
         
         let path = CGMutablePath()
-        let values = layout.niceValues(in: viewPort, groupFrame: groupFrame)
+        let values = layout.gridValues(in: viewPort, groupFrame: groupFrame)
         
         let count = values.count - textLayerQueue.count
         if count > 0 {

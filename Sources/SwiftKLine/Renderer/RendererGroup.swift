@@ -1,9 +1,7 @@
-//
 //  RendererGroup.swift
 //  SwiftKLine
 //
 //  Created by iya on 2025/4/20.
-//
 
 import Foundation
 import UIKit
@@ -19,22 +17,38 @@ struct RendererGroup {
     
     var viewPort: CGRect = .zero
     var groupFrame: CGRect = .zero
-    var dataBounds: MetricBounds = .empty
-    
-    typealias Builder = RendererBuilder
+    var dataBounds: ValueBounds = .empty
     
     init(
         chartSection: ChartSection,
         height: CGFloat,
         padding: (CGFloat, CGFloat) = (8, 2),
         legendSpacing: CGFloat = 8,
-        @Builder renderers: () -> [AnyRenderer]
+        @RendererBuilder renderers: () -> [AnyRenderer]
     ) {
         self.chartSection = chartSection
         self.height = height
         self.padding = padding
         self.legendSpacing = legendSpacing
-        self.renderers = renderers()
+        self.renderers = Self._sortedRenderers(renderers())
+    }
+
+    init(
+        chartSection: ChartSection,
+        height: CGFloat,
+        padding: (CGFloat, CGFloat) = (8, 2),
+        legendSpacing: CGFloat = 8,
+        renderers: [AnyRenderer] = []
+    ) {
+        self.chartSection = chartSection
+        self.height = height
+        self.padding = padding
+        self.legendSpacing = legendSpacing
+        self.renderers = Self._sortedRenderers(renderers)
+    }
+
+    private static func _sortedRenderers(_ renderers: [AnyRenderer]) -> [AnyRenderer] {
+        renderers
             .enumerated()
             .sorted { lhs, rhs in
                 if lhs.element.zIndex == rhs.element.zIndex {

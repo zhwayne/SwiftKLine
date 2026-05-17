@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class PriceIndicatorRenderer: Renderer {
+final class PriceIndicatorRenderer: ChartRenderer {
         
     var id: some Hashable { ObjectIdentifier(PriceIndicatorRenderer.self) }
     private let style: PriceIndicatorStyle
@@ -56,7 +56,7 @@ final class PriceIndicatorRenderer: Renderer {
         let visibleItems = context.visibleItems
         let layout = context.layout
         let viewPort = context.viewPort
-        let candleStyle =  context.configuration.candleStyle
+        let candleDims = context.candleDimensions
         priceLineLayer.strokeColor = style.textColor.cgColor
         highestTextLayer.foregroundColor = style.textColor.cgColor
         lowestTextLayer.foregroundColor = style.textColor.cgColor
@@ -65,8 +65,8 @@ final class PriceIndicatorRenderer: Renderer {
         let priceLinePath = CGMutablePath()
         // MARK: - 最高价指示
         if let (idx, item) = visibleItems.upperBoundItem {
-            let x = layout.minX(at: idx) + candleStyle.width * 0.5
-            let y = layout.minY(for: item.highest, viewPort: viewPort)
+            let x = layout.xPosition(at: idx) + candleDims.width * 0.5
+            let y = layout.yPosition(for: item.high, viewPort: viewPort)
             
             let rightSide = (x + viewPort.origin.x) < layer.bounds.midX
             let startPoint = CGPoint(x: x, y: y)
@@ -74,7 +74,7 @@ final class PriceIndicatorRenderer: Renderer {
             priceLinePath.move(to: startPoint)
             priceLinePath.addLine(to: endPoint)
             
-            highestTextLayer.string = formatter.format(item.highest as NSNumber)
+            highestTextLayer.string = formatter.format(item.high as NSNumber)
             let textSize = highestTextLayer.preferredFrameSize()
             let textOrigin = CGPoint(
                 x: endPoint.x + (rightSide ? 0 : -textSize.width),
@@ -85,8 +85,8 @@ final class PriceIndicatorRenderer: Renderer {
         
         // MARK: - 最低价指示
         if let (idx, item) = visibleItems.lowerBoundItem {
-            let x = layout.minX(at: idx) + candleStyle.width * 0.5
-            let y = layout.minY(for: item.lowest, viewPort: viewPort)
+            let x = layout.xPosition(at: idx) + candleDims.width * 0.5
+            let y = layout.yPosition(for: item.low, viewPort: viewPort)
             
             let rightSide = (x + viewPort.origin.x) < layer.bounds.midX
             let startPoint = CGPoint(x: x, y: y)
@@ -94,7 +94,7 @@ final class PriceIndicatorRenderer: Renderer {
             priceLinePath.move(to: startPoint)
             priceLinePath.addLine(to: endPoint)
             
-            lowestTextLayer.string = formatter.format(item.lowest as NSNumber)
+            lowestTextLayer.string = formatter.format(item.low as NSNumber)
             let textSize = lowestTextLayer.preferredFrameSize()
             let textOrigin = CGPoint(
                 x: endPoint.x + (rightSide ? 0 : -textSize.width),
@@ -108,13 +108,13 @@ final class PriceIndicatorRenderer: Renderer {
         // MARK: - 最新价指示
         if let item = context.items.last {
             let dataBounds = context.layout.dataBounds
-            let minY = layout.minY(for: dataBounds.max, viewPort: viewPort)
-            let maxY = layout.minY(for: dataBounds.min, viewPort: viewPort)
+            let minY = layout.yPosition(for: dataBounds.max, viewPort: viewPort)
+            let maxY = layout.yPosition(for: dataBounds.min, viewPort: viewPort)
             let rect = CGRectMake(0, viewPort.minY, layer.bounds.width, viewPort.height)
-            var y = layout.minY(for: item.closing, viewPort: viewPort)
+            var y = layout.yPosition(for: item.close, viewPort: viewPort)
             y = min(max(y, minY), maxY)
             let index = context.items.count - context.visibleRange.lowerBound - 1
-            var x = layout.minX(at: index)
+            var x = layout.xPosition(at: index)
             if x > rect.maxX { x = 0 }
             let end = CGPoint(x: x, y: y)
             let start = CGPoint(x: rect.width, y: y)
@@ -125,7 +125,7 @@ final class PriceIndicatorRenderer: Renderer {
             dashLineLayer.path = path
             
             priceMarkView.showArrow = end.x == 0
-            priceMarkView.label.text = formatter.format(item.closing as NSNumber)
+            priceMarkView.label.text = formatter.format(item.close as NSNumber)
             let indicatorSize = priceMarkView.systemLayoutSizeFitting(rect.size)
             priceMarkView.bounds.size = indicatorSize
             priceMarkView.frame.origin.y = y - indicatorSize.height * 0.5

@@ -7,14 +7,14 @@
 
 import UIKit
 
-final class VOLRenderer: Renderer, LegendUpdatable {
+final class VOLRenderer: ChartRenderer, LegendUpdatable {
     
     private let risingLayer = CAShapeLayer()
     private let fallingLayer = CAShapeLayer()
     private let legendLayer = CATextLayer()
     private let volumeFormatter = VolumeFormatter()
     
-    var id: some Hashable { Indicator.vol }
+    var id: some Hashable { BuiltInIndicator.vol }
         
     init() {
         risingLayer.lineWidth = 1
@@ -40,12 +40,12 @@ final class VOLRenderer: Renderer, LegendUpdatable {
     }
     
     func draw(in layer: CALayer, context: Context) {
-        let candleStyle = context.configuration.candleStyle
+        let candleDims = context.candleDimensions
         let layout = context.layout
         let viewPort = context.viewPort
         let visibleItems = context.visibleItems
-        let risingColor = KLineTrend.rising.color(using: context.configuration)
-        let fallingColor = KLineTrend.falling.color(using: context.configuration)
+        let risingColor = Trend.rising.color(using: context.configuration)
+        let fallingColor = Trend.falling.color(using: context.configuration)
         risingLayer.fillColor = risingColor.cgColor
         risingLayer.strokeColor = risingColor.cgColor
         fallingLayer.fillColor = fallingColor.cgColor
@@ -55,14 +55,14 @@ final class VOLRenderer: Renderer, LegendUpdatable {
         
         let upPath = CGMutablePath()
         let downPath = CGMutablePath()
-        let itemWidth = candleStyle.width + candleStyle.gap
+        let itemWidth = candleDims.itemWidth
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         for (idx, item) in visibleItems.enumerated() {
             // 计算 x 坐标
             let x = CGFloat(idx) * itemWidth + visibleMinX
-            let y = layout.minY(for: item.volume, viewPort: viewPort)
+            let y = layout.yPosition(for: item.volume, viewPort: viewPort)
             let height = viewPort.maxY - y
-            let rect = CGRect(x: x, y: y, width: candleStyle.width, height: height)
+            let rect = CGRect(x: x, y: y, width: candleDims.width, height: height)
             let trend = item.trend
             let candlePath = trend == .falling ? downPath : upPath
             candlePath.addRect(rect)
@@ -94,11 +94,11 @@ final class VOLRenderer: Renderer, LegendUpdatable {
         return string
     }
     
-    func dataBounds(context: Context) -> MetricBounds {
+    func dataBounds(context: Context) -> ValueBounds {
         let visibleItems = context.visibleItems
         guard let max = visibleItems.max(by: { $0.volume < $1.volume }) else {
             return .empty
         }
-        return MetricBounds(min: 0, max: max.volume)
+        return ValueBounds(min: 0, max: max.volume)
     }
 }

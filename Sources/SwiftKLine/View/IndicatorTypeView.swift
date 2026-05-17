@@ -6,34 +6,34 @@
 //
 
 import UIKit
-import Combine
+
+struct IndicatorListItem: Hashable {
+    var selection: IndicatorID
+    var title: String
+}
 
 final class IndicatorTypeView: UIView, UICollectionViewDelegate {
-    
+
     private enum SectionItem: Hashable {
-        case main(Indicator)
+        case main(IndicatorListItem)
         case separator
-        case sub(Indicator)
+        case sub(IndicatorListItem)
     }
 
-    var drawIndicatorPublisher: AnyPublisher<(ChartSection, Indicator), Never> {
-        drawPublisher.eraseToAnyPublisher()
-    }
-    
-    var eraseIndicatorPublisher: AnyPublisher<(ChartSection, Indicator), Never> {
-        erasePublisher.eraseToAnyPublisher()
-    }
-    
-    var mainIndicators: [Indicator] = [] { didSet { reloadData() } }
-    var subIndicators: [Indicator] = [] { didSet { reloadData() } }
-    
-    private let drawPublisher = PassthroughSubject<(ChartSection, Indicator), Never>()
-    private let erasePublisher = PassthroughSubject<(ChartSection, Indicator), Never>()
+    var onAddIndicator: ((ChartSection, IndicatorID) -> Void)?
+    var onRemoveIndicator: ((ChartSection, IndicatorID) -> Void)?
+
+    var mainIndicators: [BuiltInIndicator] = [] { didSet { setNeedsReload() } }
+    var subIndicators: [BuiltInIndicator] = [] { didSet { setNeedsReload() } }
+    var mainCustomIndicators: [IndicatorListItem] = [] { didSet { setNeedsReload() } }
+    var subCustomIndicators: [IndicatorListItem] = [] { didSet { setNeedsReload() } }
+
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Int, SectionItem>!
-    private var selectedMainIndicators = Set<Indicator>()
-    private var selectedSubIndicators = Set<Indicator>()
-    
+    private var needsReload = true
+    private var selectedMainIndicators = Set<IndicatorID>()
+    private var selectedSubIndicators = Set<IndicatorID>()
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         let layout = makeLayout()
@@ -48,9 +48,22 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
         reloadData()
         addSubview(collectionView)
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if needsReload {
+            needsReload = false
+            reloadData()
+        }
+    }
+
+    private func setNeedsReload() {
+        needsReload = true
+        setNeedsLayout()
     }
 
     private func makeLayout() -> UICollectionViewLayout {
@@ -79,41 +92,47 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
             }
         }, configuration: config)
     }
-    
+
     private func setupIndicatorListDataSource() {
         dataSource = .init(collectionView: collectionView, cellProvider: { collectionView, indexPath, itemIdentifier in
             switch itemIdentifier {
-            case let .main(type), let .sub(type):
+            case let .main(item), let .sub(item):
                 guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "cell", for: indexPath) as? IndicatorCell else {
                     return UICollectionViewCell()
                 }
-                cell.label.text = type.rawValue
+                cell.label.text = item.title
                 return cell
             case .separator:
                 return collectionView.dequeueReusableCell(withReuseIdentifier: "separator", for: indexPath)
             }
         })
     }
-    
+
     private func reloadData() {
 
         var snapshot = NSDiffableDataSourceSnapshot<Int, SectionItem>()
         snapshot.appendSections([0, 1, 2])
-        snapshot.appendItems(mainIndicators.map({ .main($0) }), toSection: 0)
+        snapshot.appendItems(mainItems.map({ .main($0) }), toSection: 0)
         snapshot.appendItems([.separator], toSection: 1)
-        snapshot.appendItems(subIndicators.map({ .sub($0) }), toSection: 2)
+        snapshot.appendItems(subItems.map({ .sub($0) }), toSection: 2)
         dataSource.apply(snapshot)
         applySelection(for: .mainChart)
         applySelection(for: .subChart)
     }
-    
-    func setSelectedIndicators(main: [Indicator], sub: [Indicator]) {
-        selectedMainIndicators = Set(main).intersection(mainIndicators)
-        selectedSubIndicators = Set(sub).intersection(subIndicators)
+
+    func setSelectedIndicators(main: [BuiltInIndicator], sub: [BuiltInIndicator]) {
+        setSelectedIndicators(
+            IndicatorSelectionState(mainIndicators: main, subIndicators: sub)
+        )
+    }
+
+    func setSelectedIndicators(_ state: IndicatorSelectionState) {
+        selectedMainIndicators = Set(state.main).intersection(Set(mainItems.map(\.selection)))
+        selectedSubIndicators = Set(state.sub).intersection(Set(subItems.map(\.selection)))
         applySelection(for: .mainChart)
         applySelection(for: .subChart)
     }
-    
+
     private func applySelection(for section: ChartSection) {
         guard let collectionView else { return }
         let sectionIndex = section == .mainChart ? 0 : 2
@@ -121,16 +140,16 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
         let selectedSet = section == .mainChart ? selectedMainIndicators : selectedSubIndicators
         for (idx, item) in items.enumerated() {
             switch (section, item) {
-            case (.mainChart, .main(let indicator)):
+            case (.mainChart, .main(let item)):
                 let indexPath = IndexPath(item: idx, section: sectionIndex)
-                if selectedSet.contains(indicator) {
+                if selectedSet.contains(item.selection) {
                     collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
                 } else {
                     collectionView.deselectItem(at: indexPath, animated: false)
                 }
-            case (.subChart, .sub(let indicator)):
+            case (.subChart, .sub(let item)):
                 let indexPath = IndexPath(item: idx, section: sectionIndex)
-                if selectedSet.contains(indicator) {
+                if selectedSet.contains(item.selection) {
                     collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
                 } else {
                     collectionView.deselectItem(at: indexPath, animated: false)
@@ -140,36 +159,36 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
             }
         }
     }
-    
+
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         let snapshot = dataSource.snapshot()
         let type = snapshot.itemIdentifiers(inSection: indexPath.section)[indexPath.item]
         switch type {
-        case let .main(type):
-            selectedMainIndicators.insert(type)
-            drawPublisher.send((.mainChart, type))
-        case let .sub(type):
-            selectedSubIndicators.insert(type)
-            drawPublisher.send((.subChart, type))
+        case let .main(item):
+            selectedMainIndicators.insert(item.selection)
+            onAddIndicator?(.mainChart, item.selection)
+        case let .sub(item):
+            selectedSubIndicators.insert(item.selection)
+            onAddIndicator?(.subChart, item.selection)
         default: break
         }
 
     }
-    
+
     func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
         let snapshot = dataSource.snapshot()
         let type = snapshot.itemIdentifiers(inSection: indexPath.section)[indexPath.item]
         switch type {
-        case let .main(type):
-            selectedMainIndicators.remove(type)
-            erasePublisher.send((.mainChart, type))
-        case let .sub(type):
-            selectedSubIndicators.remove(type)
-            erasePublisher.send((.subChart, type))
+        case let .main(item):
+            selectedMainIndicators.remove(item.selection)
+            onRemoveIndicator?(.mainChart, item.selection)
+        case let .sub(item):
+            selectedSubIndicators.remove(item.selection)
+            onRemoveIndicator?(.subChart, item.selection)
         default: break
         }
     }
-    
+
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         let snapshot = dataSource.snapshot()
         let type = snapshot.itemIdentifiers(inSection: indexPath.section)[indexPath.item]
@@ -178,12 +197,24 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
         }
         return true
     }
+
+    var debugTitles: (main: [String], sub: [String]) {
+        (mainItems.map(\.title), subItems.map(\.title))
+    }
+
+    private var mainItems: [IndicatorListItem] {
+        mainIndicators.map { IndicatorListItem(selection: $0.id, title: $0.rawValue) } + mainCustomIndicators
+    }
+
+    private var subItems: [IndicatorListItem] {
+        subIndicators.map { IndicatorListItem(selection: $0.id, title: $0.rawValue) } + subCustomIndicators
+    }
 }
 
 private class IndicatorCell: UICollectionViewCell {
-    
+
     let label = UILabel()
-    
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         label.font = .systemFont(ofSize: 12)
@@ -192,17 +223,17 @@ private class IndicatorCell: UICollectionViewCell {
         label.lineBreakMode = .byClipping
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         label.setContentHuggingPriority(.required, for: .horizontal)
-        
+
         contentView.addSubview(label)
         label.snp.makeConstraints { make in
             make.edges.equalTo(UIEdgeInsets(top: 0, left: 8, bottom: 0, right: 8))
         }
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     override var isSelected: Bool {
         didSet {
             label.textColor = isSelected
@@ -213,7 +244,7 @@ private class IndicatorCell: UICollectionViewCell {
             : .systemFont(ofSize: 12)
         }
     }
-    
+
     override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
         setNeedsLayout()
         layoutIfNeeded()
@@ -230,10 +261,10 @@ private class IndicatorCell: UICollectionViewCell {
 }
 
 private class SeparatorCell: UICollectionViewCell {
-    
+
     override init(frame: CGRect) {
         super.init(frame: frame)
-        
+
         let line = UIView()
         line.backgroundColor = .separator
         contentView.addSubview(line)
@@ -243,7 +274,7 @@ private class SeparatorCell: UICollectionViewCell {
             make.center.equalToSuperview()
         }
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
