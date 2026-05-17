@@ -20,7 +20,7 @@ struct ChartState {
         selectedIndex: Int? = nil,
         selectedLocation: CGPoint? = nil,
         lastError: Error? = nil,
-        indicatorSelection: IndicatorSelectionState = IndicatorSelectionState(main: [], sub: [])
+        indicatorSelection: IndicatorSelectionState = IndicatorSelectionState(mainIndicatorIDs: [], subIndicatorIDs: [])
     ) {
         self.items = items
         self.indicatorSeriesStore = indicatorSeriesStore

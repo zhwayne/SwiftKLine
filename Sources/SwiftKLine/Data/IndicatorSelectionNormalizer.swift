@@ -24,9 +24,9 @@ struct IndicatorSelectionNormalizer {
     }
 
     func normalize(_ state: IndicatorSelectionState?) -> IndicatorSelectionState {
-        let main = deduplicatedIDs(state?.main ?? [], placement: .main)
-        let sub = deduplicatedIDs(state?.sub ?? [], placement: .sub)
-        return IndicatorSelectionState(main: main, sub: sub)
+        let main = deduplicatedIDs(state?.mainIndicatorIDs ?? [], placement: .main)
+        let sub = deduplicatedIDs(state?.subIndicatorIDs ?? [], placement: .sub)
+        return IndicatorSelectionState(mainIndicatorIDs: main, subIndicatorIDs: sub)
     }
 
     func using(pluginRegistry: PluginRegistry) -> IndicatorSelectionNormalizer {

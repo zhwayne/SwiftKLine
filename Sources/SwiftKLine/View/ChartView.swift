@@ -264,7 +264,7 @@ extension ChartView {
         persistedState: IndicatorSelectionState,
         pluginRegistry: PluginRegistry
     ) -> IndicatorSelectionState {
-        if !persistedState.main.isEmpty || !persistedState.sub.isEmpty {
+        if !persistedState.mainIndicatorIDs.isEmpty || !persistedState.subIndicatorIDs.isEmpty {
             return persistedState
         }
 
@@ -276,16 +276,16 @@ extension ChartView {
         }
 
         let main = deduplicatedIDs(
-            declaredSelection.main,
+            declaredSelection.mainIndicatorIDs,
             placement: .main,
             pluginRegistry: pluginRegistry
         )
         let sub = deduplicatedIDs(
-            declaredSelection.sub,
+            declaredSelection.subIndicatorIDs,
             placement: .sub,
             pluginRegistry: pluginRegistry
         )
-        return IndicatorSelectionState(main: main, sub: sub)
+        return IndicatorSelectionState(mainIndicatorIDs: main, subIndicatorIDs: sub)
     }
 
     private func deduplicatedIDs(
@@ -488,9 +488,9 @@ extension ChartView {
         guard !selections(in: section).contains(where: { $0 == indicatorID }) else { return }
         var state = coordinator.state.indicatorSelection
         if section == .mainChart {
-            state.main.append(indicatorID)
+            state.mainIndicatorIDs.append(indicatorID)
         } else {
-            state.sub.append(indicatorID)
+            state.subIndicatorIDs.append(indicatorID)
         }
         coordinator.setIndicatorSelection(state)
         indicatorTypeView.setSelectedIndicators(coordinator.state.indicatorSelection)
@@ -504,9 +504,9 @@ extension ChartView {
         var state = coordinator.state.indicatorSelection
         let oldState = state
         if section == .mainChart {
-            state.main.removeAll { $0 == indicatorID }
+            state.mainIndicatorIDs.removeAll { $0 == indicatorID }
         } else {
-            state.sub.removeAll { $0 == indicatorID }
+            state.subIndicatorIDs.removeAll { $0 == indicatorID }
         }
         guard state != oldState else { return }
         coordinator.setIndicatorSelection(state)
@@ -518,9 +518,9 @@ extension ChartView {
     private func selections(in section: ChartSection) -> [IndicatorID] {
         switch section {
         case .mainChart:
-            return coordinator.state.indicatorSelection.main
+            return coordinator.state.indicatorSelection.mainIndicatorIDs
         case .subChart:
-            return coordinator.state.indicatorSelection.sub
+            return coordinator.state.indicatorSelection.subIndicatorIDs
         case .timeline:
             return []
         }
@@ -548,11 +548,11 @@ extension ChartView {
     }
 
     private var selectedMainIndicatorIDs: [IndicatorID] {
-        coordinator.state.indicatorSelection.main
+        coordinator.state.indicatorSelection.mainIndicatorIDs
     }
 
     private var selectedSubIndicatorIDs: [IndicatorID] {
-        coordinator.state.indicatorSelection.sub
+        coordinator.state.indicatorSelection.subIndicatorIDs
     }
     
     private func scheduleRedraw(_ mode: RedrawMode) {
@@ -569,7 +569,7 @@ extension ChartView {
     }
 
     var debugSelectedIndicators: (main: [IndicatorID], sub: [IndicatorID]) {
-        (coordinator.state.indicatorSelection.main, coordinator.state.indicatorSelection.sub)
+        (coordinator.state.indicatorSelection.mainIndicatorIDs, coordinator.state.indicatorSelection.subIndicatorIDs)
     }
 
     var debugIndicatorTypeTitles: (main: [String], sub: [String]) {
@@ -582,9 +582,9 @@ extension ChartView {
         } else {
             var state = coordinator.state.indicatorSelection
             if section == .mainChart {
-                state.main.append(indicatorID)
+                state.mainIndicatorIDs.append(indicatorID)
             } else if section == .subChart {
-                state.sub.append(indicatorID)
+                state.subIndicatorIDs.append(indicatorID)
             }
             coordinator.setIndicatorSelection(state)
             indicatorTypeView.setSelectedIndicators(coordinator.state.indicatorSelection)

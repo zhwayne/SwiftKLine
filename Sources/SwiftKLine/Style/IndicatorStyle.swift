@@ -17,16 +17,16 @@ public struct LineStyle: IndicatorStyle {
     }
 }
 
-public struct PriceIndicatorStyle: IndicatorStyle {
+struct PriceIndicatorStyle: IndicatorStyle {
     let textColor: UIColor = UIColor.label.withAlphaComponent(0.7)
     let font: UIFont = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
 }
 
-public struct TimeAxisStyle: IndicatorStyle {
+struct TimeAxisStyle: IndicatorStyle {
     let textColor: UIColor
     let font: UIFont
-    
-    public init(
+
+    init(
         textColor: UIColor = UIColor.label.withAlphaComponent(0.7),
         font: UIFont = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
     ) {
@@ -35,12 +35,12 @@ public struct TimeAxisStyle: IndicatorStyle {
     }
 }
 
-public struct TimeSeriesStyle: IndicatorStyle {
+struct TimeSeriesStyle: IndicatorStyle {
     let lineColor: UIColor
     let fillColor: UIColor
     let borderColor: UIColor
-    
-    public init(
+
+    init(
         lineColor: UIColor = .systemBlue,
         fillColor: UIColor = UIColor.systemBlue.withAlphaComponent(0.15),
         borderColor: UIColor = .systemGray3
@@ -51,13 +51,12 @@ public struct TimeSeriesStyle: IndicatorStyle {
     }
 }
 
-public struct MACDStyle: IndicatorStyle {
-    
-    public let macdColor: UIColor
-    public let difColor: UIColor
-    public let deaColor: UIColor
-    
-    public init(macdColor: UIColor, difColor: UIColor, deaColor: UIColor) {
+struct MACDStyle: IndicatorStyle {
+    let macdColor: UIColor
+    let difColor: UIColor
+    let deaColor: UIColor
+
+    init(macdColor: UIColor, difColor: UIColor, deaColor: UIColor) {
         self.macdColor = macdColor
         self.difColor = difColor
         self.deaColor = deaColor

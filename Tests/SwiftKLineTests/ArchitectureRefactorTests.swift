@@ -48,17 +48,16 @@ private struct TestChartItem: ChartItem {
 
 @Test @MainActor func chartConfigurationThemeBuildsAppearanceConfiguration() {
     let chart = ChartOptions(
-        data: .deferred,
         appearance: .theme(.midnight),
         content: .candlestick,
-        indicators: IndicatorSelectionState(main: [.ma], sub: [.vol]),
+        indicators: IndicatorSelectionState(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol]),
         features: [.liveUpdates, .gapRecovery, .indicatorPersistence],
         plugins: .default
     )
 
     #expect(chart.resolvedConfiguration.watermarkText == "SwiftKLine • Midnight")
     #expect(chart.content == .candlestick)
-    #expect(chart.indicators?.main == [.ma])
+    #expect(chart.indicators?.mainIndicatorIDs == [.ma])
     #expect(chart.features.contains(.liveUpdates))
 }
 
@@ -240,11 +239,11 @@ private final class InMemoryIndicatorSelectionStore: IndicatorSelectionStore {
     )
 
     let state = pipeline.setSelection(
-        IndicatorSelectionState(main: [.ma, "custom.closeEcho"], sub: [.vol])
+        IndicatorSelectionState(mainIndicatorIDs: [.ma, "custom.closeEcho"], subIndicatorIDs: [.vol])
     )
 
-    #expect(state.main == [.ma, "custom.closeEcho"])
-    #expect(state.sub == [.vol])
+    #expect(state.mainIndicatorIDs == [.ma, "custom.closeEcho"])
+    #expect(state.subIndicatorIDs == [.vol])
     #expect(state.mainIndicators == [.ma])
     #expect(store.savedState == state)
 }
@@ -414,7 +413,7 @@ private final class RecordingChartItemProvider: ChartItemProvider, @unchecked Se
     let registry = PluginRegistry()
     registry.register(CloseEchoPlugin())
     let chart = ChartOptions(
-        indicators: IndicatorSelectionState(main: ["custom.closeEcho"]),
+        indicators: IndicatorSelectionState(mainIndicatorIDs: ["custom.closeEcho"]),
         features: [],
         plugins: registry
     )
@@ -428,7 +427,7 @@ private final class RecordingChartItemProvider: ChartItemProvider, @unchecked Se
     let registry = PluginRegistry()
     registry.register(CloseEchoPlugin())
     let chart = ChartOptions(
-        indicators: IndicatorSelectionState(main: [], sub: []),
+        indicators: IndicatorSelectionState(mainIndicatorIDs: [], subIndicatorIDs: []),
         features: [],
         plugins: registry
     )
@@ -452,7 +451,7 @@ private final class RecordingChartItemProvider: ChartItemProvider, @unchecked Se
                 defaultSubIndicators: [.vol]
             )
         ),
-        indicators: IndicatorSelectionState(main: ["custom.closeEcho"], sub: []),
+        indicators: IndicatorSelectionState(mainIndicatorIDs: ["custom.closeEcho"], subIndicatorIDs: []),
         features: [.indicatorPersistence],
         plugins: registry
     )
@@ -462,8 +461,8 @@ private final class RecordingChartItemProvider: ChartItemProvider, @unchecked Se
 
     #expect(view.debugSelectedIndicators.main == [.ma])
     #expect(view.debugSelectedIndicators.sub == [.vol])
-    #expect(store.savedState?.main == [.ma])
-    #expect(store.savedState?.sub == [.vol])
+    #expect(store.savedState?.mainIndicatorIDs == [.ma])
+    #expect(store.savedState?.subIndicatorIDs == [.vol])
 }
 
 @Test @MainActor func drawSynchronizesCoordinatorStateWithLegacyViewFields() async {

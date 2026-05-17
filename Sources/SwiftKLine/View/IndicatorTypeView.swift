@@ -127,8 +127,8 @@ final class IndicatorTypeView: UIView, UICollectionViewDelegate {
     }
 
     func setSelectedIndicators(_ state: IndicatorSelectionState) {
-        selectedMainIndicators = Set(state.main).intersection(Set(mainItems.map(\.selection)))
-        selectedSubIndicators = Set(state.sub).intersection(Set(subItems.map(\.selection)))
+        selectedMainIndicators = Set(state.mainIndicatorIDs).intersection(Set(mainItems.map(\.selection)))
+        selectedSubIndicators = Set(state.subIndicatorIDs).intersection(Set(subItems.map(\.selection)))
         applySelection(for: .mainChart)
         applySelection(for: .subChart)
     }

@@ -21,8 +21,11 @@ public typealias RendererProvider = @MainActor (
 
     public init() {}
 
-    public func register(_ plugin: any IndicatorPlugin) {
+    @discardableResult
+    public func register(_ plugin: any IndicatorPlugin) -> (any IndicatorPlugin)? {
+        let old = pluginsByID[plugin.id]
         pluginsByID[plugin.id] = plugin
+        return old
     }
 
     public func plugin(for id: IndicatorID) -> (any IndicatorPlugin)? {
