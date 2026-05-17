@@ -184,6 +184,6 @@ private struct TestChartItem: ChartItem {
     )
 
     let maKey = SeriesKey.ma(period: 2)
-    #expect(store.values(forKey: maKey, as: Double.self)?.count == 4)
-    #expect(store.values(forKey: maKey, as: Double.self)?[1] == 1.5)
+    #expect(store.values(for: maKey, as: Double.self)?.count == 4)
+    #expect(store.values(for: maKey, as: Double.self)?[1] == 1.5)
 }

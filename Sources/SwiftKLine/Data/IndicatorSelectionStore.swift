@@ -9,29 +9,62 @@ import Foundation
 
 /// 表示主/副图指标的选择状态，可用于做持久化存储。
 public struct IndicatorSelectionState: Codable, Equatable, Sendable {
-    public var main: [IndicatorID]
-    public var sub: [IndicatorID]
+    public var mainIndicatorIDs: [IndicatorID]
+    public var subIndicatorIDs: [IndicatorID]
 
+    public init(mainIndicatorIDs: [IndicatorID] = [], subIndicatorIDs: [IndicatorID] = []) {
+        self.mainIndicatorIDs = mainIndicatorIDs
+        self.subIndicatorIDs = subIndicatorIDs
+    }
+
+    @available(*, deprecated, renamed: "init(mainIndicatorIDs:subIndicatorIDs:)")
     public init(main: [IndicatorID] = [], sub: [IndicatorID] = []) {
-        self.main = main
-        self.sub = sub
+        self.init(mainIndicatorIDs: main, subIndicatorIDs: sub)
     }
 
     public init(mainIndicators: [BuiltInIndicator] = [], subIndicators: [BuiltInIndicator] = []) {
-        self.main = mainIndicators.map(\.id)
-        self.sub = subIndicators.map(\.id)
+        self.mainIndicatorIDs = mainIndicators.map(\.id)
+        self.subIndicatorIDs = subIndicators.map(\.id)
+    }
+
+    @available(*, deprecated, renamed: "mainIndicatorIDs")
+    public var main: [IndicatorID] {
+        get { mainIndicatorIDs }
+        set { mainIndicatorIDs = newValue }
+    }
+
+    @available(*, deprecated, renamed: "subIndicatorIDs")
+    public var sub: [IndicatorID] {
+        get { subIndicatorIDs }
+        set { subIndicatorIDs = newValue }
     }
 
     public var mainIndicators: [BuiltInIndicator] {
-        main.compactMap { BuiltInIndicator(id: $0) }
+        mainIndicatorIDs.compactMap { BuiltInIndicator(id: $0) }
     }
 
     public var subIndicators: [BuiltInIndicator] {
-        sub.compactMap { BuiltInIndicator(id: $0) }
+        subIndicatorIDs.compactMap { BuiltInIndicator(id: $0) }
     }
 
     var indicatorIDs: [IndicatorID] {
-        main + sub
+        mainIndicatorIDs + subIndicatorIDs
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(mainIndicatorIDs, forKey: .main)
+        try container.encode(subIndicatorIDs, forKey: .sub)
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.mainIndicatorIDs = try container.decode([IndicatorID].self, forKey: .main)
+        self.subIndicatorIDs = try container.decode([IndicatorID].self, forKey: .sub)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case main, sub
     }
 }
 
@@ -61,39 +94,7 @@ public final class UserDefaultsIndicatorSelectionStore: IndicatorSelectionStore 
 
     public func load() -> IndicatorSelectionState? {
         guard let data = userDefaults.data(forKey: key) else { return nil }
-        do {
-            return try decoder.decode(IndicatorSelectionState.self, from: data)
-        } catch {
-            if let v1 = try? decoder.decode(LegacyV1IndicatorSelectionState.self, from: data) {
-                let migrated = IndicatorSelectionState(
-                    mainIndicators: v1.mainIndicators,
-                    subIndicators: v1.subIndicators
-                )
-                save(state: migrated)
-                return migrated
-            }
-            if let v2 = try? decoder.decode(LegacyV2IndicatorSelectionState.self, from: data) {
-                var mainIDs: [IndicatorID] = []
-                var subIDs: [IndicatorID] = []
-                for selection in v2.main {
-                    switch selection {
-                    case let .builtIn(indicator): mainIDs.append(indicator.id)
-                    case let .custom(id): mainIDs.append(id)
-                    }
-                }
-                for selection in v2.sub {
-                    switch selection {
-                    case let .builtIn(indicator): subIDs.append(indicator.id)
-                    case let .custom(id): subIDs.append(id)
-                    }
-                }
-                let migrated = IndicatorSelectionState(main: mainIDs, sub: subIDs)
-                save(state: migrated)
-                return migrated
-            }
-            userDefaults.removeObject(forKey: key)
-            return nil
-        }
+        return try? decoder.decode(IndicatorSelectionState.self, from: data)
     }
 
     public func save(state: IndicatorSelectionState) {
@@ -103,20 +104,5 @@ public final class UserDefaultsIndicatorSelectionStore: IndicatorSelectionStore 
 
     public func reset() {
         userDefaults.removeObject(forKey: key)
-    }
-
-    private struct LegacyV1IndicatorSelectionState: Codable {
-        var mainIndicators: [BuiltInIndicator]
-        var subIndicators: [BuiltInIndicator]
-    }
-
-    private enum LegacyV2IndicatorSelection: Hashable, Sendable, Codable {
-        case builtIn(BuiltInIndicator)
-        case custom(IndicatorID)
-    }
-
-    private struct LegacyV2IndicatorSelectionState: Codable {
-        var main: [LegacyV2IndicatorSelection]
-        var sub: [LegacyV2IndicatorSelection]
     }
 }

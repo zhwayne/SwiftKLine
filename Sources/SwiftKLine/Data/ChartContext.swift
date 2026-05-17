@@ -6,7 +6,7 @@ import UIKit
     let indicatorSeriesStore: IndicatorSeriesStore
     public let items: [any ChartItem]
     public let configuration: ChartConfiguration
-    public let candleDimensions: CandleDimensions
+    let candleDimensions: CandleDimensions
     public let visibleRange: Range<Int>
     public let layout: ChartLayout
     public let location: CGPoint?
@@ -15,6 +15,8 @@ import UIKit
     public internal(set) var viewPort: CGRect = .zero
     public internal(set) var legendFrame: CGRect = .zero
     public internal(set) var legendText: NSAttributedString?
+    public var candleWidth: CGFloat { candleDimensions.width }
+    public var candleGap: CGFloat { candleDimensions.gap }
 
     init(
         indicatorSeriesStore: IndicatorSeriesStore,

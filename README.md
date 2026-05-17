@@ -31,11 +31,13 @@
 
 ## 安装
 
-目前推荐直接将 `Sources/SwiftKLine` 目录添加到工程，或在 Swift Package Manager 中引用本仓库。
+直接将 `Sources/SwiftKLine` 目录添加到工程，或在 Swift Package Manager 中引用本仓库。
+> 目前项目处于早期阶段，后续版本可能包含破坏性更改，请谨慎使用。
+
 
 ## 基本使用
 
-通过 `ChartOptions` 一站式配置，`ChartView` 负责渲染：
+通过 `ChartOptions` 配置图表行为，`ChartView` 负责渲染；数据提供者通过 `loadData(using:)` 显式绑定或替换：
 
 ```swift
 import UIKit
@@ -46,8 +48,8 @@ let options = ChartOptions(
     appearance: .theme(.midnight),
     content: .candlestick,
     indicators: IndicatorSelectionState(
-        main: [.ma],
-        sub: [.vol, .macd]
+        mainIndicatorIDs: [.ma],
+        subIndicatorIDs: [.vol, .macd]
     ),
     features: [.liveUpdates, .gapRecovery, .indicatorPersistence],
     plugins: .default
@@ -60,6 +62,7 @@ view.addSubview(chartView)
 - `ChartItemProvider` 负责提供分页历史数据、按时间区间补数以及实时流。
 - 框架内置 `ChartItemLoader`，会在前后台切换时自动补齐缺失区间。
 - `loadData(using:)` 会重置当前数据、指标序列和分页状态，并启动新的 loader。
+- `ChartOptions` 负责图表装配；`loadData(using:)` 负责绑定或替换数据提供者。保留这两个步骤可以在周期切换、provider 替换和视图复用时保持行为明确。
 
 ## 切换主图样式
 
@@ -174,9 +177,18 @@ registry.registerRenderer(placement: .overlay) { _, configuration in
 let options = ChartOptions(plugins: registry)
 ```
 
+使用已存在的 `IndicatorID` 注册插件时，会替换当前 `PluginRegistry` 实例中的旧插件，并返回被替换的插件。不同 chart view 需要不同插件集合时，请使用独立的 registry 实例。
+
 ## 兼容旧 API
 
-`loadData(using:)`、`setContentStyle(_:)`、`resetIndicatorsToDefault()` 等命令式 API 仍可用。新接入建议优先使用 `ChartOptions` 一站式配置。
+`ChartOptions` 是主要图表装配对象，`ChartConfiguration` 是视觉和内置指标展示配置对象。`loadData(using:)`、`setContentStyle(_:)`、`resetIndicatorsToDefault()` 等命令式 API 仍可用。
+
+## API 命名说明
+
+- `ChartOptions` 是主要图表装配对象。
+- `ChartConfiguration` 是视觉和内置指标展示配置对象。
+- 新代码优先使用 `IndicatorSelectionState(mainIndicatorIDs:subIndicatorIDs:)`，不要优先使用 `main`/`sub` 标签。
+- `ChartItem.timestamp` 必须是 Unix 秒级时间戳；`timestampSeconds` 别名用于提高可读性。
 
 ## 自定义指标插件
 

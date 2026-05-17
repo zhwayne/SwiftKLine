@@ -30,14 +30,14 @@ import UIKit
     }
         
     @inline(__always)
-    public var contentSize: CGSize {
+    var contentSize: CGSize {
         let dims = candleDimensions
         let width = max(CGFloat(itemCount) * dims.itemWidth - dims.gap, scrollView.bounds.width)
         return CGSize(width: width, height: 0)
     }
     
     @inline(__always)
-    public var indices: Range<Int> {
+    var indices: Range<Int> {
         let dims = candleDimensions
         let contentOffset = scrollView.contentOffset
         let itemWidth = dims.itemWidth
@@ -53,7 +53,7 @@ import UIKit
     /// 获取实际可见的K线索引范围
     /// 确保索引范围在有效范围内（0到itemCount之间）
     @inline(__always)
-    public var visibleRange: Range<Int> {
+    var visibleRange: Range<Int> {
         let range = indices
         let lowerBound = min(max(range.lowerBound, 0), itemCount)
         let upperBound = max(min(range.upperBound, itemCount), 0)
@@ -61,7 +61,7 @@ import UIKit
     }
     
     @inline(__always)
-    public var frameOfVisibleRange: CGRect {
+    var frameOfVisibleRange: CGRect {
         guard !visibleRange.isEmpty else { return .zero }
         let dims = candleDimensions
         let contentOffset = scrollView.contentOffset
@@ -75,10 +75,7 @@ import UIKit
 }
 
 extension ChartLayout {
-//    public enum CoordinateSpace {
-//        case global, local
-//    }
-    
+
     @inline(__always)
     public func xPosition(at index: Int) -> CGFloat {
         let dims = candleDimensions
@@ -89,7 +86,7 @@ extension ChartLayout {
     /// - Parameter x: x轴坐标
     /// - Returns: 相对数据索引，请注意该值可能会超过可见数据范围。
     @inline(__always)
-    public func unsafeIndexInViewport(on x: CGFloat) -> Int {
+    func unsafeIndexInViewport(on x: CGFloat) -> Int {
         let dims = candleDimensions
         let itemWidth = dims.itemWidth
         guard itemWidth > 0 else { return 0 }
@@ -102,7 +99,7 @@ extension ChartLayout {
     }
     
     @inline(__always)
-    public func indexInViewport(on x: CGFloat) -> Int? {
+    func indexInViewport(on x: CGFloat) -> Int? {
         let index = unsafeIndexInViewport(on: x)
         if visibleRange.contains(index) {
             return index
