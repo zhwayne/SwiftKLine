@@ -2,42 +2,34 @@ import UIKit
 
 /// 渲染器上下文
 /// 包含渲染K线图所需的所有上下文信息
-@MainActor public final class RendererContext {
-    /// 存储指标计算结果
+@MainActor public final class ChartContext {
     let indicatorSeriesStore: IndicatorSeriesStore
-    /// K线数据数组
-    public let items: [any KLineItem]
-    /// 样式配置
-    public let configuration: KLineConfiguration
-    /// 当前可见的K线数据范围
+    public let items: [any ChartItem]
+    public let configuration: ChartConfiguration
+    public let candleDimensions: CandleDimensions
     public let visibleRange: Range<Int>
-    /// 布局信息，包含位置计算相关的方法
-    public let layout: KLineLayout
-    /// 当前长按手势坐标位置
+    public let layout: ChartLayout
     public let location: CGPoint?
-    /// 当前激活的item下标
     public let currentIndex: Int
-    /// 当前组的区域
     public internal(set) var groupFrame: CGRect = .zero
-    /// 当前渲染的区域
     public internal(set) var viewPort: CGRect = .zero
-    /// 图例的位置
     public internal(set) var legendFrame: CGRect = .zero
-    /// 图例的文本
     public internal(set) var legendText: NSAttributedString?
 
     init(
         indicatorSeriesStore: IndicatorSeriesStore,
-        items: [any KLineItem],
-        configuration: KLineConfiguration,
+        items: [any ChartItem],
+        configuration: ChartConfiguration,
+        candleDimensions: CandleDimensions,
         visibleRange: Range<Int>,
-        layout: KLineLayout,
+        layout: ChartLayout,
         location: CGPoint?,
         selectedIndex: Int?
     ) {
         self.indicatorSeriesStore = indicatorSeriesStore
         self.items = items
         self.configuration = configuration
+        self.candleDimensions = candleDimensions
         self.visibleRange = visibleRange
         self.layout = layout
         self.location = location
@@ -46,9 +38,9 @@ import UIKit
 }
 
 /// 渲染器上下文的扩展方法
-extension RendererContext {
+extension ChartContext {
 
-    public var visibleItems: ArraySlice<any KLineItem> {
+    public var visibleItems: ArraySlice<any ChartItem> {
         guard !items.isEmpty,
               visibleRange.lowerBound >= 0,
               visibleRange.upperBound <= items.count else {
@@ -77,34 +69,28 @@ extension RendererContext {
     }
 }
 
-extension RendererContext {
-    /// 读取标量指标全量序列。
-    func scalarValues(for key: KLineIndicator.Parameters) -> ContiguousArray<Double?>? {
-        indicatorSeriesStore.values(for: key.kLineSeriesKey, as: Double.self)
+extension ChartContext {
+    func scalarValues(for key: SeriesKey) -> ContiguousArray<Double?>? {
+        indicatorSeriesStore.values(for: key, as: Double.self)
     }
 
-    /// 读取标量指标可见区间序列。
-    func visibleScalarValues(for key: KLineIndicator.Parameters) -> ArraySlice<Double?>? {
+    func visibleScalarValues(for key: SeriesKey) -> ArraySlice<Double?>? {
         visibleValues(from: scalarValues(for: key))
     }
 
-    /// 读取 BOLL 指标全量序列。
-    func bollValues(for key: KLineIndicator.Parameters = .boll(period: 20, k: 2.0)) -> ContiguousArray<BOLLIndicatorValue?>? {
-        indicatorSeriesStore.values(for: key.kLineSeriesKey, as: BOLLIndicatorValue.self)
+    func bollValues(for key: SeriesKey = .boll(period: 20, k: 2.0)) -> ContiguousArray<BOLLIndicatorValue?>? {
+        indicatorSeriesStore.values(for: key, as: BOLLIndicatorValue.self)
     }
 
-    /// 读取 BOLL 指标可见区间序列。
-    func visibleBollValues(for key: KLineIndicator.Parameters = .boll(period: 20, k: 2.0)) -> ArraySlice<BOLLIndicatorValue?>? {
+    func visibleBollValues(for key: SeriesKey = .boll(period: 20, k: 2.0)) -> ArraySlice<BOLLIndicatorValue?>? {
         visibleValues(from: bollValues(for: key))
     }
 
-    /// 读取 MACD 指标全量序列。
-    func macdValues(for key: KLineIndicator.Parameters = .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)) -> ContiguousArray<MACDIndicatorValue?>? {
-        indicatorSeriesStore.values(for: key.kLineSeriesKey, as: MACDIndicatorValue.self)
+    func macdValues(for key: SeriesKey = .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)) -> ContiguousArray<MACDIndicatorValue?>? {
+        indicatorSeriesStore.values(for: key, as: MACDIndicatorValue.self)
     }
 
-    /// 读取 MACD 指标可见区间序列。
-    func visibleMacdValues(for key: KLineIndicator.Parameters = .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)) -> ArraySlice<MACDIndicatorValue?>? {
+    func visibleMacdValues(for key: SeriesKey = .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)) -> ArraySlice<MACDIndicatorValue?>? {
         visibleValues(from: macdValues(for: key))
     }
 }

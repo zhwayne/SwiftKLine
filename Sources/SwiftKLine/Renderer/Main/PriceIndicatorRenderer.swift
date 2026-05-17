@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class PriceIndicatorRenderer: KLineRenderer {
+final class PriceIndicatorRenderer: ChartRenderer {
         
     var id: some Hashable { ObjectIdentifier(PriceIndicatorRenderer.self) }
     private let style: PriceIndicatorStyle
@@ -56,7 +56,7 @@ final class PriceIndicatorRenderer: KLineRenderer {
         let visibleItems = context.visibleItems
         let layout = context.layout
         let viewPort = context.viewPort
-        let candleStyle =  context.configuration.candleStyle
+        let candleDims = context.candleDimensions
         priceLineLayer.strokeColor = style.textColor.cgColor
         highestTextLayer.foregroundColor = style.textColor.cgColor
         lowestTextLayer.foregroundColor = style.textColor.cgColor
@@ -65,8 +65,8 @@ final class PriceIndicatorRenderer: KLineRenderer {
         let priceLinePath = CGMutablePath()
         // MARK: - 最高价指示
         if let (idx, item) = visibleItems.upperBoundItem {
-            let x = layout.minX(at: idx) + candleStyle.width * 0.5
-            let y = layout.minY(for: item.high, viewPort: viewPort)
+            let x = layout.xPosition(at: idx) + candleDims.width * 0.5
+            let y = layout.yPosition(for: item.high, viewPort: viewPort)
             
             let rightSide = (x + viewPort.origin.x) < layer.bounds.midX
             let startPoint = CGPoint(x: x, y: y)
@@ -85,8 +85,8 @@ final class PriceIndicatorRenderer: KLineRenderer {
         
         // MARK: - 最低价指示
         if let (idx, item) = visibleItems.lowerBoundItem {
-            let x = layout.minX(at: idx) + candleStyle.width * 0.5
-            let y = layout.minY(for: item.low, viewPort: viewPort)
+            let x = layout.xPosition(at: idx) + candleDims.width * 0.5
+            let y = layout.yPosition(for: item.low, viewPort: viewPort)
             
             let rightSide = (x + viewPort.origin.x) < layer.bounds.midX
             let startPoint = CGPoint(x: x, y: y)
@@ -108,13 +108,13 @@ final class PriceIndicatorRenderer: KLineRenderer {
         // MARK: - 最新价指示
         if let item = context.items.last {
             let dataBounds = context.layout.dataBounds
-            let minY = layout.minY(for: dataBounds.max, viewPort: viewPort)
-            let maxY = layout.minY(for: dataBounds.min, viewPort: viewPort)
+            let minY = layout.yPosition(for: dataBounds.max, viewPort: viewPort)
+            let maxY = layout.yPosition(for: dataBounds.min, viewPort: viewPort)
             let rect = CGRectMake(0, viewPort.minY, layer.bounds.width, viewPort.height)
-            var y = layout.minY(for: item.close, viewPort: viewPort)
+            var y = layout.yPosition(for: item.close, viewPort: viewPort)
             y = min(max(y, minY), maxY)
             let index = context.items.count - context.visibleRange.lowerBound - 1
-            var x = layout.minX(at: index)
+            var x = layout.xPosition(at: index)
             if x > rect.maxX { x = 0 }
             let end = CGPoint(x: x, y: y)
             let start = CGPoint(x: rect.width, y: y)

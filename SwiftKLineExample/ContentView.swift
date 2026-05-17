@@ -24,7 +24,7 @@ enum ChartDisplayMode: String, CaseIterable, Identifiable {
 
 struct ContentView: View {
     
-    @State private var period: KLinePeriod = .oneMinute
+    @State private var period: ChartPeriod = .oneMinute
     @State private var chartMode: ChartDisplayMode = .candlestick
     
     var body: some View {
@@ -38,7 +38,7 @@ struct ContentView: View {
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 16)
                 
-                KLinePeriodPicker(period: $period)
+                ChartPeriodPicker(period: $period)
                 KLineSwiftUIView(period: period, mode: chartMode)
             }
         }

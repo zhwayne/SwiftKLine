@@ -1,5 +1,5 @@
 //
-//  KLineItemLoader.swift
+//  ChartItemLoader.swift
 //  SwiftKLine
 //
 //  Created by iya on 2025/4/13.
@@ -8,9 +8,9 @@
 import Foundation
 
 enum DataLoaderEvent {
-    case page(index: Int, items: [any KLineItem])
-    case recovery(items: [any KLineItem])
-    case liveTick(any KLineItem)
+    case page(index: Int, items: [any ChartItem])
+    case recovery(items: [any ChartItem])
+    case liveTick(any ChartItem)
     case failed(DataLoaderError)
 }
 
@@ -19,10 +19,10 @@ enum DataLoaderError: Error {
     case recovery(Error)
 }
 
-actor KLineItemLoader {
+actor ChartItemLoader {
     typealias EventHandler = @MainActor (DataLoaderEvent) -> Void
 
-    private let provider: any KLineItemProvider
+    private let provider: any ChartItemProvider
     private let eventHandler: EventHandler
     private let enablesLiveUpdates: Bool
     private let enablesGapRecovery: Bool
@@ -37,7 +37,7 @@ actor KLineItemLoader {
     private var isRecovering = false
 
     init(
-        provider: some KLineItemProvider,
+        provider: some ChartItemProvider,
         enablesLiveUpdates: Bool = true,
         enablesGapRecovery: Bool = true,
         eventHandler: @escaping EventHandler
@@ -122,7 +122,7 @@ actor KLineItemLoader {
         defer { isLoading = false }
 
         do {
-            let items = try await provider.fetchKLineItems(forPage: currentPage)
+            let items = try await provider.fetchChartItems(forPage: currentPage)
             guard !Task.isCancelled else { return }
             guard !items.isEmpty else {
                 hasMorePages = false
@@ -162,7 +162,7 @@ actor KLineItemLoader {
 
         do {
             let startDate = Date(timeIntervalSince1970: TimeInterval(timestamp))
-            let missing = try await provider.fetchKLineItems(from: startDate, to: Date())
+            let missing = try await provider.fetchChartItems(from: startDate, to: Date())
             guard !Task.isCancelled else { return }
             if !missing.isEmpty {
                 await eventHandler(.recovery(items: missing))

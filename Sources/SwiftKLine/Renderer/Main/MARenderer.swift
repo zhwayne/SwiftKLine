@@ -9,9 +9,9 @@ import UIKit
 
 /// 移动平均线(MA)渲染器
 /// 负责计算和绘制K线图上的移动平均线
-final class MARenderer: KLineRenderer {
+final class MARenderer: ChartRenderer {
     private struct ID: Hashable {
-        let indicator: KLineIndicator
+        let indicator: BuiltInIndicator
         let periods: [Int]
     }
 
@@ -43,20 +43,19 @@ final class MARenderer: KLineRenderer {
     }
     
     func draw(in layer: CALayer, context: Context) {
-        // 获取K线样式配置
-        let klineConfig = context.configuration
-        let candleStyle = klineConfig.candleStyle
+        let configuration = context.configuration
+        let candleDims = context.candleDimensions
         let layout = context.layout
-        let candleHalfWidth = candleStyle.width * 0.5
-        let itemWidth = candleStyle.width + candleStyle.gap
+        let candleHalfWidth = candleDims.width * 0.5
+        let itemWidth = candleDims.itemWidth
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         
         zip(periods, lineLayers).forEach { period, lineLayer in
-            let key = KLineIndicator.Parameters.ma(period)
+            let key = SeriesKey.ma(period: period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 return
             }
-            let style = klineConfig.indicatorStyle(for: key, type: LineStyle.self)
+            let style = configuration.indicatorStyle(for: key, type: LineStyle.self)
             lineLayer.strokeColor = style?.strokeColor.cgColor
             
             let path = CGMutablePath()
@@ -64,7 +63,7 @@ final class MARenderer: KLineRenderer {
             for (idx, value) in visibleValues.enumerated() {
                 guard let value else { continue }
                 let x = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
-                let y = layout.minY(for: value, viewPort: context.viewPort)
+                let y = layout.yPosition(for: value, viewPort: context.viewPort)
                 let point = CGPoint(x: x, y: y)
                 if hasStartPoint {
                     path.addLine(to: point)
@@ -79,7 +78,7 @@ final class MARenderer: KLineRenderer {
     
     func legend(context: Context) -> NSAttributedString? {
         return periods.reduce(NSMutableAttributedString()) { partialResult, period in
-            let key = KLineIndicator.Parameters.ma(period)
+            let key = SeriesKey.ma(period: period)
             let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
             guard let values = context.scalarValues(for: key), !values.isEmpty,
                   context.currentIndex >= 0,
@@ -102,7 +101,7 @@ final class MARenderer: KLineRenderer {
     func dataBounds(context: Context) -> ValueBounds {
         var bounds = ValueBounds.empty
         for period in periods {
-            let key = KLineIndicator.Parameters.ma(period)
+            let key = SeriesKey.ma(period: period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 continue
             }

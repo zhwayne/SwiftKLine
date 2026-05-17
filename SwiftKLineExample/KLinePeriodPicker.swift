@@ -1,5 +1,5 @@
 //
-//  KLinePeriodPicker.swift
+//  ChartPeriodPicker.swift
 //  SwiftKLineExample
 //
 //  Created by iya on 2025/4/13.
@@ -8,11 +8,11 @@
 import SwiftUI
 import SwiftKLine
 
-struct KLinePeriodPicker: View {
+struct ChartPeriodPicker: View {
     
-    @Binding var period: KLinePeriod
+    @Binding var period: ChartPeriod
     
-    private let allPeriods: [(KLinePeriod, String)] = [
+    private let allPeriods: [(ChartPeriod, String)] = [
         (.oneMinute, "1分"),
         (.threeMinutes, "3分"),
         (.fiveMinutes, "5分"),

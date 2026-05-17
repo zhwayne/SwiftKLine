@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class XAxisRenderer: KLineRenderer {
+final class XAxisRenderer: ChartRenderer {
     
     var id: some Hashable { ObjectIdentifier(XAxisRenderer.self) }
     private let lineLayer = CAShapeLayer()

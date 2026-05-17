@@ -48,7 +48,7 @@ struct LegendCache<Key: Hashable> {
     @MainActor
     static func makeLegendText(
         for renderers: [AnyRenderer],
-        context: RendererContext
+        context: ChartContext
     ) -> NSMutableAttributedString {
         let legendText = NSMutableAttributedString()
         for renderer in renderers {

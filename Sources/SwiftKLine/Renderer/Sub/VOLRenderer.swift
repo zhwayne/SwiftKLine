@@ -7,14 +7,14 @@
 
 import UIKit
 
-final class VOLRenderer: KLineRenderer, LegendUpdatable {
+final class VOLRenderer: ChartRenderer, LegendUpdatable {
     
     private let risingLayer = CAShapeLayer()
     private let fallingLayer = CAShapeLayer()
     private let legendLayer = CATextLayer()
     private let volumeFormatter = VolumeFormatter()
     
-    var id: some Hashable { KLineIndicator.vol }
+    var id: some Hashable { BuiltInIndicator.vol }
         
     init() {
         risingLayer.lineWidth = 1
@@ -40,7 +40,7 @@ final class VOLRenderer: KLineRenderer, LegendUpdatable {
     }
     
     func draw(in layer: CALayer, context: Context) {
-        let candleStyle = context.configuration.candleStyle
+        let candleDims = context.candleDimensions
         let layout = context.layout
         let viewPort = context.viewPort
         let visibleItems = context.visibleItems
@@ -55,14 +55,14 @@ final class VOLRenderer: KLineRenderer, LegendUpdatable {
         
         let upPath = CGMutablePath()
         let downPath = CGMutablePath()
-        let itemWidth = candleStyle.width + candleStyle.gap
+        let itemWidth = candleDims.itemWidth
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         for (idx, item) in visibleItems.enumerated() {
             // 计算 x 坐标
             let x = CGFloat(idx) * itemWidth + visibleMinX
-            let y = layout.minY(for: item.volume, viewPort: viewPort)
+            let y = layout.yPosition(for: item.volume, viewPort: viewPort)
             let height = viewPort.maxY - y
-            let rect = CGRect(x: x, y: y, width: candleStyle.width, height: height)
+            let rect = CGRect(x: x, y: y, width: candleDims.width, height: height)
             let trend = item.trend
             let candlePath = trend == .falling ? downPath : upPath
             candlePath.addRect(rect)

@@ -17,7 +17,7 @@ struct BOLLIndicatorValue {
 }
 
 /// BOLL 指标计算器
-struct BOLLCalculator: KLineIndicatorCalculator {
+struct BOLLCalculator: IndicatorCalculator {
     typealias Value = BOLLIndicatorValue
     
     /// 计算周期（常用 20）
@@ -34,7 +34,7 @@ struct BOLLCalculator: KLineIndicatorCalculator {
         self.k = k
     }
 
-    func calculate(for items: [any KLineItem]) -> [BOLLIndicatorValue?] {
+    func calculate(for items: [any ChartItem]) -> [BOLLIndicatorValue?] {
         guard period > 0, items.count >= period else {
             return Array(repeating: nil, count: items.count)
         }

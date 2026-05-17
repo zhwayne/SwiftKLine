@@ -7,13 +7,13 @@
 
 import UIKit
 
-final class SARRenderer: KLineRenderer {
+final class SARRenderer: ChartRenderer {
     
     private let priceFormatter = PriceFormatter()
     
     private let rectLayer = CAShapeLayer()
 
-    var id: some Hashable { KLineIndicator.sar }
+    var id: some Hashable { BuiltInIndicator.sar }
 
     init() {
         rectLayer.lineWidth = 1
@@ -29,27 +29,26 @@ final class SARRenderer: KLineRenderer {
     }
     
     func draw(in layer: CALayer, context: Context) {
-        // 获取K线样式配置
-        let klineConfig = context.configuration
-        let candleStyle = klineConfig.candleStyle
+        let configuration = context.configuration
+        let candleDims = context.candleDimensions
         let layout = context.layout
 
-        let key = KLineIndicator.Parameters.sar
+        let key = SeriesKey.sar
         guard let visibleValues = context.visibleScalarValues(for: key) else {
             return
         }
-        let style = klineConfig.indicatorStyle(for: key, type: LineStyle.self)
+        let style = configuration.indicatorStyle(for: key, type: LineStyle.self)
         rectLayer.strokeColor = style?.strokeColor.cgColor
         
-        let itemWidth = candleStyle.width + candleStyle.gap
-        let candleHalfWidth = candleStyle.width * 0.5
+        let itemWidth = candleDims.itemWidth
+        let candleHalfWidth = candleDims.width * 0.5
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
 
         let path = CGMutablePath()
         for (idx, value) in visibleValues.enumerated() {
             guard let value else { continue }
             let x = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
-            let y = layout.minY(for: value, viewPort: context.viewPort)
+            let y = layout.yPosition(for: value, viewPort: context.viewPort)
             let rect = CGRect(x: x - 2, y: y - 2, width: 4, height: 4)
             path.addRect(rect)
         }
@@ -57,7 +56,7 @@ final class SARRenderer: KLineRenderer {
     }
     
     func legend(context: Context) -> NSAttributedString? {
-        let key = KLineIndicator.Parameters.sar
+        let key = SeriesKey.sar
         let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
         guard let values = context.scalarValues(for: key), !values.isEmpty,
               context.currentIndex >= 0,

@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct SARCalculator: KLineIndicatorCalculator {
+struct SARCalculator: IndicatorCalculator {
     typealias Value = Double
     var id: SeriesKey {
         SeriesKey(indicatorID: IndicatorID("builtin.sar"), name: "SAR")
@@ -30,7 +30,7 @@ struct SARCalculator: KLineIndicatorCalculator {
         self.afMax = afMax
     }
     
-    public func calculate(for items: [any KLineItem]) -> [Double?] {
+    public func calculate(for items: [any ChartItem]) -> [Double?] {
         guard items.count >= 2 else {
             return Array(repeating: nil, count: items.count)
         }

@@ -8,7 +8,7 @@
 import UIKit
 
 /// Responsible for drawing the horizontal time axis labels and separators.
-final class TimeAxisRenderer: KLineRenderer {
+final class TimeAxisRenderer: ChartRenderer {
     
     var id: some Hashable { ObjectIdentifier(TimeAxisRenderer.self) }
     private let style: TimeAxisStyle
@@ -65,7 +65,7 @@ final class TimeAxisRenderer: KLineRenderer {
             let label = textLayers[idx]
             let positionX = CGFloat(idx) * labelWidth
             
-            if let index = layout.indexInViewPort(on: positionX), index < items.count {
+            if let index = layout.indexInViewport(on: positionX), index < items.count {
                 let item = items[index]
                 let date = Date(timeIntervalSince1970: TimeInterval(item.timestamp))
                 let timeString = dateFormatter.string(from: date)

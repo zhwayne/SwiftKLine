@@ -37,11 +37,11 @@ class MarkView: UIView {
         }
     }
     
-    var item: (any KLineItem)? {
+    var item: (any ChartItem)? {
         didSet { update() }
     }
     
-    private let configuration: KLineConfiguration
+    private let configuration: ChartConfiguration
     private let stackView = UIStackView()
     private let dateLabel = ItemLabel()
     private let openingLabel = ItemLabel()
@@ -57,7 +57,7 @@ class MarkView: UIView {
     private let volumeFormatter = VolumeFormatter()
     private let priceFormatter = PriceFormatter()
     
-    init(configuration: KLineConfiguration) {
+    init(configuration: ChartConfiguration) {
         self.configuration = configuration
         super.init(frame: .zero)
         // TODO: 根据周期改变format
@@ -95,7 +95,7 @@ class MarkView: UIView {
     }
     
     override convenience init(frame: CGRect) {
-        self.init(configuration: KLineConfiguration())
+        self.init(configuration: ChartConfiguration())
     }
     
     required init?(coder: NSCoder) {
@@ -104,7 +104,7 @@ class MarkView: UIView {
     
     private func update() {
         guard let item else { return }
-        let klineConfig = configuration
+        let configuration = configuration
         // 时间
         dateLabel.titleLabel.text = "时间"
         let date = Date(timeIntervalSince1970: TimeInterval(item.timestamp))
@@ -133,8 +133,8 @@ class MarkView: UIView {
             var prefix = changeRateString.hasPrefix("-") ? "" : "+"
             changeRateLabel.detailLabel.text = prefix + changeRateString + "%"
             changeRateLabel.detailLabel.textColor = item.trend == .rising
-            ? klineConfig.candleStyle.risingColor
-            : klineConfig.candleStyle.fallingColor
+            ? configuration.candleStyle.risingColor
+            : configuration.candleStyle.fallingColor
         } else {
             changeRateLabel.detailLabel.text = "--"
             changeRateLabel.detailLabel.textColor = .secondaryLabel
@@ -147,8 +147,8 @@ class MarkView: UIView {
             let prefix = amplitudeString.hasPrefix("-") ? "" : "+"
             amplitudeLabel.detailLabel.text = prefix + amplitudeString + "%"
             amplitudeLabel.detailLabel.textColor = item.trend == .rising
-            ? klineConfig.candleStyle.risingColor
-            : klineConfig.candleStyle.fallingColor
+            ? configuration.candleStyle.risingColor
+            : configuration.candleStyle.fallingColor
         } else {
             amplitudeLabel.detailLabel.text = "--"
             amplitudeLabel.detailLabel.textColor = .secondaryLabel

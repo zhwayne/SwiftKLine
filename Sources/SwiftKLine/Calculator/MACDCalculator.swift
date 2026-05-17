@@ -18,7 +18,7 @@ struct MACDIndicatorValue {
 }
 
 /// MACD 计算器
-struct MACDCalculator: KLineIndicatorCalculator {
+struct MACDCalculator: IndicatorCalculator {
     typealias Value = MACDIndicatorValue
     let shortPeriod: Int
     let longPeriod: Int
@@ -41,7 +41,7 @@ struct MACDCalculator: KLineIndicatorCalculator {
         self.signalPeriod = signalPeriod
     }
     
-    func calculate(for items: [any KLineItem]) -> [MACDIndicatorValue?] {
+    func calculate(for items: [any ChartItem]) -> [MACDIndicatorValue?] {
         // 至少需要足够的数据来计算长期 EMA
         guard items.count >= longPeriod else { return Array(repeating: nil, count: items.count) }
         

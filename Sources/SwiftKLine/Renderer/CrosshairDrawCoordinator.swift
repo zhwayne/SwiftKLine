@@ -14,7 +14,7 @@ struct CrosshairDrawCoordinator {
         renderer: CrosshairRenderer?,
         descriptor: ChartDescriptor,
         canvas: CALayer,
-        context: RendererContext,
+        context: ChartContext,
         at location: CGPoint
     ) -> Bool {
         guard let renderer,

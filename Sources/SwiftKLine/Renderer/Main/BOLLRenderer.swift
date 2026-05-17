@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class BOLLRenderer: KLineRenderer {
+final class BOLLRenderer: ChartRenderer {
     
     private let priceFormatter = PriceFormatter()
     
@@ -16,10 +16,10 @@ final class BOLLRenderer: KLineRenderer {
     private let lowerLayer = CAShapeLayer()
     private let areaLayer = CAShapeLayer()
 
-    var id: some Hashable { KLineIndicator.boll }
-    let key: KLineIndicator.Parameters
+    var id: some Hashable { BuiltInIndicator.boll }
+    let key: SeriesKey
 
-    init(key: KLineIndicator.Parameters) {
+    init(key: SeriesKey) {
         self.key = key
         upperLayer.lineWidth = 1
         upperLayer.fillColor = UIColor.clear.cgColor
@@ -45,9 +45,8 @@ final class BOLLRenderer: KLineRenderer {
     }
     
     func draw(in layer: CALayer, context: Context) {
-        // 获取K线样式配置
-        let klineConfig = context.configuration
-        let candleStyle = klineConfig.candleStyle
+        let configuration = context.configuration
+        let candleDims = context.candleDimensions
         let layout = context.layout
         
         guard let visibleValues = context.visibleBollValues(for: key) else {
@@ -59,8 +58,8 @@ final class BOLLRenderer: KLineRenderer {
         lowerLayer.strokeColor = style?.strokeColor.cgColor
         areaLayer.fillColor =  style?.strokeColor.withAlphaComponent(0.05).cgColor
         
-        let itemWidth = candleStyle.width + candleStyle.gap
-        let candleHalfWidth = candleStyle.width * 0.5
+        let itemWidth = candleDims.itemWidth
+        let candleHalfWidth = candleDims.width * 0.5
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
 
         // 绘制上柜和下轨
@@ -71,9 +70,9 @@ final class BOLLRenderer: KLineRenderer {
         for (idx, value) in visibleValues.enumerated() {
             guard let value else { continue }
             let x = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
-            let upperY = layout.minY(for: value.upper, viewPort: context.viewPort)
-            let middleY = layout.minY(for: value.middle, viewPort: context.viewPort)
-            let lowerY = layout.minY(for: value.lower, viewPort: context.viewPort)
+            let upperY = layout.yPosition(for: value.upper, viewPort: context.viewPort)
+            let middleY = layout.yPosition(for: value.middle, viewPort: context.viewPort)
+            let lowerY = layout.yPosition(for: value.lower, viewPort: context.viewPort)
             if idx > 0 {
                 areaPath.addLine(to: CGPoint(x: x, y: upperY))
                 upperPath.addLine(to: CGPoint(x: x, y: upperY))
@@ -88,7 +87,7 @@ final class BOLLRenderer: KLineRenderer {
         }
         for (idx, value) in visibleValues.enumerated().reversed() {
             guard let value else { continue }
-            let lowerY = layout.minY(for: value.lower, viewPort: context.viewPort)
+            let lowerY = layout.yPosition(for: value.lower, viewPort: context.viewPort)
             let x = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
             areaPath.addLine(to: CGPoint(x: x, y: lowerY))
         }

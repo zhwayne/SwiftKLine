@@ -9,7 +9,7 @@ import UIKit
 
 /// Renders a high-performance intraday time series line with optional fill.
 @MainActor
-final class TimeSeriesRenderer: KLineRenderer {
+final class TimeSeriesRenderer: ChartRenderer {
     
     var id: some Hashable { ObjectIdentifier(TimeSeriesRenderer.self) }
     private var style: TimeSeriesStyle
@@ -145,9 +145,9 @@ private extension TimeSeriesRenderer {
             fillLayer.path = nil
             return
         }
-        let candleStyle = context.configuration.candleStyle
-        let candleHalfWidth = candleStyle.width * 0.5
-        let itemWidth = candleStyle.width + candleStyle.gap
+        let candleDims = context.candleDimensions
+        let candleHalfWidth = candleDims.width * 0.5
+        let itemWidth = candleDims.itemWidth
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         let linePath = CGMutablePath()
         let fillPath = CGMutablePath()
@@ -155,7 +155,7 @@ private extension TimeSeriesRenderer {
         var lastPoint: CGPoint?
         for (idx, item) in visibleItems.enumerated() {
             let centerX = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
-            let priceY = layout.minY(for: item.close, viewPort: viewPort)
+            let priceY = layout.yPosition(for: item.close, viewPort: viewPort)
             let point = CGPoint(x: centerX, y: priceY)
             if let _ = firstPoint {
                 linePath.addLine(to: point)

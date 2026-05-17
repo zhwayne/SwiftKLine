@@ -1,6 +1,6 @@
 import Foundation
 
-extension KLineIndicatorCalculator {
+extension IndicatorCalculator {
     func eraseToAnyIndicatorCalculator() -> AnyIndicatorCalculator {
         AnyIndicatorCalculator(self)
     }

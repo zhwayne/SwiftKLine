@@ -1,9 +1,7 @@
-//
 //  DescriptorFactory.swift
 //  SwiftKLine
 //
 //  Created by zhwayne on 2026/4/27.
-//
 
 import CoreGraphics
 
@@ -14,7 +12,7 @@ struct DescriptorFactory {
         mainIndicatorIDs: [IndicatorID],
         subIndicatorIDs: [IndicatorID],
         customRenderers: [AnyRenderer],
-        configuration: KLineConfiguration,
+        configuration: ChartConfiguration,
         layoutMetrics: LayoutMetrics,
         registry: PluginRegistry = .default
     ) -> ChartDescriptor {
@@ -31,24 +29,12 @@ struct DescriptorFactory {
                 } else {
                     CandleRenderer()
                     for id in mainIndicatorIDs {
-                        if let plugin = registry.plugin(for: id) {
-                            for renderer in plugin.makeRenderers(configuration: configuration).map({ $0.eraseToAnyRenderer() }) {
-                                renderer
-                            }
-                        }
-                        for renderer in registry.renderers(for: .mainIndicator(id), configuration: configuration) {
-                            renderer
-                        }
+                        registry.pluginRenderers(for: id, configuration: configuration)
+                        registry.renderers(for: .mainIndicator(id), configuration: configuration)
                     }
-                    for renderer in customRenderers {
-                        renderer
-                    }
-                    for renderer in registry.renderers(for: .main, configuration: configuration) {
-                        renderer
-                    }
-                    for renderer in registry.renderers(for: .overlay, configuration: configuration) {
-                        renderer
-                    }
+                    customRenderers
+                    registry.renderers(for: .main, configuration: configuration)
+                    registry.renderers(for: .overlay, configuration: configuration)
                     YAxisRenderer()
                     PriceIndicatorRenderer(style: PriceIndicatorStyle())
                 }
@@ -65,14 +51,8 @@ struct DescriptorFactory {
             for id in subIndicatorIDs {
                 RendererGroup(chartSection: .subChart, height: layoutMetrics.indicatorHeight) {
                     XAxisRenderer()
-                    for renderer in registry.renderers(for: .sub(id), configuration: configuration) {
-                        renderer
-                    }
-                    if let plugin = registry.plugin(for: id) {
-                        for renderer in plugin.makeRenderers(configuration: configuration).map({ $0.eraseToAnyRenderer() }) {
-                            renderer
-                        }
-                    }
+                    registry.renderers(for: .sub(id), configuration: configuration)
+                    registry.pluginRenderers(for: id, configuration: configuration)
                 }
             }
         }
@@ -80,17 +60,17 @@ struct DescriptorFactory {
 
     func makeDescriptor(
         contentStyle: ChartType,
-        mainIndicators: [KLineIndicator],
-        subIndicators: [KLineIndicator],
+        mainIndicators: [BuiltInIndicator],
+        subIndicators: [BuiltInIndicator],
         customRenderers: [AnyRenderer],
-        configuration: KLineConfiguration,
+        configuration: ChartConfiguration,
         layoutMetrics: LayoutMetrics,
         registry: PluginRegistry = .default
     ) -> ChartDescriptor {
         makeDescriptor(
             contentStyle: contentStyle,
-            mainIndicatorIDs: mainIndicators.map(\.kLineID),
-            subIndicatorIDs: subIndicators.map(\.kLineID),
+            mainIndicatorIDs: mainIndicators.map(\.id),
+            subIndicatorIDs: subIndicators.map(\.id),
             customRenderers: customRenderers,
             configuration: configuration,
             layoutMetrics: layoutMetrics,

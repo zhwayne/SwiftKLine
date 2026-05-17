@@ -1,5 +1,5 @@
 //
-//  KLineLayout.swift
+//  ChartLayout.swift
 //  SwiftKLine
 //
 //  Created by iya on 2025/4/19.
@@ -8,56 +8,43 @@
 import UIKit
 
 /// 负责处理K线图布局相关的计算
-@MainActor public final class KLineLayout {
-    /// 承载K线图的滚动视图
+@MainActor public final class ChartLayout {
     let scrollView: ChartScrollView
     
-    /// K线数据总数量
     var itemCount: Int = 0 {
         didSet { updateContentSize() }
     }
     
-    /// 当前可见范围内的数值范围
     public internal(set)
     var dataBounds: ValueBounds = .empty
     
-    private let klineConfig: KLineConfiguration
+    var candleDimensions: CandleDimensions
         
-    init(scrollView: ChartScrollView, configuration: KLineConfiguration) {
+    init(scrollView: ChartScrollView, candleDimensions: CandleDimensions) {
         self.scrollView = scrollView
-        self.klineConfig = configuration
+        self.candleDimensions = candleDimensions
     }
     
     func updateContentSize() {
         scrollView.contentSize = contentSize
     }
-    
-    /// K线样式配置
-    private var candleStyle: CandleStyle { klineConfig.candleStyle }
         
-    /// 计算内容大小
-    /// 根据K线数量和样式计算滚动视图的contentSize
     @inline(__always)
     public var contentSize: CGSize {
-        let itemWidth = candleStyle.width + candleStyle.gap
-        let width = max(CGFloat(itemCount) * itemWidth - candleStyle.gap, scrollView.bounds.width)
+        let dims = candleDimensions
+        let width = max(CGFloat(itemCount) * dims.itemWidth - dims.gap, scrollView.bounds.width)
         return CGSize(width: width, height: 0)
     }
     
-    /// 计算需要绘制的K线索引范围
-    /// 根据当前滚动位置计算出需要绘制的K线起始和结束索引
     @inline(__always)
     public var indices: Range<Int> {
+        let dims = candleDimensions
         let contentOffset = scrollView.contentOffset
-        let itemWidth = candleStyle.width + candleStyle.gap
+        let itemWidth = dims.itemWidth
         guard itemWidth > 0 else { return 0..<0 }
-        // 计算起始索引
         let startIndex = Int(floor(contentOffset.x / itemWidth))
-        // 计算偏移量
-        let offset = CGFloat(startIndex) * (itemWidth) - contentOffset.x
-        // 计算可见区域宽度
+        let offset = CGFloat(startIndex) * itemWidth - contentOffset.x
         let width = scrollView.frame.width + abs(min(0, offset))
-        // 计算需要绘制的K线数量
         let itemCountToBeDrawn = Int(ceil(width / itemWidth))
         guard startIndex < itemCount else { return 0..<0 }
         return startIndex..<(startIndex + itemCountToBeDrawn)
@@ -73,41 +60,38 @@ import UIKit
         return lowerBound..<upperBound
     }
     
-    /// 计算可见范围在视图中的框架
     @inline(__always)
     public var frameOfVisibleRange: CGRect {
         guard !visibleRange.isEmpty else { return .zero }
+        let dims = candleDimensions
         let contentOffset = scrollView.contentOffset
         let lowerBound = CGFloat(visibleRange.lowerBound)
         let upperBound = CGFloat(visibleRange.upperBound)
-        let itemWidth = candleStyle.width + candleStyle.gap
-        let offset = lowerBound * (itemWidth) - contentOffset.x
-        let width = (upperBound - lowerBound) * itemWidth
+        let offset = lowerBound * dims.itemWidth - contentOffset.x
+        let width = (upperBound - lowerBound) * dims.itemWidth
         let height = scrollView.frame.height
         return CGRect(x: offset, y: 0, width: width, height: height)
     }
 }
 
-extension KLineLayout {
+extension ChartLayout {
 //    public enum CoordinateSpace {
 //        case global, local
 //    }
     
-    /// 计算指定索引位置的x坐标
-    /// - Parameter index: K线数据索引
-    /// - Returns: 对应的x坐标
     @inline(__always)
-    public func minX(at index: Int) -> CGFloat {
-        let itemWidth = candleStyle.width + candleStyle.gap
-        return CGFloat(index) * itemWidth + frameOfVisibleRange.minX
+    public func xPosition(at index: Int) -> CGFloat {
+        let dims = candleDimensions
+        return CGFloat(index) * dims.itemWidth + frameOfVisibleRange.minX
     }
     
     /// 根据x坐标计算对应的相对数据索引
     /// - Parameter x: x轴坐标
     /// - Returns: 相对数据索引，请注意该值可能会超过可见数据范围。
     @inline(__always)
-    public func unsafeIndexInViewPort(on x: CGFloat) -> Int {
-        let itemWidth = candleStyle.width + candleStyle.gap
+    public func unsafeIndexInViewport(on x: CGFloat) -> Int {
+        let dims = candleDimensions
+        let itemWidth = dims.itemWidth
         guard itemWidth > 0 else { return 0 }
         let viewPort = frameOfVisibleRange
         var index = Int(floor((x - viewPort.minX) / itemWidth))
@@ -118,8 +102,8 @@ extension KLineLayout {
     }
     
     @inline(__always)
-    public func indexInViewPort(on x: CGFloat) -> Int? {
-        let index = unsafeIndexInViewPort(on: x)
+    public func indexInViewport(on x: CGFloat) -> Int? {
+        let index = unsafeIndexInViewport(on: x)
         if visibleRange.contains(index) {
             return index
         }
@@ -127,7 +111,7 @@ extension KLineLayout {
     }
 }
 
-extension KLineLayout {
+extension ChartLayout {
     
     /// // 将数据值映射到图表高度上的位置。
     /// - Parameters:
@@ -135,7 +119,7 @@ extension KLineLayout {
     ///   - drawRect: 绘制区域
     /// - Returns: 映射后的 y 坐标。
     @inline(__always)
-    public func minY(for value: Double, viewPort: CGRect) -> CGFloat {
+    public func yPosition(for value: Double, viewPort: CGRect) -> CGFloat {
         let value = CGFloat(value)
         guard dataBounds.distance > 0 else { return 0 }
         // 表示数据值在最小值和最大值之间的归一化比例。
@@ -157,22 +141,22 @@ extension KLineLayout {
     }
 }
 
-extension KLineLayout {
+extension ChartLayout {
     
-    func niceValues(in viewPort: CGRect, groupFrame: CGRect) -> [(value: Double, y: CGFloat)] {
+    func gridValues(in viewPort: CGRect, groupFrame: CGRect) -> [(value: Double, y: CGFloat)] {
         let (stepSize, _) = determineNiceGridSteps(maxLines: 7)
         guard stepSize > 0 else { return [(0, 0)] }
-        var niceValues = [(Double, CGFloat)]()
+        var gridValues = [(Double, CGFloat)]()
         var value = floor(dataBounds.min / stepSize) * stepSize
-        var y = minY(for: value, viewPort: viewPort)
+        var y = yPosition(for: value, viewPort: viewPort)
         while y > groupFrame.minY {
             if y < groupFrame.maxY {
-                niceValues.append((value, y))
+                gridValues.append((value, y))
             }
             value += stepSize
-            y = self.minY(for: value, viewPort: viewPort)
+            y = self.yPosition(for: value, viewPort: viewPort)
         }
-        return niceValues
+        return gridValues
     }
     
     private func determineNiceGridSteps(maxLines: Int) -> (step: Double, count: Int) {

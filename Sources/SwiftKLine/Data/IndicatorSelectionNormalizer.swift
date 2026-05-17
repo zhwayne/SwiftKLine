@@ -9,13 +9,13 @@ import Foundation
 
 @MainActor
 struct IndicatorSelectionNormalizer {
-    private let availableMain: Set<KLineIndicator>
-    private let availableSub: Set<KLineIndicator>
+    private let availableMain: Set<BuiltInIndicator>
+    private let availableSub: Set<BuiltInIndicator>
     private let pluginRegistry: PluginRegistry
 
     init(
-        availableMain: [KLineIndicator],
-        availableSub: [KLineIndicator],
+        availableMain: [BuiltInIndicator],
+        availableSub: [BuiltInIndicator],
         pluginRegistry: PluginRegistry = .default
     ) {
         self.availableMain = Set(availableMain)
@@ -24,8 +24,8 @@ struct IndicatorSelectionNormalizer {
     }
 
     func normalize(_ state: IndicatorSelectionState?) -> IndicatorSelectionState {
-        let main = deduplicatedSelections(state?.main ?? [], placement: .main)
-        let sub = deduplicatedSelections(state?.sub ?? [], placement: .sub)
+        let main = deduplicatedIDs(state?.main ?? [], placement: .main)
+        let sub = deduplicatedIDs(state?.sub ?? [], placement: .sub)
         return IndicatorSelectionState(main: main, sub: sub)
     }
 
@@ -37,28 +37,26 @@ struct IndicatorSelectionNormalizer {
         )
     }
 
-    private func deduplicatedSelections(
-        _ selections: [IndicatorSelection],
+    private func deduplicatedIDs(
+        _ ids: [IndicatorID],
         placement: IndicatorPlacement
-    ) -> [IndicatorSelection] {
+    ) -> [IndicatorID] {
         var seen = Set<IndicatorID>()
-        var result: [IndicatorSelection] = []
-        for selection in selections {
-            guard isValid(selection, placement: placement), !seen.contains(selection.id) else { continue }
-            result.append(selection)
-            seen.insert(selection.id)
+        var result: [IndicatorID] = []
+        for id in ids {
+            guard isValid(id, placement: placement), !seen.contains(id) else { continue }
+            result.append(id)
+            seen.insert(id)
         }
         return result
     }
 
-    private func isValid(_ selection: IndicatorSelection, placement: IndicatorPlacement) -> Bool {
-        switch selection {
-        case let .builtIn(indicator):
+    private func isValid(_ id: IndicatorID, placement: IndicatorPlacement) -> Bool {
+        if let builtIn = BuiltInIndicator(id: id) {
             let validSet = placement == .sub ? availableSub : availableMain
-            return validSet.contains(indicator)
-        case let .custom(id):
-            guard let plugin = pluginRegistry.plugin(for: id) else { return false }
-            return plugin.placement == placement || (plugin.placement == .overlay && placement == .main)
+            return validSet.contains(builtIn)
         }
+        guard let plugin = pluginRegistry.plugin(for: id) else { return false }
+        return plugin.placement == placement || (plugin.placement == .overlay && placement == .main)
     }
 }

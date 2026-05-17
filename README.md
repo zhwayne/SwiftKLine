@@ -11,7 +11,7 @@
 - 模块化设计：数据加载、指标计算、渲染协调、交互和样式分层管理。
 - 高性能渲染：复用 renderer、缓存 legend、合并 redraw，并支持实时 tick 增量更新。
 - 扩展友好：可注册指标 renderer，支持自定义样式、主题和指标 key。
-- 协议驱动：通过 `KLineItemProvider` 接入历史分页、区间补数和实时流。
+- 协议驱动：通过 `ChartItemProvider` 接入历史分页、区间补数和实时流。
 - Swift 6 友好：数据提供者和 K 线数据模型要求 `Sendable`，加载流程使用 actor 隔离。
 
 ## 已实现功能
@@ -35,71 +35,71 @@
 
 ## 基本使用
 
-新的推荐方式是通过 `KLineChartConfiguration` 一站式配置：
+通过 `ChartOptions` 一站式配置，`ChartView` 负责渲染：
 
 ```swift
 import UIKit
 import SwiftKLine
 
 let provider = BinanceDataProvider(symbol: "BTCUSDT", period: .m1)
-let chart = KLineChartConfiguration(
-    data: .provider(provider),
+let options = ChartOptions(
     appearance: .theme(.midnight),
-    contentStyle: .candlestick,
-    indicators: .init(
-        main: [.builtIn(.ma)],
-        sub: [.builtIn(.vol), .builtIn(.macd)]
+    content: .candlestick,
+    indicators: IndicatorSelectionState(
+        main: [.ma],
+        sub: [.vol, .macd]
     ),
     features: [.liveUpdates, .gapRecovery, .indicatorPersistence],
     plugins: .default
 )
-let klineView = KLineView(chart: chart)
-view.addSubview(klineView)
+let chartView = ChartView(options: options)
+chartView.loadData(using: provider)
+view.addSubview(chartView)
 ```
 
-- `KLineItemProvider` 负责提供分页历史数据、按时间区间补数以及实时流。
-- 框架内置 `KLineItemLoader`，会在前后台切换时自动补齐缺失区间。
+- `ChartItemProvider` 负责提供分页历史数据、按时间区间补数以及实时流。
+- 框架内置 `ChartItemLoader`，会在前后台切换时自动补齐缺失区间。
 - `loadData(using:)` 会重置当前数据、指标序列和分页状态，并启动新的 loader。
 
 ## 切换主图样式
 
 ```swift
-klineView.setChartContentStyle(.candlestick)
-klineView.setChartContentStyle(.timeSeries)
+chartView.setContentStyle(.candlestick)
+chartView.setContentStyle(.timeSeries)
 ```
 
-`ChartContentStyle` 当前支持：
+`ChartType` 当前支持：
 
 - `.candlestick`：蜡烛图主图。
 - `.timeSeries`：分时图主图。
 
 ## 创建自定义数据源
 
-实现 `KLineItemProvider` 即可接入任意行情源：
+实现 `ChartItemProvider` 即可接入任意行情源：
 
 ```swift
-final class MyProvider: KLineItemProvider, @unchecked Sendable {
-    func fetchKLineItems(forPage page: Int) async throws -> [any KLineItem] { /* ... */ }
-    func fetchKLineItems(from start: Date, to end: Date) async throws -> [any KLineItem] { /* ... */ }
-    func liveStream() -> AsyncStream<any KLineItem> { /* 可选 */ }
+final class MyProvider: ChartItemProvider, @unchecked Sendable {
+    func fetchChartItems(forPage page: Int) async throws -> [any ChartItem] { /* ... */ }
+    func fetchChartItems(from start: Date, to end: Date) async throws -> [any ChartItem] { /* ... */ }
+    func liveStream() -> AsyncStream<any ChartItem> { /* 可选 */ }
 }
 ```
 
 说明：
 
 - `page == 0` 表示最近一页，page 递增表示继续向更早历史分页。
-- `fetchKLineItems(from:to:)` 用于前后台切换、网络恢复等场景的缺口补齐。
+- `fetchChartItems(from:to:)` 用于前后台切换、网络恢复等场景的缺口补齐。
 - `liveStream()` 默认返回空流；只有需要实时行情时才需要实现。
 - Provider 必须是 `AnyObject & Sendable`。如果内部使用锁、actor 或不可变状态保证线程安全，可按需使用 `@unchecked Sendable`。
 
-K 线数据模型需实现 `KLineItem`：
+K 线数据模型需实现 `ChartItem`：
 
 ```swift
-struct Candle: KLineItem {
-    let opening: Double
-    let closing: Double
-    let highest: Double
-    let lowest: Double
+struct Candle: ChartItem {
+    let open: Double
+    let close: Double
+    let high: Double
+    let low: Double
     let volume: Double
     let value: Double
     let timestamp: Int // 秒级时间戳
@@ -108,16 +108,16 @@ struct Candle: KLineItem {
 
 ## 指标选择持久化
 
-`KLineView` 默认使用 `UserDefaultsIndicatorSelectionStore` 保存主/副图指标选择。可以注入自定义 store，或传入 `nil` 关闭持久化：
+`ChartView` 默认使用 `UserDefaultsIndicatorSelectionStore` 保存主/副图指标选择。可以注入自定义 store，或传入 `nil` 关闭持久化：
 
 ```swift
-let view = KLineView(indicatorSelectionStore: nil)
+let view = ChartView(indicatorSelectionStore: nil)
 ```
 
 监听指标变化：
 
 ```swift
-klineView.indicatorSelectionDidChange = { state in
+chartView.indicatorSelectionChanged = { state in
     print(state.mainIndicators, state.subIndicators)
 }
 ```
@@ -125,7 +125,7 @@ klineView.indicatorSelectionDidChange = { state in
 恢复默认指标：
 
 ```swift
-klineView.resetIndicatorsToDefault()
+chartView.resetIndicatorsToDefault()
 ```
 
 # 配置与主题
@@ -133,15 +133,15 @@ klineView.resetIndicatorsToDefault()
 ## 使用内置主题
 
 ```swift
-let dark = KLineConfiguration.themed(.midnight)
-let light = KLineConfiguration.themed(.solaris)
-let klineView = KLineView(configuration: dark)
+let dark = ChartConfiguration.themed(.midnight)
+let light = ChartConfiguration.themed(.solaris)
+let chartView = ChartView(configuration: dark)
 ```
 
 ## 自定义配置
 
 ```swift
-let configuration = KLineConfiguration(
+let configuration = ChartConfiguration(
     candleStyle: CandleStyle(
         risingColor: .systemGreen,
         fallingColor: .systemRed,
@@ -164,52 +164,51 @@ let configuration = KLineConfiguration(
 
 ## 扩展内置指标渲染
 
-通过 `KLinePluginRegistry` 的 `registerRenderer(placement:provider:)` 可为指定位置注册额外的渲染器。
+通过 `PluginRegistry` 的 `registerRenderer(placement:provider:)` 可为指定位置注册额外的渲染器。
 
 ```swift
-let registry = KLinePluginRegistry.default
+let registry = PluginRegistry.default
 registry.registerRenderer(placement: .overlay) { _, configuration in
     [MyOverlayRenderer()]
 }
-let chart = KLineChartConfiguration(plugins: registry)
+let options = ChartOptions(plugins: registry)
 ```
 
 ## 兼容旧 API
 
-`loadData(using:)`、`setChartContentStyle(_:)`、`resetIndicatorsToDefault()` 等命令式 API 仍可用。
-新接入建议优先使用 `KLineChartConfiguration` 一站式配置。
+`loadData(using:)`、`setContentStyle(_:)`、`resetIndicatorsToDefault()` 等命令式 API 仍可用。新接入建议优先使用 `ChartOptions` 一站式配置。
 
 ## 自定义指标插件
 
-通过 `KLineIndicatorPlugin` 和 `KLineIndicatorCalculator` 协议，可以在不修改内置 `Indicator` enum 的前提下新增完整指标：
+通过 `IndicatorPlugin` 和 `IndicatorCalculator` 协议，可以在不修改内置 `BuiltInIndicator` 的前提下新增完整指标：
 
 ```swift
-struct MyCalculator: KLineIndicatorCalculator {
-    let id = KLineSeriesKey(indicatorID: "custom.myIndicator", name: "MY")
+struct MyCalculator: IndicatorCalculator {
+    let id = SeriesKey(indicatorID: "custom.myIndicator", name: "MY")
 
-    func calculate(for items: [any KLineItem]) -> [Double?] {
-        items.map { Optional($0.closing) }
+    func calculate(for items: [any ChartItem]) -> [Double?] {
+        items.map { Optional($0.close) }
     }
 }
 
-struct MyPlugin: KLineIndicatorPlugin {
-    let id: KLineIndicatorID = "custom.myIndicator"
+struct MyPlugin: IndicatorPlugin {
+    let id: IndicatorID = "custom.myIndicator"
     let title = "MY"
-    let placement: KLineIndicatorPlacement = .overlay
-    let defaultSeriesKeys = [KLineSeriesKey(indicatorID: "custom.myIndicator", name: "MY")]
+    let placement: IndicatorPlacement = .overlay
+    let defaultSeriesKeys = [SeriesKey(indicatorID: "custom.myIndicator", name: "MY")]
 
-    func makeCalculators(configuration: KLineConfiguration) -> [any KLineIndicatorCalculator] {
+    func makeCalculators(configuration: ChartConfiguration) -> [any IndicatorCalculator] {
         [MyCalculator()]
     }
 
-    @MainActor func makeRenderers(configuration: KLineConfiguration) -> [any Renderer] {
+    @MainActor func makeRenderers(configuration: ChartConfiguration) -> [any ChartRenderer] {
         [MyRenderer()]
     }
 }
 
-let registry = KLinePluginRegistry.default
+let registry = PluginRegistry.default
 registry.register(MyPlugin())
-let chart = KLineChartConfiguration(plugins: registry)
+let options = ChartOptions(plugins: registry)
 ```
 
 # 许可证

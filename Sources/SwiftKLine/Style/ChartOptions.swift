@@ -1,23 +1,20 @@
 import Foundation
 
 @MainActor
-public struct ChartConfiguration {
-    public var data: DataSourceConfiguration
+public struct ChartOptions {
     public var appearance: AppearanceConfiguration
     public var content: ChartType
-    public var indicators: IndicatorSelectionConfiguration
+    public var indicators: IndicatorSelectionState?
     public var features: ChartFeatures
     public var plugins: PluginRegistry
 
     public init(
-        data: DataSourceConfiguration = .manual,
-        appearance: AppearanceConfiguration = .configuration(KLineConfiguration()),
+        appearance: AppearanceConfiguration = .configuration(ChartConfiguration()),
         content: ChartType = .candlestick,
-        indicators: IndicatorSelectionConfiguration = .init(),
+        indicators: IndicatorSelectionState? = nil,
         features: ChartFeatures = .all,
         plugins: PluginRegistry = .default
     ) {
-        self.data = data
         self.appearance = appearance
         self.content = content
         self.indicators = indicators
@@ -25,46 +22,23 @@ public struct ChartConfiguration {
         self.plugins = plugins
     }
 
-    public var resolvedConfiguration: KLineConfiguration {
+    public var resolvedConfiguration: ChartConfiguration {
         appearance.resolvedConfiguration
     }
 }
 
-public enum DataSourceConfiguration {
-    case provider(any KLineItemProvider)
-    case manual
-}
-
 @MainActor
 public enum AppearanceConfiguration {
-    case configuration(KLineConfiguration)
-    case theme(KLineConfiguration.ThemePreset)
+    case configuration(ChartConfiguration)
+    case theme(ChartConfiguration.ThemePreset)
 
-    var resolvedConfiguration: KLineConfiguration {
+    var resolvedConfiguration: ChartConfiguration {
         switch self {
         case let .configuration(configuration):
             return configuration
         case let .theme(preset):
             return .themed(preset)
         }
-    }
-}
-
-public enum IndicatorSelection: Hashable, Sendable, Codable {
-    case builtIn(KLineIndicator)
-    case custom(IndicatorID)
-}
-
-public struct IndicatorSelectionConfiguration: Equatable, Sendable {
-    public var main: [IndicatorSelection]
-    public var sub: [IndicatorSelection]
-
-    public init(
-        main: [IndicatorSelection] = [],
-        sub: [IndicatorSelection] = []
-    ) {
-        self.main = main
-        self.sub = sub
     }
 }
 

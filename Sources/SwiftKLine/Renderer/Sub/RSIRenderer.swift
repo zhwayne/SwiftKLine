@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class RSIRenderer: KLineRenderer, LegendUpdatable {
+final class RSIRenderer: ChartRenderer, LegendUpdatable {
 
     private let priceFormatter = PriceFormatter()
     
@@ -19,7 +19,7 @@ final class RSIRenderer: KLineRenderer, LegendUpdatable {
     private let dashLayer = CAShapeLayer()
     private let legendLayer = CATextLayer()
 
-    var id: some Hashable { KLineIndicator.rsi }
+    var id: some Hashable { BuiltInIndicator.rsi }
 
     init(periods: [Int]) {
         self.periods = periods
@@ -53,23 +53,22 @@ final class RSIRenderer: KLineRenderer, LegendUpdatable {
     }
     
     func draw(in layer: CALayer, context: Context) {
-        // 获取K线样式配置
-        let klineConfig = context.configuration
-        let candleStyle = klineConfig.candleStyle
+        let configuration = context.configuration
+        let candleDims = context.candleDimensions
         let layout = context.layout
         
         updateLegend(context: context)
 
-        let candleHalfWidth = candleStyle.width * 0.5
-        let itemWidth = candleStyle.width + candleStyle.gap
+        let candleHalfWidth = candleDims.width * 0.5
+        let itemWidth = candleDims.itemWidth
         let visibleMinX = CGFloat(context.visibleRange.lowerBound) * itemWidth - layout.scrollView.contentOffset.x
         
         zip(periods, lineLayers).forEach { period, lineLayer in
-            let key = KLineIndicator.Parameters.rsi(period)
+            let key = SeriesKey.rsi(period: period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 return
             }
-            let style = klineConfig.indicatorStyle(for: key, type: LineStyle.self)
+            let style = configuration.indicatorStyle(for: key, type: LineStyle.self)
             lineLayer.strokeColor = style?.strokeColor.cgColor
             
             let path = CGMutablePath()
@@ -77,7 +76,7 @@ final class RSIRenderer: KLineRenderer, LegendUpdatable {
             for (idx, value) in visibleValues.enumerated() {
                 guard let value else { continue }
                 let x = CGFloat(idx) * itemWidth + visibleMinX + candleHalfWidth
-                let y = layout.minY(for: value, viewPort: context.viewPort)
+                let y = layout.yPosition(for: value, viewPort: context.viewPort)
                 let point = CGPoint(x: x, y: y)
                 if hasStartPoint {
                     path.addLine(to: point)
@@ -90,10 +89,10 @@ final class RSIRenderer: KLineRenderer, LegendUpdatable {
         }
         
         // 绘制超买超卖区域
-        let oby = layout.minY(for: range.upperBound, viewPort: context.viewPort)
-        let osy = layout.minY(for: range.lowerBound, viewPort: context.viewPort)
-        let minX = visibleMinX + candleHalfWidth
-        let maxX = CGFloat(context.visibleRange.count - 1) * itemWidth + visibleMinX + candleHalfWidth
+        let oby = layout.yPosition(for: range.upperBound, viewPort: context.viewPort)
+        let osy = layout.yPosition(for: range.lowerBound, viewPort: context.viewPort)
+        let minX = visibleMinX + candleDims.width * 0.5
+        let maxX = CGFloat(context.visibleRange.count - 1) * itemWidth + visibleMinX + candleDims.width * 0.5
         let overRect = CGRect(x: minX, y: oby, width: maxX - minX, height: osy - oby)
         areaLayer.path = CGPath(rect: overRect, transform: nil)
         areaLayer.fillColor = rangeColor.withAlphaComponent(0.05).cgColor
@@ -114,7 +113,7 @@ final class RSIRenderer: KLineRenderer, LegendUpdatable {
     
     func legend(context: Context) -> NSAttributedString? {
         return periods.reduce(NSMutableAttributedString()) { partialResult, period in
-            let key = KLineIndicator.Parameters.rsi(period)
+            let key = SeriesKey.rsi(period: period)
             let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
             guard let values = context.scalarValues(for: key), !values.isEmpty,
                   context.currentIndex >= 0,
@@ -137,7 +136,7 @@ final class RSIRenderer: KLineRenderer, LegendUpdatable {
     func dataBounds(context: Context) -> ValueBounds {
         var bounds = ValueBounds.empty
         for period in periods {
-            let key = KLineIndicator.Parameters.rsi(period)
+            let key = SeriesKey.rsi(period: period)
             guard let visibleValues = context.visibleScalarValues(for: key) else {
                 continue
             }

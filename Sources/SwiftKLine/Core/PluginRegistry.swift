@@ -2,8 +2,8 @@ import Foundation
 
 public typealias RendererProvider = @MainActor (
     RendererPlacement,
-    KLineConfiguration
-) -> [any KLineRenderer]
+    ChartConfiguration
+) -> [any ChartRenderer]
 
 /// 图表插件注册表，用实例隔离外部扩展，避免回到全局单例式配置。
 @MainActor public final class PluginRegistry {
@@ -13,24 +13,23 @@ public typealias RendererProvider = @MainActor (
         return registry
     }
 
-    /// Deprecated: use `makeDefault()` instead of the singleton.
-    @available(*, deprecated, message: "Use PluginRegistry.makeDefault() to create a new instance.")
-    public static let `default`: PluginRegistry = makeDefault()
+    /// Creates a new default instance via `makeDefault()`.
+    public static var `default`: PluginRegistry { makeDefault() }
 
-    private var pluginsByID: [IndicatorID: any KLineIndicatorPlugin] = [:]
+    private var pluginsByID: [IndicatorID: any IndicatorPlugin] = [:]
     private var rendererProviders: [RendererPlacement: [RendererProvider]] = [:]
 
     public init() {}
 
-    public func register(_ plugin: any KLineIndicatorPlugin) {
+    public func register(_ plugin: any IndicatorPlugin) {
         pluginsByID[plugin.id] = plugin
     }
 
-    public func plugin(for id: IndicatorID) -> (any KLineIndicatorPlugin)? {
+    public func plugin(for id: IndicatorID) -> (any IndicatorPlugin)? {
         pluginsByID[id]
     }
 
-    public func plugins(for placement: IndicatorPlacement) -> [any KLineIndicatorPlugin] {
+    public func plugins(for placement: IndicatorPlacement) -> [any IndicatorPlugin] {
         pluginsByID.values.filter { $0.placement == placement }
     }
 
@@ -43,15 +42,23 @@ public typealias RendererProvider = @MainActor (
 
     func renderers(
         for placement: RendererPlacement,
-        configuration: KLineConfiguration
+        configuration: ChartConfiguration
     ) -> [AnyRenderer] {
         rendererProviders[placement, default: []]
             .flatMap { $0(placement, configuration) }
             .map { $0.eraseToAnyRenderer() }
     }
 
+    func pluginRenderers(
+        for id: IndicatorID,
+        configuration: ChartConfiguration
+    ) -> [AnyRenderer] {
+        guard let plugin = pluginsByID[id] else { return [] }
+        return plugin.makeRenderers(configuration: configuration).map { $0.eraseToAnyRenderer() }
+    }
+
     private func registerBuiltInPlugins() {
-        for indicator in KLineIndicator.allCases {
+        for indicator in BuiltInIndicator.allCases {
             register(BuiltInIndicatorPlugin(indicator: indicator))
         }
     }

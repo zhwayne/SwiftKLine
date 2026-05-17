@@ -1,7 +1,7 @@
 import Testing
 @testable import SwiftKLine
 
-private struct TestKLineItem: KLineItem {
+private struct TestChartItem: ChartItem {
     let open: Double
     let close: Double
     let high: Double
@@ -23,13 +23,13 @@ private struct TestKLineItem: KLineItem {
 
 @Test func dataMergerSortsAndOverwritesByTimestamp() {
     var merger = DataMerger()
-    let current: [any KLineItem] = [
-        TestKLineItem(timestamp: 120, close: 2),
-        TestKLineItem(timestamp: 60, close: 1),
+    let current: [any ChartItem] = [
+        TestChartItem(timestamp: 120, close: 2),
+        TestChartItem(timestamp: 60, close: 1),
     ]
-    let patch: [any KLineItem] = [
-        TestKLineItem(timestamp: 120, close: 20),
-        TestKLineItem(timestamp: 180, close: 3),
+    let patch: [any ChartItem] = [
+        TestChartItem(timestamp: 120, close: 20),
+        TestChartItem(timestamp: 180, close: 3),
     ]
 
     let merged = merger.merge(current: current, patch: patch)
@@ -40,14 +40,14 @@ private struct TestKLineItem: KLineItem {
 
 @Test func dataMergerReplacesLiveTickInExistingBucket() {
     var merger = DataMerger()
-    var items: [any KLineItem] = [
-        TestKLineItem(timestamp: 60, close: 1),
-        TestKLineItem(timestamp: 120, close: 2),
-        TestKLineItem(timestamp: 180, close: 3),
+    var items: [any ChartItem] = [
+        TestChartItem(timestamp: 60, close: 1),
+        TestChartItem(timestamp: 120, close: 2),
+        TestChartItem(timestamp: 180, close: 3),
     ]
     merger.prepareBucketsIfNeeded(with: items)
 
-    let result = merger.applyLiveTick(TestKLineItem(timestamp: 125, close: 22), to: &items)
+    let result = merger.applyLiveTick(TestChartItem(timestamp: 125, close: 22), to: &items)
 
     #expect(result == .replaced(index: 1))
     #expect(items.map(\.timestamp) == [60, 125, 180])
@@ -56,16 +56,16 @@ private struct TestKLineItem: KLineItem {
 
 @Test func dataMergerInsertsLiveTickAtSortedBucketPosition() {
     var merger = DataMerger()
-    var items: [any KLineItem] = [
-        TestKLineItem(timestamp: 60, close: 1),
-        TestKLineItem(timestamp: 180, close: 3),
+    var items: [any ChartItem] = [
+        TestChartItem(timestamp: 60, close: 1),
+        TestChartItem(timestamp: 180, close: 3),
     ]
     merger.prepareBucketsIfNeeded(with: [
-        TestKLineItem(timestamp: 60, close: 1),
-        TestKLineItem(timestamp: 120, close: 2),
+        TestChartItem(timestamp: 60, close: 1),
+        TestChartItem(timestamp: 120, close: 2),
     ])
 
-    let result = merger.applyLiveTick(TestKLineItem(timestamp: 120, close: 2), to: &items)
+    let result = merger.applyLiveTick(TestChartItem(timestamp: 120, close: 2), to: &items)
 
     #expect(result == .inserted(index: 1, appendedToTail: false))
     #expect(items.map(\.timestamp) == [60, 120, 180])
@@ -73,13 +73,13 @@ private struct TestKLineItem: KLineItem {
 
 @Test func dataMergerReportsTailAppend() {
     var merger = DataMerger()
-    var items: [any KLineItem] = [
-        TestKLineItem(timestamp: 60, close: 1),
-        TestKLineItem(timestamp: 120, close: 2),
+    var items: [any ChartItem] = [
+        TestChartItem(timestamp: 60, close: 1),
+        TestChartItem(timestamp: 120, close: 2),
     ]
     merger.prepareBucketsIfNeeded(with: items)
 
-    let result = merger.applyLiveTick(TestKLineItem(timestamp: 180, close: 3), to: &items)
+    let result = merger.applyLiveTick(TestChartItem(timestamp: 180, close: 3), to: &items)
 
     #expect(result == .inserted(index: 2, appendedToTail: true))
     #expect(items.map(\.timestamp) == [60, 120, 180])
@@ -103,11 +103,11 @@ private struct TestKLineItem: KLineItem {
 }
 
 @Test func maCalculatorCalculatesMovingAverage() {
-    let items: [any KLineItem] = [
-        TestKLineItem(timestamp: 1, close: 1),
-        TestKLineItem(timestamp: 2, close: 2),
-        TestKLineItem(timestamp: 3, close: 3),
-        TestKLineItem(timestamp: 4, close: 4),
+    let items: [any ChartItem] = [
+        TestChartItem(timestamp: 1, close: 1),
+        TestChartItem(timestamp: 2, close: 2),
+        TestChartItem(timestamp: 3, close: 3),
+        TestChartItem(timestamp: 4, close: 4),
     ]
 
     let values = MACalculator(period: 3).calculate(for: items)
@@ -120,11 +120,11 @@ private struct TestKLineItem: KLineItem {
 }
 
 @Test func emaCalculatorCalculatesExpectedValues() {
-    let items: [any KLineItem] = [
-        TestKLineItem(timestamp: 1, close: 1),
-        TestKLineItem(timestamp: 2, close: 2),
-        TestKLineItem(timestamp: 3, close: 3),
-        TestKLineItem(timestamp: 4, close: 4),
+    let items: [any ChartItem] = [
+        TestChartItem(timestamp: 1, close: 1),
+        TestChartItem(timestamp: 2, close: 2),
+        TestChartItem(timestamp: 3, close: 3),
+        TestChartItem(timestamp: 4, close: 4),
     ]
 
     let values = EMACalculator(period: 3).calculate(for: items)
@@ -139,7 +139,7 @@ private struct TestKLineItem: KLineItem {
 @MainActor
 @Test func indicatorPipelineReturnsEmptyStoreWithoutCalculators() async {
     let pipeline = IndicatorPipeline(
-        configuration: KLineConfiguration(),
+        configuration: ChartConfiguration(),
         normalizer: IndicatorSelectionNormalizer(availableMain: [.ma], availableSub: []),
         selectionStore: nil,
         registry: .default
@@ -150,24 +150,24 @@ private struct TestKLineItem: KLineItem {
         subIndicators: []
     )
 
-    let maKey = KLineIndicator.Parameters.ma(5).kLineSeriesKey
+    let maKey = SeriesKey.ma(period: 5)
     #expect(store.values(for: maKey, as: Double.self) == nil)
 }
 
 @MainActor
 @Test func indicatorPipelineMergesCalculatorStores() async {
-    let items: [any KLineItem] = [
-        TestKLineItem(timestamp: 1, close: 1),
-        TestKLineItem(timestamp: 2, close: 2),
-        TestKLineItem(timestamp: 3, close: 3),
-        TestKLineItem(timestamp: 4, close: 4),
+    let items: [any ChartItem] = [
+        TestChartItem(timestamp: 1, close: 1),
+        TestChartItem(timestamp: 2, close: 2),
+        TestChartItem(timestamp: 3, close: 3),
+        TestChartItem(timestamp: 4, close: 4),
     ]
-    let configuration = KLineConfiguration(
+    let configuration = ChartConfiguration(
         defaultMainIndicators: [.ma, .ema],
         defaultSubIndicators: [],
         indicatorKeyOverrides: [
-            .ma: [.ma(2)],
-            .ema: [.ema(3)]
+            .ma: [.ma(period: 2)],
+            .ema: [.ema(period: 3)]
         ]
     )
 
@@ -183,7 +183,7 @@ private struct TestKLineItem: KLineItem {
         subIndicators: []
     )
 
-    let maKey = KLineIndicator.Parameters.ma(2).kLineSeriesKey
-    #expect(store.values(for: maKey, as: Double.self)?.count == 4)
-    #expect(store.values(for: maKey, as: Double.self)?[1] == 1.5)
+    let maKey = SeriesKey.ma(period: 2)
+    #expect(store.values(forKey: maKey, as: Double.self)?.count == 4)
+    #expect(store.values(forKey: maKey, as: Double.self)?[1] == 1.5)
 }

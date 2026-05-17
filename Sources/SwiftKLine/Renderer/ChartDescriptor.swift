@@ -1,9 +1,7 @@
-//
 //  ChartDescriptor.swift
 //  SwiftKLine
 //
 //  Created by iya on 2025/4/20.
-//
 
 import Foundation
 
@@ -18,9 +16,7 @@ struct ChartDescriptor {
         groups.flatMap({ $0.renderers })
     }
     
-    typealias Builder = ArrayBuilder
-    
-    init(@Builder _ builder: () -> [RendererGroup]) {
+    init(@ChartBuilder _ builder: () -> [RendererGroup]) {
         groups = builder()
         height = groups.reduce(0) { $0 + $1.height }
         var y: CGFloat = 0
@@ -30,9 +26,14 @@ struct ChartDescriptor {
         }
     }
     
-    init() {
-        groups = []
-        height = 0
+    init(groups: [RendererGroup] = []) {
+        self.groups = groups
+        height = groups.reduce(0) { $0 + $1.height }
+        var y: CGFloat = 0
+        layouts = groups.map { group in
+            defer { y += group.height }
+            return (y, group.height)
+        }
     }
 }
 

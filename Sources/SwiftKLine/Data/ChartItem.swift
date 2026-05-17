@@ -1,5 +1,5 @@
 //
-//  KLineItem.swift
+//  ChartItem.swift
 //  KLineDemo
 //
 //  Created by iya on 2024/10/31.
@@ -10,7 +10,7 @@ import UIKit
 enum Trend: Sendable {
     case rising, falling
     
-    @MainActor func color(using configuration: KLineConfiguration) -> UIColor {
+    @MainActor func color(using configuration: ChartConfiguration) -> UIColor {
         switch self {
         case .falling: return configuration.candleStyle.fallingColor
         case .rising: return configuration.candleStyle.risingColor
@@ -18,7 +18,7 @@ enum Trend: Sendable {
     }
 }
 
-public protocol KLineItem: Equatable, Identifiable, Sendable {
+public protocol ChartItem: Equatable, Identifiable, Sendable {
     var open: Double { get }  // 开盘价
     var close: Double { get }  // 收盘价
     var high: Double { get }  // 最高价
@@ -28,19 +28,19 @@ public protocol KLineItem: Equatable, Identifiable, Sendable {
     var timestamp: Int  { get }  // 时间戳(秒级)
 }
 
-extension KLineItem {
+extension ChartItem {
     
     public var id: Int { timestamp }
 }
 
-extension KLineItem {
+extension ChartItem {
     
     var dataBounds: ValueBounds {
         return ValueBounds(min: low, max: high)
     }
 }
 
-extension Collection where Element == any KLineItem {
+extension Collection where Element == any ChartItem {
     
     var lowerBoundItem: (Int, Element)? {
         guard let first = self.first else { return nil }
@@ -71,7 +71,7 @@ extension Collection where Element == any KLineItem {
     }
 }
 
-extension KLineItem {
+extension ChartItem {
     
     var trend: Trend {
         if open > close { return .falling }

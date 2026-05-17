@@ -2,13 +2,13 @@ import Foundation
 
 @MainActor
 struct IndicatorPipeline {
-    private let configuration: KLineConfiguration
+    private let configuration: ChartConfiguration
     private let normalizer: IndicatorSelectionNormalizer
     private let selectionStore: IndicatorSelectionStore?
     private let registry: PluginRegistry
 
     init(
-        configuration: KLineConfiguration,
+        configuration: ChartConfiguration,
         normalizer: IndicatorSelectionNormalizer,
         selectionStore: IndicatorSelectionStore?,
         registry: PluginRegistry
@@ -23,17 +23,10 @@ struct IndicatorPipeline {
         normalizer.normalize(selectionStore?.load())
     }
 
-    func setSelection(main: [KLineIndicator], sub: [KLineIndicator]) -> IndicatorSelectionState {
+    func setSelection(main: [BuiltInIndicator], sub: [BuiltInIndicator]) -> IndicatorSelectionState {
         setSelection(
             IndicatorSelectionState(mainIndicators: main, subIndicators: sub)
         )
-    }
-
-    func setSelection(
-        main: [IndicatorSelection],
-        sub: [IndicatorSelection]
-    ) -> IndicatorSelectionState {
-        setSelection(IndicatorSelectionState(main: main, sub: sub))
     }
 
     func setSelection(_ state: IndicatorSelectionState) -> IndicatorSelectionState {
@@ -53,21 +46,21 @@ struct IndicatorPipeline {
         return normalized
     }
 
-    // MARK: - Calculation (formerly IndicatorCalculationEngine)
+    // MARK: - Calculation
 
     func calculate(
-        items: [any KLineItem],
-        mainIndicators: [KLineIndicator],
-        subIndicators: [KLineIndicator]
+        items: [any ChartItem],
+        mainIndicators: [BuiltInIndicator],
+        subIndicators: [BuiltInIndicator]
     ) async -> IndicatorSeriesStore {
         await calculate(
             items: items,
-            indicatorIDs: (mainIndicators + subIndicators).map(\.kLineID)
+            indicatorIDs: (mainIndicators + subIndicators).map(\.id)
         )
     }
 
     func calculate(
-        items: [any KLineItem],
+        items: [any ChartItem],
         selection: IndicatorSelectionState
     ) async -> IndicatorSeriesStore {
         await calculate(
@@ -77,22 +70,16 @@ struct IndicatorPipeline {
     }
 
     private func calculate(
-        items: [any KLineItem],
+        items: [any ChartItem],
         indicatorIDs: [IndicatorID]
     ) async -> IndicatorSeriesStore {
-        let calculators = indicatorIDs.flatMap { id -> [any KLineIndicatorCalculator] in
-            if let indicator = KLineIndicator(kLineID: id) {
+        let calculators = indicatorIDs.flatMap { id -> [any IndicatorCalculator] in
+            if let indicator = BuiltInIndicator(id: id) {
                 return BuiltInIndicatorPlugin(indicator: indicator).makeCalculators(configuration: configuration)
             }
             return registry.plugin(for: id)?.makeCalculators(configuration: configuration) ?? []
         }
         let erased = calculators.map { $0.eraseToAnyIndicatorCalculator() }
         return await erased.calculate(items: items)
-    }
-}
-
-extension IndicatorSelectionState {
-    var indicatorIDs: [IndicatorID] {
-        (main + sub).map(\.id)
     }
 }

@@ -11,7 +11,7 @@ import UIKit
 struct GroupDrawCoordinator {
     func dataBounds(
         for renderers: [AnyRenderer],
-        context: RendererContext
+        context: ChartContext
     ) -> (bounds: ValueBounds, cost: CFTimeInterval) {
         var dataBounds: ValueBounds = .empty
         let start = CACurrentMediaTime()
@@ -24,7 +24,7 @@ struct GroupDrawCoordinator {
     func drawRenderers(
         _ renderers: [AnyRenderer],
         canvas: CALayer,
-        context: RendererContext
+        context: ChartContext
     ) -> CFTimeInterval {
         let start = CACurrentMediaTime()
         for renderer in renderers {

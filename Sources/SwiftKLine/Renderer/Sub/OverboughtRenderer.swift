@@ -7,7 +7,7 @@
 
 import UIKit
 
-//final class OverboughtRenderer: KLineRenderer {
+//final class OverboughtRenderer: ChartRenderer {
 //    
 //    typealias Calculator = NothingCalculator
 //    
@@ -44,10 +44,10 @@ import UIKit
 ////            return
 ////        }
 ////    
-////        let oby = layout.minY(for: range.upperBound, viewPort: viewPort)
-////        let osy = layout.minY(for: range.lowerBound, viewPort: viewPort)
-////        let minX = layout.minX(at: 0) + candleStyle.width * 0.5
-////        let maxX = layout.minX(at: visibleValues.count - 1) + candleStyle.width * 0.5
+////        let oby = layout.yPosition(for: range.upperBound, viewPort: viewPort)
+////        let osy = layout.yPosition(for: range.lowerBound, viewPort: viewPort)
+////        let minX = layout.xPosition(at: 0) + candleStyle.width * 0.5
+////        let maxX = layout.xPosition(at: visibleValues.count - 1) + candleStyle.width * 0.5
 ////        let overRect = CGRect(x: minX, y: oby, width: maxX - minX, height: osy - oby)
 ////        areaLayer.path = CGPath(rect: overRect, transform: nil)
 ////        areaLayer.fillColor = color.withAlphaComponent(0.1).cgColor

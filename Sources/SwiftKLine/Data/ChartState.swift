@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 struct ChartState {
-    var items: [any KLineItem]
+    var items: [any ChartItem]
     var indicatorSeriesStore: IndicatorSeriesStore
     var contentStyle: ChartType
     var selectedIndex: Int?
@@ -10,17 +10,17 @@ struct ChartState {
     var lastError: Error?
     var indicatorSelection: IndicatorSelectionState
 
-    var mainIndicators: [KLineIndicator] { indicatorSelection.mainIndicators }
-    var subIndicators: [KLineIndicator] { indicatorSelection.subIndicators }
+    var mainIndicators: [BuiltInIndicator] { indicatorSelection.mainIndicators }
+    var subIndicators: [BuiltInIndicator] { indicatorSelection.subIndicators }
 
     init(
-        items: [any KLineItem] = [],
+        items: [any ChartItem] = [],
         indicatorSeriesStore: IndicatorSeriesStore = IndicatorSeriesStore(),
         contentStyle: ChartType = .candlestick,
         selectedIndex: Int? = nil,
         selectedLocation: CGPoint? = nil,
         lastError: Error? = nil,
-        indicatorSelection: IndicatorSelectionState = IndicatorSelectionState()
+        indicatorSelection: IndicatorSelectionState = IndicatorSelectionState(main: [], sub: [])
     ) {
         self.items = items
         self.indicatorSeriesStore = indicatorSeriesStore

@@ -1,34 +1,30 @@
-//
-//  PinchInteraction.swift
-//  SwiftKLine
-//
-//  Created by zhwayne on 2025/7/27.
-//
-
 import UIKit
+
+struct CandleScaleChange {
+    let width: CGFloat
+    let gap: CGFloat
+}
 
 class PinchInteraction: NSObject, UIInteraction {
     
     weak var view: UIView?
     
-    // pinch
     private var pinchCenterX: CGFloat = 0
     private var oldScale: CGFloat = 1
-    private let klineConfig: KLineConfiguration
     private var scrollView: ChartScrollView { layout.scrollView }
-    private let layout: KLineLayout
+    private let layout: ChartLayout
+    private let onScaleChange: (CandleScaleChange) -> Void
     
-    init(layout: KLineLayout, configuration: KLineConfiguration) {
+    init(layout: ChartLayout, onScaleChange: @escaping (CandleScaleChange) -> Void) {
         self.layout = layout
-        self.klineConfig = configuration
+        self.onScaleChange = onScaleChange
     }
 
     func willMove(to view: UIView?) {
-        
+
     }
 
     func didMove(to view: UIView?) {
-        // pinch
         let pinch = UIPinchGestureRecognizer(
             target: self,
             action: #selector(Self.handlePinch(_:))
@@ -54,36 +50,33 @@ class PinchInteraction: NSObject, UIInteraction {
         }
         
         let difValue = pinch.scale - oldScale
-        let candleStyle = klineConfig.candleStyle
-        let newLineWidth = candleStyle.width * (difValue + 1)
-        let newGap = candleStyle.gap * (difValue + 1)
+        let dims = layout.candleDimensions
+        let newLineWidth = dims.width * (difValue + 1)
+        let newGap = dims.gap * (difValue + 1)
         guard (2...24).contains(newLineWidth) else { return }
         
-        klineConfig.candleStyle.width = newLineWidth
-        klineConfig.candleStyle.gap = newGap
         oldScale = pinch.scale
-        
-        // 更新 contentSize
         let contentOffsetAtPinch = scrollView.contentOffset.x + pinchCenterX
         let oldContentSize = scrollView.contentSize
-        scrollView.contentSize = layout.contentSize
         
+        onScaleChange(CandleScaleChange(width: newLineWidth, gap: newGap))
+        
+        let newContentSize = layout.contentSize
         guard oldContentSize.width > 0 else {
             scrollView.delegate?.scrollViewDidScroll?(scrollView)
             return
         }
         
-        // 算新的内容偏移量
-        let scale = scrollView.contentSize.width / oldContentSize.width
+        scrollView.contentSize = newContentSize
+        
+        let scale = newContentSize.width / oldContentSize.width
         let newContentOffsetAtPinch = contentOffsetAtPinch * scale
         var newContentOffsetX = newContentOffsetAtPinch - pinchCenterX
         
-        // 限制偏移量的范围
         newContentOffsetX = max(-scrollView.contentInset.left, newContentOffsetX)
         let maxContentOffsetX = scrollView.contentSize.width - scrollView.bounds.width + scrollView.contentInset.right
         newContentOffsetX = min(maxContentOffsetX, newContentOffsetX)
 
-        // 更新 contentOffset 并重绘内容
         if scrollView.contentOffset.x == newContentOffsetX {
             scrollView.delegate?.scrollViewDidScroll?(scrollView)
         } else {
