@@ -1,125 +1,127 @@
 //
 //  BinanceDataProvider.swift
-//  KLineDemo
+//  SwiftKLineExample
 //
-//  Created by iya on 2025/4/13.
-//  Copyright © 2025 iya. All rights reserved.
+//  Created by zhwayne on 2025/04/13.
 //
 
 import Foundation
 import SwiftKLine
-import SwiftyJSON
 
-/// 表示单个 K 线数据点。
-struct BinanceChartItem: ChartItem {
-    let open: Double         // 开盘价
-    let close: Double        // 收盘价
-    let high: Double         // 最高价
-    let low: Double          // 最低价
-    let volume: Double       // 成交量
-    let value: Double        // 成交额
-    let timestamp: Int       // 时间戳
-}
-
+/// An exchange-specific example provider using URLSession and Decodable, with no chart-package networking dependency.
+///
+/// Historical requests return at most 1,000 rows per response. Each live subscription owns an independent client,
+/// and bounded buffering permits dropping intermediate snapshots when a consumer falls behind.
 final class BinanceDataProvider: ChartItemProvider {
     private let symbol: String
     private let period: ChartPeriod
     private let size = 1000
     private let endDate = Date()
-    private let session = URLSession(configuration: URLSessionConfiguration.default)
-    
+    private let session = URLSession(configuration: .default)
+    // Calendar months cannot be represented by a fixed number of seconds.
+    /// Uses fixed periods except for calendar months, whose identity must use exact candle-open timestamps.
+    var candlePeriod: ChartPeriod? { period == .oneMonth ? nil : period }
+
+    /// Captures the market, period, and initial paging boundary for this provider session.
     init(symbol: String, period: ChartPeriod) {
         self.symbol = symbol
         self.period = period
     }
-    
+
+    /// Requests the nominal period-based window for the given page, with page zero ending at the captured session boundary.
     func fetchChartItems(forPage page: Int) async throws -> [any ChartItem] {
-        let end = endDate.addingTimeInterval(TimeInterval(-period.seconds * size * page))
-        let start = end.addingTimeInterval(TimeInterval(-period.seconds * size))
-        return try await fetchChartItems(from: start, to: end)
+        let end = endDate.addingTimeInterval(-Double(period.seconds) * Double(size) * Double(page))
+        return try await fetchChartItems(from: end.addingTimeInterval(-Double(period.seconds) * Double(size)), to: end)
     }
 
+    /// Fetches one response of at most 1,000 rows for an inclusive interval and validates the HTTP status before decoding.
     func fetchChartItems(from start: Date, to end: Date) async throws -> [any ChartItem] {
-        let startMs = Int(start.timeIntervalSince1970 * 1000)
-        let endMs = Int(end.timeIntervalSince1970 * 1000)
-        var urlComponents = URLComponents(string: "https://data-api.binance.vision/api/v3/klines")!
-        urlComponents.queryItems = [
+        var components = URLComponents(string: "https://data-api.binance.vision/api/v3/klines")!
+        components.queryItems = [
             URLQueryItem(name: "interval", value: period.identifier),
             URLQueryItem(name: "symbol", value: symbol),
-            URLQueryItem(name: "startTime", value: "\(startMs)"),
-            URLQueryItem(name: "endTime", value: "\(endMs)"),
+            URLQueryItem(name: "startTime", value: "\(Int(start.timeIntervalSince1970 * 1000))"),
+            URLQueryItem(name: "endTime", value: "\(Int(end.timeIntervalSince1970 * 1000))"),
             URLQueryItem(name: "limit", value: "\(size)")
         ]
-        guard let url = urlComponents.url else { return [] }
-        let (data, _) = try await session.data(from: url)
-        let json = try JSON(data: data)
-        return Self.decodeItems(from: json)
+        guard let url = components.url else { throw URLError(.badURL) }
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+        return try JSONDecoder().decode([HistoryCandle].self, from: data).map(\.candle)
     }
 
-    // MARK: - Live Stream （Provider 自行管理连接与解码）
+    /// Creates a fresh, bounded snapshot stream and closes its client when the stream terminates.
     func liveStream() -> AsyncStream<any ChartItem> {
         let path = "wss://stream.binance.com:443/ws/\(symbol.lowercased())@kline_\(period.identifier)"
         guard let url = URL(string: path) else { return AsyncStream { $0.finish() } }
-        return AsyncStream { continuation in
+        return AsyncStream(bufferingPolicy: .bufferingNewest(512)) { continuation in
             let client = WebSocketClient(config: .init(url: url))
             let producer = Task {
-                try? await client.connect()
-                guard !Task.isCancelled else {
-                    await client.disconnect()
-                    continuation.finish()
-                    return
-                }
-                for await msg in client.messages {
-                    switch msg {
-                    case .text(let text):
-                        guard let data = text.data(using: .utf8), let item = Self.decodeItem(from: data) else { continue }
-                        continuation.yield(item)
-                    case .data(let data):
-                        guard let item = Self.decodeItem(from: data) else { continue }
-                        continuation.yield(item)
+                do { try await client.connect() }
+                catch { continuation.finish(); await client.disconnect(); return }
+                for await message in client.messages {
+                    guard !Task.isCancelled else { break }
+                    let data: Data
+                    switch message {
+                    case let .text(text): data = Data(text.utf8)
+                    case let .data(bytes): data = bytes
                     }
+                    guard let envelope = try? JSONDecoder().decode(LiveEnvelope.self, from: data) else { continue }
+                    continuation.yield(envelope.k.candle)
                 }
                 await client.disconnect()
                 continuation.finish()
             }
-            // 取消下游 AsyncStream 不会自动取消这个生产任务，必须显式关闭连接。
+            // Cancelling AsyncStream does not automatically cancel its producer or close the socket.
             continuation.onTermination = { @Sendable _ in
                 producer.cancel()
                 Task { await client.disconnect() }
             }
         }
     }
+}
 
-    private static func decodeItem(from data: Data) -> (any ChartItem)? {
-        // Binance kline 结构：{"k":{ "t": startTime(ms), "o": "open", "h": "high", "l": "low", "c": "close", "v": "volume", "q": "quoteVolume" }}
-        let json = try? JSON(data: data)
-        let k = json?["k"]
-        guard let k else { return nil }
-        let ts = k["t"].intValue / 1000
-        return BinanceChartItem(
-            open: k["o"].doubleValue,
-            close: k["c"].doubleValue,
-            high: k["h"].doubleValue,
-            low:  k["l"].doubleValue,
-            volume:  k["v"].doubleValue,
-            value:   k["q"].doubleValue,
-            timestamp: ts
-        )
+/// Decodes exchange string-encoded decimal values and rejects non-finite or malformed numbers.
+private struct DecimalValue: Decodable {
+    let value: Double
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let string = try container.decode(String.self)
+        guard let value = Double(string), value.isFinite else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Expected a finite price or volume")
+        }
+        self.value = value
     }
+}
 
-    private static func decodeItems(from json: JSON) -> [any ChartItem] {
-        json.arrayValue.map { json -> any ChartItem in
-            let array = json.arrayValue
-            return BinanceChartItem(
-                open: array[1].doubleValue,
-                close: array[4].doubleValue,
-                high: array[2].doubleValue,
-                low: array[3].doubleValue,
-                volume: array[5].doubleValue,
-                value: array[7].doubleValue,
-                timestamp: array[0].intValue / 1000
-            )
+/// Decodes the exchange’s positional OHLCV array, converting millisecond open time to Unix seconds.
+private struct HistoryCandle: Decodable {
+    let candle: Candle
+    init(from decoder: any Decoder) throws {
+        var row = try decoder.unkeyedContainer()
+        let timestamp = try row.decode(Int.self) / 1000
+        let open = try row.decode(DecimalValue.self).value
+        let high = try row.decode(DecimalValue.self).value
+        let low = try row.decode(DecimalValue.self).value
+        let close = try row.decode(DecimalValue.self).value
+        let volume = try row.decode(DecimalValue.self).value
+        _ = try row.decode(Int.self) // close time
+        let value = try row.decode(DecimalValue.self).value
+        candle = Candle(timestamp: timestamp, open: open, high: high, low: low, close: close, volume: volume, value: value)
+    }
+}
+
+/// Decodes the exchange’s nested live-candle envelope into complete immutable candle snapshots.
+private struct LiveEnvelope: Decodable {
+    let k: LiveCandle
+    struct LiveCandle: Decodable {
+        let t: Int
+        let o, h, l, c, v, q: DecimalValue
+        var candle: Candle {
+            Candle(timestamp: t / 1000, open: o.value, high: h.value, low: l.value,
+                   close: c.value, volume: v.value, value: q.value)
         }
     }
-
 }

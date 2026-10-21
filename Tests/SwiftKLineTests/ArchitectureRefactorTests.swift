@@ -1,6 +1,15 @@
+//
+//  ArchitectureRefactorTests.swift
+//  SwiftKLineTests
+//
+//  Created by zhwayne on 2026/05/17.
+//
+
+#if canImport(UIKit)
 import Testing
 import UIKit
-@testable import SwiftKLine
+@testable import SwiftKLineUI
+@testable import SwiftKLineCore
 
 private struct TestChartItem: ChartItem {
     let open: Double
@@ -182,25 +191,23 @@ private final class InMemoryIndicatorSelectionStore: IndicatorSelectionStore {
 }
 
 @Test func dataMergerMergesHistoricalPageIntoState() {
-    var merger = DataMerger()
+    var merger = DataMerger(period: .oneMinute)
     let items: [any ChartItem] = [
         TestChartItem(timestamp: 60, close: 1),
         TestChartItem(timestamp: 120, close: 2)
     ]
 
-    merger.prepareBucketsIfNeeded(with: items)
     let result = merger.merge(current: [], patch: items)
 
     #expect(result.map(\.timestamp) == [60, 120])
 }
 
 @Test func dataMergerAppliesLiveTickReplacement() {
-    var merger = DataMerger()
+    var merger = DataMerger(period: .oneMinute)
     let items: [any ChartItem] = [
         TestChartItem(timestamp: 60, close: 1),
         TestChartItem(timestamp: 120, close: 2)
     ]
-    merger.prepareBucketsIfNeeded(with: items)
     var merged = merger.merge(current: [], patch: items)
 
     let result = merger.applyLiveTick(TestChartItem(timestamp: 120, close: 22), to: &merged)
@@ -512,3 +519,5 @@ private final class RecordingChartItemProvider: ChartItemProvider, @unchecked Se
 
     #expect(provider.recoveryRequestCount == 0)
 }
+
+#endif

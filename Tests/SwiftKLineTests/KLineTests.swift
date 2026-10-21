@@ -1,5 +1,14 @@
+//
+//  KLineTests.swift
+//  SwiftKLineTests
+//
+//  Created by zhwayne on 2026/04/27.
+//
+
+#if canImport(UIKit)
 import Testing
-@testable import SwiftKLine
+@testable import SwiftKLineUI
+@testable import SwiftKLineCore
 
 private struct TestChartItem: ChartItem {
     let open: Double
@@ -22,7 +31,7 @@ private struct TestChartItem: ChartItem {
 }
 
 @Test func dataMergerSortsAndOverwritesByTimestamp() {
-    var merger = DataMerger()
+    var merger = DataMerger(period: .oneMinute)
     let current: [any ChartItem] = [
         TestChartItem(timestamp: 120, close: 2),
         TestChartItem(timestamp: 60, close: 1),
@@ -39,13 +48,12 @@ private struct TestChartItem: ChartItem {
 }
 
 @Test func dataMergerReplacesLiveTickInExistingBucket() {
-    var merger = DataMerger()
+    var merger = DataMerger(period: .oneMinute)
     var items: [any ChartItem] = [
         TestChartItem(timestamp: 60, close: 1),
         TestChartItem(timestamp: 120, close: 2),
         TestChartItem(timestamp: 180, close: 3),
     ]
-    merger.prepareBucketsIfNeeded(with: items)
 
     let result = merger.applyLiveTick(TestChartItem(timestamp: 125, close: 22), to: &items)
 
@@ -55,15 +63,11 @@ private struct TestChartItem: ChartItem {
 }
 
 @Test func dataMergerInsertsLiveTickAtSortedBucketPosition() {
-    var merger = DataMerger()
+    var merger = DataMerger(period: .oneMinute)
     var items: [any ChartItem] = [
         TestChartItem(timestamp: 60, close: 1),
         TestChartItem(timestamp: 180, close: 3),
     ]
-    merger.prepareBucketsIfNeeded(with: [
-        TestChartItem(timestamp: 60, close: 1),
-        TestChartItem(timestamp: 120, close: 2),
-    ])
 
     let result = merger.applyLiveTick(TestChartItem(timestamp: 120, close: 2), to: &items)
 
@@ -72,12 +76,11 @@ private struct TestChartItem: ChartItem {
 }
 
 @Test func dataMergerReportsTailAppend() {
-    var merger = DataMerger()
+    var merger = DataMerger(period: .oneMinute)
     var items: [any ChartItem] = [
         TestChartItem(timestamp: 60, close: 1),
         TestChartItem(timestamp: 120, close: 2),
     ]
-    merger.prepareBucketsIfNeeded(with: items)
 
     let result = merger.applyLiveTick(TestChartItem(timestamp: 180, close: 3), to: &items)
 
@@ -187,3 +190,5 @@ private struct TestChartItem: ChartItem {
     #expect(store.values(for: maKey, as: Double.self)?.count == 4)
     #expect(store.values(for: maKey, as: Double.self)?[1] == 1.5)
 }
+
+#endif

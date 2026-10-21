@@ -1,13 +1,14 @@
 //
-//  ChartPeriodPicker.swift
+//  KLinePeriodPicker.swift
 //  SwiftKLineExample
 //
-//  Created by iya on 2025/4/13.
+//  Created by zhwayne on 2025/04/13.
 //
 
 import SwiftUI
 import SwiftKLine
 
+/// An example period selector that updates its parent-owned period binding using stable transport identifiers.
 struct ChartPeriodPicker: View {
     
     @Binding var period: ChartPeriod

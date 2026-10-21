@@ -1,27 +1,32 @@
 //
 //  WebSocketClient.swift
-//  KLineDemo
+//  SwiftKLineExample
 //
-//  Created by iya on 2025/3/23.
+//  Created by zhwayne on 2025/03/23.
 //
 
 import Foundation
 
+/// The text and binary WebSocket payloads exposed by the example transport.
 public enum WebSocketMessage: Sendable {
+    /// A UTF-8 text message supplied by URLSession.
     case text(String)
+    /// A binary message supplied by URLSession.
     case data(Data)
 }
 
+/// Transport-specific error context for the example WebSocket client.
 public enum WebSocketError: Error, Sendable, CustomStringConvertible {
-    /// 连接失败
+    /// Connection failure
     case connectionFailed(Error)
-    /// 发送失败
+    /// Send failure
     case sendFailed(Error)
-    /// 不合法的 url
+    /// Invalid WebSocket URL
     case invalidURL
-    /// 意外断开链接
+    /// Unexpected socket closure
     case unexpectedClose(code: URLSessionWebSocketTask.CloseCode)
     
+    /// A user-facing description of the underlying transport failure.
     public var description: String {
         switch self {
         case .connectionFailed(let error): "连接失败: \(error.localizedDescription)"
@@ -32,21 +37,36 @@ public enum WebSocketError: Error, Sendable, CustomStringConvertible {
     }
 }
 
+/// The example transport’s connection state, emitted through the status stream.
 public enum ConnectionStatus: Sendable, Equatable {
+    /// No active connection remains.
     case disconnected
+    /// A socket is being created and resumed; this does not confirm a completed handshake.
     case connecting
+    /// The socket has been resumed; messages or pongs establish connection health.
     case connected
+    /// A bounded reconnect attempt is waiting for its backoff delay.
     case reconnecting(attempt: Int)
 }
 
-// 所有连接状态均由同一个 actor 管理，关闭连接与接收失败不会并发修改会话。
+// One actor owns connection state, serializing disconnects with receive failures.
+/// Serializes the example transport’s socket, receive loop, ping loop, and reconnect state.
+///
+/// This transport is application code rather than part of the chart package. Explicit disconnect is terminal
+/// and invalidates delayed retries; a fresh chart subscription creates a fresh client.
 public actor WebSocketClient {
+    /// Immutable connection settings shared safely with the transport actor.
     public struct Configuration: Sendable {
+        /// The WebSocket endpoint, including its exchange subscription path.
         public let url: URL
+        /// Whether receive failures may create another connection.
         public let autoReconnect: Bool
+        /// The maximum consecutive retry count; a received message or pong resets it.
         public let maxReconnectAttempts: Int
+        /// Seconds between pings. Use a finite positive value, or a nonpositive value to disable pings.
         public let pingInterval: TimeInterval
         
+        /// Creates transport configuration; the default enables three reconnect attempts and a ten-second ping interval.
         public init(
             url: URL,
             autoReconnect: Bool = true,
@@ -72,15 +92,22 @@ public actor WebSocketClient {
     private let messagesContinuation: AsyncStream<WebSocketMessage>.Continuation
     private let statusContinuation: AsyncStream<ConnectionStatus>.Continuation
 
+    /// The payload stream with a 512-message newest buffer; older buffered payloads may be dropped.
     public let messages: AsyncStream<WebSocketMessage>
+    /// The connection-status stream retaining only the latest buffered transition.
     public let statusUpdate: AsyncStream<ConnectionStatus>
 
+    /// Creates a transport actor and its streams without opening a connection.
     public init(config: Configuration) {
         self.config = config
-        (messages, messagesContinuation) = AsyncStream.makeStream()
-        (statusUpdate, statusContinuation) = AsyncStream.makeStream()
+        (messages, messagesContinuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(512))
+        (statusUpdate, statusContinuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
     }
 
+    /// Creates and resumes a socket and starts receive/ping loops unless one is already active.
+    ///
+    /// Cancellation is checked before setup. A resumed socket is reported as connected before handshake confirmation;
+    /// the first message or pong establishes health. Calling this after disconnect throws a cancellation error.
     public func connect() async throws {
         try Task.checkCancellation()
         guard !isClosed else { throw URLError(.cancelled) }
@@ -106,9 +133,9 @@ public actor WebSocketClient {
         }
     }
 
-    /// 结束客户端及其消息流；新的订阅使用新的客户端实例。
+    /// Permanently closes the socket, invalidates reconnect work, cancels transport tasks, and finishes both streams.
     public func disconnect() {
-        // 在取消 socket 前使旧接收回调及退避重连失效；主动关闭绝不能触发自动重连。
+        // Invalidate receive callbacks and backoff retries before cancelling the socket; explicit shutdown must not reconnect.
         generation = UUID()
         isClosed = true
         receiveTask?.cancel()
@@ -119,6 +146,7 @@ public actor WebSocketClient {
         statusContinuation.finish()
     }
 
+    /// Sends a text or binary payload through the active socket, throwing a connection or send error on failure.
     public func send(message: WebSocketMessage) async throws {
         guard let task else {
             throw WebSocketError.connectionFailed(URLError(.badServerResponse))
@@ -167,7 +195,7 @@ public actor WebSocketClient {
 
     private func markConnectionHealthy(socket: URLSessionWebSocketTask) {
         guard task === socket else { return }
-        // resume() 并不表示握手成功，只有收到消息或 pong 才重置连续失败次数。
+        // Socket resume does not confirm a handshake; only a message or pong resets consecutive failure attempts.
         reconnectAttempt = 0
     }
 
@@ -181,6 +209,7 @@ public actor WebSocketClient {
         }
     }
 
+    /// Clears the failed socket, applies bounded backoff, and checks generation identity before attempting reconnection.
     private func handleReceiveError(_ error: Error, socket: URLSessionWebSocketTask) async {
         guard task === socket else { return }
         clearConnection(code: .abnormalClosure)
@@ -199,7 +228,7 @@ public actor WebSocketClient {
             guard generation == self.generation else { return }
             try await connect()
         } catch {
-            // disconnect() 会取消退避任务，取消后不再创建新的 socket。
+            // Disconnect invalidates pending backoff work, preventing another socket from being created.
             return
         }
     }

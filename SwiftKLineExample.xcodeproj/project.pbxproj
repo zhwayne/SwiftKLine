@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		292FF91B2E3DE92700E2ABF0 /* SwiftKLine in Frameworks */ = {isa = PBXBuildFile; productRef = 292FF91A2E3DE92700E2ABF0 /* SwiftKLine */; };
-		9636C3D12DABEE0F00420970 /* SwiftyJSON in Frameworks */ = {isa = PBXBuildFile; productRef = 9636C3D02DABEE0F00420970 /* SwiftyJSON */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,7 +28,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				292FF91B2E3DE92700E2ABF0 /* SwiftKLine in Frameworks */,
-				9636C3D12DABEE0F00420970 /* SwiftyJSON in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -80,7 +78,6 @@
 			);
 			name = SwiftKLineExample;
 			packageProductDependencies = (
-				9636C3D02DABEE0F00420970 /* SwiftyJSON */,
 				292FF91A2E3DE92700E2ABF0 /* SwiftKLine */,
 			);
 			productName = SwiftKLineExample;
@@ -112,7 +109,6 @@
 			mainGroup = 9636C3B42DABED4C00420970;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				9636C3CF2DABEE0F00420970 /* XCRemoteSwiftPackageReference "SwiftyJSON" */,
 				292FF9192E3DE92700E2ABF0 /* XCLocalSwiftPackageReference "../SwiftKLine" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -295,7 +291,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
@@ -328,7 +324,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
@@ -364,25 +360,12 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		9636C3CF2DABEE0F00420970 /* XCRemoteSwiftPackageReference "SwiftyJSON" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/SwiftyJSON/SwiftyJSON";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 5.0.2;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		292FF91A2E3DE92700E2ABF0 /* SwiftKLine */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SwiftKLine;
-		};
-		9636C3D02DABEE0F00420970 /* SwiftyJSON */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9636C3CF2DABEE0F00420970 /* XCRemoteSwiftPackageReference "SwiftyJSON" */;
-			productName = SwiftyJSON;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

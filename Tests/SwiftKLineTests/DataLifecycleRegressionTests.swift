@@ -1,6 +1,15 @@
+//
+//  DataLifecycleRegressionTests.swift
+//  SwiftKLineTests
+//
+//  Created by zhwayne on 2026/10/21.
+//
+
+#if canImport(UIKit)
 import Foundation
 import Testing
-@testable import SwiftKLine
+@testable import SwiftKLineUI
+@testable import SwiftKLineCore
 
 private struct RegressionItem: ChartItem {
     let timestamp: Int
@@ -12,7 +21,7 @@ private struct RegressionItem: ChartItem {
     var value: Double { 0 }
 }
 
-/// 一次性异步信号，用实际事件控制请求顺序，避免依赖网络或固定延迟。
+/// A one-shot async signal that controls request order without network access or fixed delays.
 private actor Signal {
     private var signaled = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
@@ -30,14 +39,18 @@ private actor Signal {
     }
 }
 
+/// A deterministic provider whose page completion, live ticks, and termination are controlled by test signals.
 private final class ControlledProvider: ChartItemProvider, Sendable {
     let releasePage = Signal()
+    let pageRequested = Signal()
+    private let initialItems: [any ChartItem]
     let streamRequested = Signal()
     let terminated = Signal()
     let stream: AsyncStream<any ChartItem>
     let continuation: AsyncStream<any ChartItem>.Continuation
 
-    init() {
+    init(initialItems: [any ChartItem] = [RegressionItem(timestamp: 60, close: 1), RegressionItem(timestamp: 120, close: 2)]) {
+        self.initialItems = initialItems
         (stream, continuation) = AsyncStream.makeStream()
         continuation.onTermination = { [terminated] _ in
             Task { await terminated.signal() }
@@ -46,8 +59,9 @@ private final class ControlledProvider: ChartItemProvider, Sendable {
 
     func fetchChartItems(forPage page: Int) async throws -> [any ChartItem] {
         guard page == 0 else { return [] }
+        await pageRequested.signal()
         await releasePage.wait()
-        return [RegressionItem(timestamp: 60, close: 1), RegressionItem(timestamp: 120, close: 2)]
+        return initialItems
     }
 
     func fetchChartItems(from start: Date, to end: Date) async throws -> [any ChartItem] { [] }
@@ -98,7 +112,7 @@ private final class ControlledProvider: ChartItemProvider, Sendable {
 @available(iOS 16.0, *)
 @Test(.timeLimit(.minutes(1))) func releasingLoaderCancelsInfiniteStream() async {
     let provider = ControlledProvider()
-    // 先完成历史请求，确保测试只检测无限流是否强持有 loader。
+    // Complete history first so the test isolates whether an infinite stream retains its loader.
     await provider.releasePage.signal()
     var loader: ChartItemLoader? = ChartItemLoader(provider: provider, eventHandler: { _ in })
     weak var weakLoader = loader
@@ -120,7 +134,8 @@ private final class ControlledProvider: ChartItemProvider, Sendable {
     await provider.terminated.wait()
 }
 
-// 同步计算器只能使用同步等待；锁只保护测试闸门，不保护产品的异步状态。
+// Synchronous calculators need a synchronous test gate; the lock does not protect production async state.
+/// A lock-backed test gate that blocks a synchronous calculator until the test explicitly releases it.
 private final class CalculationGate: @unchecked Sendable {
     private let condition = NSCondition()
     private var released = false
@@ -144,6 +159,7 @@ private final class CalculationGate: @unchecked Sendable {
     }
 }
 
+/// A test calculator that deliberately delays one input snapshot to exercise cancellation and publication ordering.
 private struct GatedCalculator: IndicatorCalculator {
     let id = SeriesKey(indicatorID: "test.gated", name: "gated")
     let gate: CalculationGate
@@ -153,6 +169,7 @@ private struct GatedCalculator: IndicatorCalculator {
     }
 }
 
+/// Installs the gated calculator under either a custom or replaced built-in ID for lifecycle regression tests.
 private struct GatedPlugin: IndicatorPlugin {
     let id: IndicatorID
     let title = "Gated"
@@ -180,7 +197,7 @@ private struct GatedPlugin: IndicatorPlugin {
     await oldDraw.value
     #expect(view.debugCoordinatorItemTimestamps.isEmpty)
     #expect(view.debugItemTimestamps.isEmpty)
-    // 释放仍在等待的历史请求，避免测试自身遗留任务。
+    // Release the pending history request so the test leaves no suspended producer task.
     await provider.releasePage.signal()
 }
 
@@ -235,9 +252,65 @@ func macdRejectsInvalidPeriods(periods: (Int, Int, Int)) {
 
 @Test(arguments: [false, true])
 func sarUsesReversalExtremeOnReversalCandle(mirrored: Bool) {
-    // 镜像行情同时验证上涨转下跌、下跌转上涨。
+    // Mirror the prices to cover both rising-to-falling and falling-to-rising reversals.
     let closes: [Double] = mirrored ? [10, 8, 14] : [10, 12, 6]
     let items = closes.enumerated().map { RegressionItem(timestamp: $0.offset, close: $0.element) }
     let values = SARCalculator().calculate(for: items)
     #expect(values[2] == (mirrored ? 7 : 13))
 }
+
+@available(iOS 16.0, *)
+@Test(.timeLimit(.minutes(1))) @MainActor
+func ticksDuringSlowCalculationAreEventuallyPublished() async {
+    let gate = CalculationGate()
+    defer { gate.release() }
+    let registry = PluginRegistry.default
+    registry.register(GatedPlugin(id: "test.gated", gate: gate))
+    let view = ChartView(options: ChartOptions(
+        indicators: IndicatorSelectionState(mainIndicatorIDs: ["test.gated"]), features: [], plugins: registry))
+    view.setItems([RegressionItem(timestamp: 999, close: 1)])
+    for await _ in gate.started { break }
+    view.update(RegressionItem(timestamp: 999, close: 7))
+    view.update(RegressionItem(timestamp: 1000, close: 8))
+    gate.release()
+    await view.debugWaitForRefresh()
+    #expect(view.debugRenderedCloses == [7, 8])
+    #expect(view.debugIndicatorSeriesStore.values(for: SeriesKey(indicatorID: "test.gated", name: "gated"), as: Double.self) == [7, 8])
+}
+
+@available(iOS 16.0, *)
+@Test(.timeLimit(.minutes(1))) @MainActor
+func emptyInitialPageStillReplaysLiveTicks() async {
+    let provider = ControlledProvider(initialItems: [])
+    let coordinator = makeCoordinator()
+    let tickReceived = Signal()
+    let pageReceived = Signal()
+    coordinator.onStateUpdated = { _, _, event in
+        if case .liveTick = event { Task { await tickReceived.signal() } }
+        if case .page = event { Task { await pageReceived.signal() } }
+    }
+    coordinator.loadData(using: provider)
+    await provider.streamRequested.wait()
+    provider.continuation.yield(RegressionItem(timestamp: 60, close: 7))
+    await tickReceived.wait()
+    await provider.releasePage.signal()
+    await pageReceived.wait()
+    #expect(coordinator.state.items.map(\.close) == [7])
+    coordinator.stopDataLoading()
+    await provider.terminated.wait()
+}
+
+@available(iOS 16.0, *)
+@Test(.timeLimit(.minutes(1)))
+func releasingLoaderDoesNotWaitForUncooperativePageRequest() async {
+    let provider = ControlledProvider()
+    var loader: ChartItemLoader? = ChartItemLoader(provider: provider, enablesLiveUpdates: false, eventHandler: { _ in })
+    await loader?.start()
+    await provider.pageRequested.wait()
+    weak var weakLoader = loader
+    loader = nil
+    #expect(weakLoader == nil)
+    await provider.releasePage.signal()
+}
+
+#endif

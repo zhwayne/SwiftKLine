@@ -1,228 +1,290 @@
-![SwiftKLine](https://socialify.git.ci/zhwayne/SwiftKLine/image?description=1&font=KoHo&forks=1&issues=1&language=1&name=1&owner=1&pattern=Circuit+Board&pulls=1&stargazers=1&theme=Auto)
+# SwiftKLine
 
-一个轻量级、模块化且易于扩展的 K 线图表框架，专为 Swift 应用设计。
+A lightweight, modular candlestick chart library for **iOS and iPadOS**, built with Swift 6, UIKit, and Core Animation, with a SwiftUI adapter.
 
-<img src="https://github.com/user-attachments/assets/efa0309e-72c6-4d2a-8d27-60891d7bfcda" width=50%>
+[![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20iPadOS-blue)](#requirements)
+[![Swift](https://img.shields.io/badge/Swift-6.0%2B-orange)](#requirements)
+[![SPM](https://img.shields.io/badge/Swift_Package_Manager-compatible-brightgreen)](#installation)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-# 功能特点
+<p align="center">
+  <img src="docs/assets/chart-preview.png" alt="SwiftKLine showing candlesticks, moving averages, volume, and MACD" width="360">
+</p>
 
-## 核心架构
+[Features](#features) · [Installation](#installation) · [Quick Start](#quick-start) · [Documentation](#documentation) · [Contributing](#contributing)
 
-- 模块化设计：数据加载、指标计算、渲染协调、交互和样式分层管理。
-- 高性能渲染：复用 renderer、缓存 legend、合并 redraw，并支持实时 tick 增量更新。
-- 扩展友好：可注册指标 renderer，支持自定义样式、主题和指标 key。
-- 协议驱动：通过 `ChartItemProvider` 接入历史分页、区间补数和实时流。
-- Swift 6 友好：数据提供者和 K 线数据模型要求 `Sendable`，加载流程使用 actor 隔离。
+## Features
 
-## 已实现功能
+- Candlestick and time-series charts.
+- Pinch to zoom, horizontal scrolling, and crosshair inspection.
+- Historical pagination, live candle updates, and optional gap recovery.
+- Built-in indicators with configurable periods and styles.
+- Custom indicators through calculator and renderer protocols.
+- UIKit and SwiftUI integration with application-owned data providers.
+- Visible-range drawing, reusable layers, and coalesced live refreshes.
+- Zero third-party dependencies.
 
-- [x] K 线蜡烛图绘制（阳线 / 阴线）
-- [x] 手势交互（缩放、平移、十字线）
-- [x] 实时数据订阅
-- [x] 主指标：MA、EMA、WMA、BOLL、SAR
-- [x] 副指标：MACD、RSI、VOL
-- [x] 分时图模式
-- [x] 自定义渲染器
-- [x] 主题配置
-- [x] 指标选择持久化
-- [ ] 更多高级指标（持续迭代中）
+### Built-in indicators
 
-# 快速开始
+| Indicator | Description | Placement |
+| --- | --- | --- |
+| MA | Simple moving average | Main chart |
+| EMA | Exponential moving average | Main chart |
+| WMA | Weighted moving average | Main chart |
+| BOLL | Bollinger bands | Main chart |
+| SAR | Parabolic stop and reverse | Main chart |
+| VOL | Traded volume | Lower panel |
+| RSI | Relative strength index | Lower panel |
+| MACD | Moving average convergence/divergence | Lower panel |
 
-## 安装
+## Requirements
 
-直接将 `Sources/SwiftKLine` 目录添加到工程，或在 Swift Package Manager 中引用本仓库。
-> 目前项目处于早期阶段，后续版本可能包含破坏性更改，请谨慎使用。
+| Requirement | Minimum |
+| --- | --- |
+| iOS | 13.0 |
+| iPadOS | 13.0 |
+| Swift | 6.0 |
+| Xcode | 16.0 |
 
+The example app has a separate deployment target of iOS 18.0.
 
-## 基本使用
+## Installation
 
-通过 `ChartOptions` 配置图表行为，`ChartView` 负责渲染；数据提供者通过 `loadData(using:)` 显式绑定或替换：
+### Xcode
+
+1. Choose **File → Add Package Dependencies…**.
+2. Enter [https://github.com/zhwayne/SwiftKLine](https://github.com/zhwayne/SwiftKLine).
+3. Select the `SwiftKLine` library product and add it to your app target.
+
+### Swift Package Manager
+
+Add the package to your dependencies:
+
+```swift
+.package(
+    url: "https://github.com/zhwayne/SwiftKLine.git",
+    branch: "main"
+)
+```
+
+Then add the library product to your target:
+
+```swift
+.product(name: "SwiftKLine", package: "SwiftKLine")
+```
+
+The examples below use the development API on `main`. Pin a commit revision when you need a fixed dependency.
+
+## Quick Start
+
+### UIKit
+
+Create a chart, add layout constraints, and load data through a `ChartItemProvider`. This example uses the `SnapshotProvider` defined in [Data Providers](#data-providers):
 
 ```swift
 import UIKit
 import SwiftKLine
 
-let provider = BinanceDataProvider(symbol: "BTCUSDT", period: .m1)
+@MainActor
+final class ChartViewController: UIViewController {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        let chart = ChartView(options: ChartOptions(
+            appearance: .theme(.solaris),
+            features: []
+        ))
+        chart.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(chart)
+
+        NSLayoutConstraint.activate([
+            chart.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            chart.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+            chart.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor)
+        ])
+
+        let provider = SnapshotProvider(candles: [
+            Candle(timestamp: 1_700_000_000, open: 100, high: 105, low: 98, close: 103, volume: 500),
+            Candle(timestamp: 1_700_000_060, open: 103, high: 108, low: 102, close: 106, volume: 620),
+            Candle(timestamp: 1_700_000_120, open: 106, high: 107, low: 101, close: 102, volume: 540)
+        ])
+        chart.loadData(using: provider)
+    }
+}
+```
+
+`ChartView` provides an intrinsic height based on its selected panels. Give it a width and vertical position through your layout.
+
+Use `loadData(using:)` to attach or replace a provider. The chart loads its historical pages and consumes its live stream when enabled. Call `stopDataLoading()` to cancel provider work while retaining the displayed chart.
+
+**Timestamps are candle-open Unix times in seconds.** Keep the timestamp stable when revising a candle. Prices, volume, and traded amount must be finite, with `high >= low`.
+
+### SwiftUI
+
+Use `KLineChart` with a stable source identity and a provider factory. The following example uses the `SnapshotProvider` defined in [Data Providers](#data-providers):
+
+```swift
+import SwiftUI
+import SwiftKLine
+
+@MainActor
+struct MarketChart: View {
+    let seriesID: String
+    let candles: [Candle]
+
+    var body: some View {
+        KLineChart(
+            sourceID: seriesID,
+            options: ChartOptions(
+                appearance: .theme(.solaris),
+                features: []
+            )
+        ) {
+            SnapshotProvider(candles: candles)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+```
+
+The factory runs when the source first appears or `sourceID` changes. Include the symbol, period, or dataset revision in that identity when those changes should reload data. The adapter stops loading when SwiftUI removes the chart.
+
+Use `content:` to switch presentation and `indicators: $selection` to bind indicator selection. Appearance and plugins are creation-time options; use SwiftUI’s `.id(...)` when replacing them.
+
+## Data Providers
+
+Implement `ChartItemProvider` to connect your own storage or market-data service. A provider can start with immutable snapshots:
+
+```swift
+import Foundation
+import SwiftKLine
+
+final class SnapshotProvider: ChartItemProvider, Sendable {
+    private let candles: [Candle]
+
+    init(candles: [Candle]) {
+        self.candles = candles
+    }
+
+    func fetchChartItems(forPage page: Int) async throws -> [any ChartItem] {
+        page == 0 ? candles : []
+    }
+
+    func fetchChartItems(from start: Date, to end: Date) async throws -> [any ChartItem] {
+        candles.filter {
+            TimeInterval($0.timestamp) >= start.timeIntervalSince1970 &&
+            TimeInterval($0.timestamp) <= end.timeIntervalSince1970
+        }
+    }
+}
+```
+
+Attach a provider to an existing UIKit chart with `chart.loadData(using: provider)`.
+
+| API | Contract |
+| --- | --- |
+| `fetchChartItems(forPage:)` | Page `0` contains the newest history. Later pages move backward; an empty page ends pagination. |
+| `fetchChartItems(from:to:)` | Returns snapshots for an inclusive interval used during gap recovery. |
+| `liveStream()` | Optional `AsyncStream` of complete candle snapshots. The default stream finishes immediately. |
+| `candlePeriod` | Optional fixed bucket duration. The default `nil` matches exact candle-open timestamps. |
+
+For live providers, cancel independent producer tasks and close connections in the stream’s `onTermination` handler. Use exact opening timestamps for calendar periods such as months.
+
+Enable provider features through `ChartOptions(features: [.liveUpdates, .gapRecovery])`. Loading errors are reported through `onLoadError`; `stopDataLoading()` cancels the session while retaining displayed data.
+
+The example app includes a [Binance provider](SwiftKLineExample/BinanceDataProvider.swift) built with `URLSession` and `Decodable`. Exchange-specific transport stays in the application.
+
+## Configuration
+
+Choose a theme and initial indicator selection through `ChartOptions`:
+
+```swift
 let options = ChartOptions(
     appearance: .theme(.midnight),
-    content: .candlestick,
     indicators: IndicatorSelectionState(
-        mainIndicatorIDs: [.ma],
+        mainIndicatorIDs: [.ma, .boll],
         subIndicatorIDs: [.vol, .macd]
     ),
-    features: [.liveUpdates, .gapRecovery, .indicatorPersistence],
-    plugins: .default
+    features: [.liveUpdates, .gapRecovery, .indicatorPersistence]
 )
-let chartView = ChartView(options: options)
-chartView.loadData(using: provider)
-view.addSubview(chartView)
+
+let chart = ChartView(options: options)
 ```
 
-- `ChartItemProvider` 负责提供分页历史数据、按时间区间补数以及实时流。
-- 框架内置 `ChartItemLoader`，会在前后台切换时自动补齐缺失区间。
-- `loadData(using:)` 会重置当前数据、指标序列和分页状态，并启动新的 loader。
-- `ChartOptions` 负责图表装配；`loadData(using:)` 负责绑定或替换数据提供者。保留这两个步骤可以在周期切换、provider 替换和视图复用时保持行为明确。
+Use `ChartConfiguration` for custom candle colors, section heights, legend fonts, indicator styles, and calculation periods. Built-in appearance presets include `.midnight` and `.solaris`.
 
-## 切换主图样式
+Update presentation and selection without replacing the chart:
 
 ```swift
-chartView.setContentStyle(.candlestick)
-chartView.setContentStyle(.timeSeries)
-```
+chart.setContentStyle(.timeSeries)
 
-`ChartType` 当前支持：
+chart.setIndicators(IndicatorSelectionState(
+    mainIndicatorIDs: [.ema],
+    subIndicatorIDs: [.vol, .rsi]
+))
 
-- `.candlestick`：蜡烛图主图。
-- `.timeSeries`：分时图主图。
-
-## 创建自定义数据源
-
-实现 `ChartItemProvider` 即可接入任意行情源：
-
-```swift
-final class MyProvider: ChartItemProvider, @unchecked Sendable {
-    func fetchChartItems(forPage page: Int) async throws -> [any ChartItem] { /* ... */ }
-    func fetchChartItems(from start: Date, to end: Date) async throws -> [any ChartItem] { /* ... */ }
-    func liveStream() -> AsyncStream<any ChartItem> { /* 可选 */ }
-}
-```
-
-说明：
-
-- `page == 0` 表示最近一页，page 递增表示继续向更早历史分页。
-- `fetchChartItems(from:to:)` 用于前后台切换、网络恢复等场景的缺口补齐。
-- `liveStream()` 默认返回空流；只有需要实时行情时才需要实现。
-- Provider 必须是 `AnyObject & Sendable`。如果内部使用锁、actor 或不可变状态保证线程安全，可按需使用 `@unchecked Sendable`。
-
-K 线数据模型需实现 `ChartItem`：
-
-```swift
-struct Candle: ChartItem {
-    let open: Double
-    let close: Double
-    let high: Double
-    let low: Double
-    let volume: Double
-    let value: Double
-    let timestamp: Int // 秒级时间戳
-}
-```
-
-## 指标选择持久化
-
-`ChartView` 默认使用 `UserDefaultsIndicatorSelectionStore` 保存主/副图指标选择。可以注入自定义 store，或传入 `nil` 关闭持久化：
-
-```swift
-let view = ChartView(indicatorSelectionStore: nil)
-```
-
-监听指标变化：
-
-```swift
-chartView.indicatorSelectionChanged = { state in
-    print(state.mainIndicators, state.subIndicators)
-}
-```
-
-恢复默认指标：
-
-```swift
-chartView.resetIndicatorsToDefault()
-```
-
-# 配置与主题
-
-## 使用内置主题
-
-```swift
-let dark = ChartConfiguration.themed(.midnight)
-let light = ChartConfiguration.themed(.solaris)
-let chartView = ChartView(configuration: dark)
-```
-
-## 自定义配置
-
-```swift
-let configuration = ChartConfiguration(
-    candleStyle: CandleStyle(
-        risingColor: .systemGreen,
-        fallingColor: .systemRed,
-        width: 8,
-        gap: 2
-    ),
-    watermarkText: "SwiftKLine",
-    layoutMetrics: LayoutMetrics(
-        mainChartHeight: 320,
-        timelineHeight: 16,
-        indicatorHeight: 72,
-        indicatorSelectorHeight: 34
-    ),
-    defaultMainIndicators: [.ma],
-    defaultSubIndicators: [.vol, .macd]
-)
-```
-
-# 扩展框架
-
-## 扩展内置指标渲染
-
-通过 `PluginRegistry` 的 `registerRenderer(placement:provider:)` 可为指定位置注册额外的渲染器。
-
-```swift
-let registry = PluginRegistry.default
-registry.registerRenderer(placement: .overlay) { _, configuration in
-    [MyOverlayRenderer()]
-}
-let options = ChartOptions(plugins: registry)
-```
-
-使用已存在的 `IndicatorID` 注册插件时，会替换当前 `PluginRegistry` 实例中的旧插件，并返回被替换的插件。不同 chart view 需要不同插件集合时，请使用独立的 registry 实例。
-
-## 兼容旧 API
-
-`ChartOptions` 是主要图表装配对象，`ChartConfiguration` 是视觉和内置指标展示配置对象。`loadData(using:)`、`setContentStyle(_:)`、`resetIndicatorsToDefault()` 等命令式 API 仍可用。
-
-## API 命名说明
-
-- `ChartOptions` 是主要图表装配对象。
-- `ChartConfiguration` 是视觉和内置指标展示配置对象。
-- 新代码优先使用 `IndicatorSelectionState(mainIndicatorIDs:subIndicatorIDs:)`，不要优先使用 `main`/`sub` 标签。
-- `ChartItem.timestamp` 必须是 Unix 秒级时间戳；`timestampSeconds` 别名用于提高可读性。
-
-## 自定义指标插件
-
-通过 `IndicatorPlugin` 和 `IndicatorCalculator` 协议，可以在不修改内置 `BuiltInIndicator` 的前提下新增完整指标：
-
-```swift
-struct MyCalculator: IndicatorCalculator {
-    let id = SeriesKey(indicatorID: "custom.myIndicator", name: "MY")
-
-    func calculate(for items: [any ChartItem]) -> [Double?] {
-        items.map { Optional($0.close) }
-    }
+chart.indicatorSelectionChanged = { selection in
+    print(selection)
 }
 
-struct MyPlugin: IndicatorPlugin {
-    let id: IndicatorID = "custom.myIndicator"
-    let title = "MY"
-    let placement: IndicatorPlacement = .overlay
-    let defaultSeriesKeys = [SeriesKey(indicatorID: "custom.myIndicator", name: "MY")]
-
-    func makeCalculators(configuration: ChartConfiguration) -> [any IndicatorCalculator] {
-        [MyCalculator()]
-    }
-
-    @MainActor func makeRenderers(configuration: ChartConfiguration) -> [any ChartRenderer] {
-        [MyRenderer()]
-    }
-}
-
-let registry = PluginRegistry.default
-registry.register(MyPlugin())
-let options = ChartOptions(plugins: registry)
+chart.resetIndicatorsToDefault()
+chart.scrollToLatest()
 ```
 
-# 许可证
+When `.indicatorPersistence` is enabled, saved selections take precedence over the declared initial selection. Omit that feature for an application-controlled initial selection.
 
-本项目采用 MIT 许可证 - 详情请见 LICENSE 文件。
+## Custom Indicators
+
+Custom indicators combine:
+
+- `IndicatorCalculator`: a `Sendable` calculation with input-aligned output.
+- `IndicatorPlugin`: an identity, placement, and factories for calculators and renderers.
+- `ChartRenderer`: reusable drawing, legends, and visible value bounds.
+
+For scalar outputs, reuse `LineIndicatorRenderer(series:)`. Register plugins with an independent `PluginRegistry` before creating the chart. Include calculation parameters in each `SeriesKey` and rendering parameters in each renderer’s identity.
+
+The `SwiftKLineCore` library product exposes models, built-in calculators, and `IndicatorEngine` independently of chart rendering. See the [architecture guide](docs/architecture.md) for extension contracts and calculation behavior.
+
+## Example App
+
+Open `SwiftKLineExample.xcodeproj`, select the `SwiftKLineExample` scheme, and run it on an iOS simulator or a supported device.
+
+Add `--demo` to the scheme’s launch arguments to use offline sample data. SwiftUI previews also use offline data. The live example requires access to the exchange endpoints.
+
+## Documentation
+
+| Guide | Contents |
+| --- | --- |
+| [Architecture](docs/architecture.md) | Module boundaries, plugin contracts, snapshot consistency, and cancellation. |
+| [Performance](docs/performance.md) | Reproducible calculation benchmarks, complexity, and measurement limits. |
+| [Migration](docs/migration.md) | Module changes, explicit candle periods, and updated integration APIs. |
+
+The detailed guides are currently written in Chinese.
+
+## Development
+
+```sh
+# Run the core calculation and data tests.
+swift test
+
+# Run the package tests on an installed iOS simulator.
+./script/test-ios.sh
+
+# Build the example for the iOS simulator.
+./script/build-example.sh
+
+# Run calculation benchmarks in Release mode.
+swift run -c release SwiftKLineBenchmark
+```
+
+## Contributing
+
+Bug reports, feature discussions, and pull requests are welcome.
+
+For a bug report, include your Xcode version, device or simulator OS, relevant chart configuration, and a small dataset or provider that reproduces the issue.
+
+For code changes, add focused regression coverage where appropriate and run the relevant checks above. Keep source comments in English and document public API behavior.
+
+## License
+
+SwiftKLine is available under the [MIT license](LICENSE).

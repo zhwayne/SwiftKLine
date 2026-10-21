@@ -1,28 +1,35 @@
 // swift-tools-version: 6.0
-// The swift-tools-version declares the minimum version of Swift required to build this package.
+//
+//  Package.swift
+//  SwiftKLine
+//
+//  Created by zhwayne on 2025/04/13.
+//
 
 import PackageDescription
 
 let package = Package(
     name: "SwiftKLine",
-    platforms: [.iOS(.v13)],
+    platforms: [.iOS(.v13), .macOS(.v10_15)],
     products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
-        .library(
-            name: "SwiftKLine",
-            targets: ["SwiftKLine"]),
-    ],
-    dependencies: [
-        .package(url: "https://github.com/SnapKit/SnapKit.git", .upToNextMajor(from: "5.0.1"))
+        .library(name: "SwiftKLine", targets: ["SwiftKLine"]),
+        .library(name: "SwiftKLineCore", targets: ["SwiftKLineCore"])
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
-        .target(
-            name: "SwiftKLine", dependencies: ["SnapKit"]),
-        .testTarget(
-            name: "SwiftKLineTests",
-            dependencies: ["SwiftKLine"]
-        ),
-    ]
+        .target(name: "SwiftKLineCore"),
+        .target(name: "SwiftKLineUI", dependencies: ["SwiftKLineCore"]),
+        .target(name: "SwiftKLineSwiftUI", dependencies: ["SwiftKLineUI", "SwiftKLineCore"]),
+        .target(name: "SwiftKLine", dependencies: [
+            "SwiftKLineCore",
+            .target(name: "SwiftKLineUI", condition: .when(platforms: [.iOS])),
+            .target(name: "SwiftKLineSwiftUI", condition: .when(platforms: [.iOS]))
+        ]),
+        .executableTarget(name: "SwiftKLineBenchmark", dependencies: ["SwiftKLineCore"], path: "Benchmarks"),
+        .testTarget(name: "SwiftKLineCoreTests", dependencies: ["SwiftKLineCore"]),
+        .testTarget(name: "SwiftKLineTests", dependencies: [
+            "SwiftKLine",
+            .target(name: "SwiftKLineUI", condition: .when(platforms: [.iOS]))
+        ])
+    ],
+    swiftLanguageModes: [.v6]
 )

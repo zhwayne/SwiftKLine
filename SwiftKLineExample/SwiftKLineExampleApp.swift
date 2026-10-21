@@ -2,12 +2,13 @@
 //  SwiftKLineExampleApp.swift
 //  SwiftKLineExample
 //
-//  Created by iya on 2025/4/13.
+//  Created by zhwayne on 2025/04/13.
 //
 
 import SwiftUI
 import SwiftKLine
 
+/// The SwiftUI entry point for the standalone chart example.
 @main
 struct SwiftKLineExampleApp: App {
     
