@@ -74,9 +74,7 @@ struct IndicatorPipeline {
         indicatorIDs: [IndicatorID]
     ) async -> IndicatorSeriesStore {
         let calculators = indicatorIDs.flatMap { id -> [any IndicatorCalculator] in
-            if let indicator = BuiltInIndicator(id: id) {
-                return BuiltInIndicatorPlugin(indicator: indicator).makeCalculators(configuration: configuration)
-            }
+            // 计算与渲染使用同一注册表，允许业务替换内置 ID 对应的完整插件。
             return registry.plugin(for: id)?.makeCalculators(configuration: configuration) ?? []
         }
         let erased = calculators.map { $0.eraseToAnyIndicatorCalculator() }

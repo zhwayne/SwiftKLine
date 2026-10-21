@@ -62,6 +62,8 @@ enum ChartSection: Sendable {
     private var debugDrawReporter = DebugDrawReporter()
     #endif
     private var mainChartContent: ChartType = .candlestick
+    // 每次数据或选择变化都使旧计算失效，包括不响应取消的自定义计算器。
+    private var renderGeneration = UUID()
     private var descriptorUpdateTask: Task<Void, Never>? {
         didSet { oldValue?.cancel() }
     }
@@ -193,6 +195,7 @@ enum ChartSection: Sendable {
         let observer = scrollToTopObserver
         scrollToTopObserver = nil
         Task { @MainActor in
+            coordinator.stopDataLoading()
             coordinator.stopNetworkObservation()
             coordinator.stopLifecycleObservation()
             if let observer {
@@ -352,6 +355,7 @@ extension ChartView {
     }
     
     public func loadData(using provider: some ChartItemProvider) {
+        renderGeneration = UUID()
         descriptorUpdateTask?.cancel()
         coordinator.loadData(using: provider)
         items = coordinator.state.items
@@ -367,28 +371,18 @@ private extension ChartView {
 
         guard let event else { return }
 
-        let tickResult = liveTickResult
-        Task { [weak self] in
-            guard let self else { return }
-            switch event {
-            case let .page(index, _):
-                if index == 0 {
-                    await self.draw(items: self.items, scrollPosition: .right)
-                } else {
-                    await self.draw(items: self.items, scrollPosition: .current)
-                }
-            case .recovery:
-                guard self.features.contains(.gapRecovery) else { return }
-                await self.draw(items: self.items, scrollPosition: .right)
-            case .liveTick:
-                let shouldStickToRightEdge = self.scrollView.isNearRightEdge
-                await self.applyLiveTickMergeResult(
-                    tickResult,
-                    shouldStickToRightEdge: shouldStickToRightEdge
-                )
-            case let .failed(error):
-                self.onLoadError?(error)
-            }
+        switch event {
+        case let .page(index, _):
+            scheduleDraw(scrollPosition: index == 0 ? .right : .current)
+        case .recovery:
+            guard features.contains(.gapRecovery) else { return }
+            scheduleDraw(scrollPosition: .right)
+        case .liveTick:
+            renderGeneration = UUID()
+            let shouldStickToRightEdge = scrollView.isNearRightEdge
+            applyLiveTickMergeResult(liveTickResult, shouldStickToRightEdge: shouldStickToRightEdge)
+        case let .failed(error):
+            onLoadError?(error)
         }
     }
 }
@@ -408,6 +402,7 @@ extension ChartView {
 extension ChartView {
     
     private func scheduleDescriptorUpdate(recalculateValues: Bool = true) {
+        renderGeneration = UUID()
         descriptorUpdateTask = Task(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             await self.updateDescriptor(recalculateValues: recalculateValues)
@@ -417,13 +412,14 @@ extension ChartView {
     @MainActor
     private func updateDescriptor(recalculateValues: Bool) async {
         guard !Task.isCancelled else { return }
+        let generation = renderGeneration
         
         if recalculateValues {
             let store = await calculateIndicators(
                 items: items,
                 selection: coordinator.state.indicatorSelection
             )
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, generation == renderGeneration else { return }
             indicatorSeriesStore = store
             coordinator.state.indicatorSeriesStore = store
         }
@@ -462,25 +458,29 @@ extension ChartView {
         scheduleRedraw(.full)
     }
     
+    private func scheduleDraw(scrollPosition: ChartScrollView.ScrollPosition) {
+        renderGeneration = UUID()
+        let snapshot = items
+        descriptorUpdateTask = Task { [weak self] in
+            await self?.draw(items: snapshot, scrollPosition: scrollPosition)
+        }
+    }
+
     private func draw(items: [any ChartItem], scrollPosition: ChartScrollView.ScrollPosition) async {
-        // 取消之前的更新任务
-        descriptorUpdateTask?.cancel()
-        
-        let newIndicatorSeriesStore = await calculateIndicators(
+        guard !Task.isCancelled else { return }
+        let generation = renderGeneration
+        layout.itemCount = items.count
+        scrollView.scroll(to: scrollPosition)
+        let store = await calculateIndicators(
             items: items,
             selection: coordinator.state.indicatorSelection
         )
-        guard !Task.isCancelled else { return }
-        
-        coordinator.state.items = items
-        coordinator.state.indicatorSeriesStore = newIndicatorSeriesStore
-        self.items = coordinator.state.items
-        self.indicatorSeriesStore = coordinator.state.indicatorSeriesStore
-        layout.itemCount = items.count
-        
-        scrollView.scroll(to: scrollPosition)
-        
-        await updateDescriptor(recalculateValues: false)
+        // await 期间可能收到 tick、切换周期或选择。绘制只能提交当前版本的指标，
+        // 不得把传入的旧行情快照重新写回 coordinator。
+        guard !Task.isCancelled, generation == renderGeneration else { return }
+        coordinator.state.indicatorSeriesStore = store
+        indicatorSeriesStore = store
+        updateDescriptorAndDrawContent()
     }
     
     private func addIndicator(_ indicatorID: IndicatorID, in section: ChartSection) async {
@@ -594,12 +594,18 @@ extension ChartView {
     }
 
     func debugDraw(items: [any ChartItem]) async {
+        renderGeneration = UUID()
+        descriptorUpdateTask?.cancel()
+        coordinator.state.items = items
+        self.items = items
         await draw(items: items, scrollPosition: .current)
     }
 
     var debugItemTimestamps: [Int] {
         items.map(\.timestamp)
     }
+
+    var debugIndicatorSeriesStore: IndicatorSeriesStore { indicatorSeriesStore }
 
     var debugCoordinatorItemTimestamps: [Int] {
         coordinator.state.items.map(\.timestamp)
@@ -760,7 +766,7 @@ private extension ChartView {
     func applyLiveTickMergeResult(
         _ result: LiveTickMergeResult?,
         shouldStickToRightEdge: Bool
-    ) async {
+    ) {
         layout.itemCount = items.count
         if shouldStickToRightEdge {
             switch result {
@@ -774,8 +780,16 @@ private extension ChartView {
     }
     
     func throttleRecalculateAndRedraw() {
-        guard coordinator.shouldRedraw() else { return }
-        scheduleDescriptorUpdate(recalculateValues: true)
+        if coordinator.shouldRedraw() {
+            scheduleDescriptorUpdate(recalculateValues: true)
+        } else {
+            // 合并高频更新时仍保留末次刷新，避免最后一个 tick 使旧计算失效后无人重绘。
+            descriptorUpdateTask = Task { [weak self] in
+                do { try await Task.sleep(nanoseconds: 200_000_000) }
+                catch { return }
+                await self?.updateDescriptor(recalculateValues: true)
+            }
+        }
     }
 }
 

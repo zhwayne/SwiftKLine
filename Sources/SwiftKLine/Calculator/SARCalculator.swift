@@ -59,9 +59,6 @@ struct SARCalculator: IndicatorCalculator {
                 sar = max(sar, items[i-1].high, items[i-2 >= 0 ? i-2 : i-1].high)
             }
             
-            // 保存结果
-            results[i] = sar
-            
             // 更新趋势和参数
             if isUpTrend {
                 if items[i].high > ep {
@@ -88,6 +85,8 @@ struct SARCalculator: IndicatorCalculator {
                     af = afStart
                 }
             }
+            // 反转当根使用重置后的 SAR（上一趋势极值），不能输出反转前的候选值。
+            results[i] = sar
         }
         
         return results

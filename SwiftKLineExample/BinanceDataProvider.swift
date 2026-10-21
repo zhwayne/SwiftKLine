@@ -61,9 +61,14 @@ final class BinanceDataProvider: ChartItemProvider {
         let path = "wss://stream.binance.com:443/ws/\(symbol.lowercased())@kline_\(period.identifier)"
         guard let url = URL(string: path) else { return AsyncStream { $0.finish() } }
         return AsyncStream { continuation in
-            Task {
-                let client = WebSocketClient(config: .init(url: url))
+            let client = WebSocketClient(config: .init(url: url))
+            let producer = Task {
                 try? await client.connect()
+                guard !Task.isCancelled else {
+                    await client.disconnect()
+                    continuation.finish()
+                    return
+                }
                 for await msg in client.messages {
                     switch msg {
                     case .text(let text):
@@ -74,7 +79,13 @@ final class BinanceDataProvider: ChartItemProvider {
                         continuation.yield(item)
                     }
                 }
+                await client.disconnect()
                 continuation.finish()
+            }
+            // 取消下游 AsyncStream 不会自动取消这个生产任务，必须显式关闭连接。
+            continuation.onTermination = { @Sendable _ in
+                producer.cancel()
+                Task { await client.disconnect() }
             }
         }
     }

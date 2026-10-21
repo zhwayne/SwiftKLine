@@ -139,17 +139,20 @@ actor ChartItemLoader {
     private func startLiveStream() {
         guard enablesLiveUpdates else { return }
         liveTask?.cancel()
+        let provider = provider
         liveTask = Task { [weak self] in
-            await self?.consumeLiveStream()
+            // 不能在整个无限流期间强持有 loader，否则 deinit 永远无法取消该任务。
+            for await tick in provider.liveStream() {
+                guard !Task.isCancelled, let self else { break }
+                await self.handleLiveTick(tick)
+            }
         }
     }
 
-    private func consumeLiveStream() async {
-        for await tick in provider.liveStream() {
-            guard !Task.isCancelled else { break }
-            lastKnownTimestamp = tick.timestamp
-            await eventHandler(.liveTick(tick))
-        }
+    private func handleLiveTick(_ tick: any ChartItem) async {
+        guard !Task.isCancelled else { return }
+        lastKnownTimestamp = tick.timestamp
+        await eventHandler(.liveTick(tick))
     }
 
     private func recoverMissingData(from timestamp: Int) async {

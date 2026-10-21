@@ -14,6 +14,9 @@ final class ChartCoordinator {
     private var dataMerger = DataMerger()
     private var networkObserver = NetworkObserver()
     private var loaderGeneration = UUID()
+    private var initialPageLoaded = false
+    // 初始化失败重试时也只缓存每根 K 线的最新快照，避免按 tick 频率无限累积。
+    private var pendingInitialTicks: [Int: any ChartItem] = [:]
     private var liveRedrawThrottle = LiveRedrawThrottle()
     private let configuration: ChartConfiguration
     private let features: ChartFeatures
@@ -44,6 +47,8 @@ final class ChartCoordinator {
             indicatorSelection: state.indicatorSelection
         )
         dataMerger.reset()
+        initialPageLoaded = false
+        pendingInitialTicks.removeAll()
         liveRedrawThrottle.reset()
 
         itemLoader = ChartItemLoader(
@@ -58,6 +63,15 @@ final class ChartCoordinator {
         let loader = itemLoader
         Task { await loader?.start() }
         onStateUpdated?(state, nil, nil)
+    }
+
+    func stopDataLoading() {
+        // 先使已排入主线程的回调失效，再异步取消 actor 内的网络任务。
+        loaderGeneration = UUID()
+        let loader = itemLoader
+        itemLoader = nil
+        pendingInitialTicks.removeAll()
+        Task { await loader?.stop() }
     }
 
     func loadMoreIfNeeded(contentOffsetX: Double, viewportWidth: Double) {
@@ -107,6 +121,8 @@ final class ChartCoordinator {
             indicatorSelection: state.indicatorSelection
         )
         dataMerger.reset()
+        initialPageLoaded = false
+        pendingInitialTicks.removeAll()
         liveRedrawThrottle.reset()
         onStateUpdated?(state, nil, nil)
     }
@@ -195,14 +211,24 @@ final class ChartCoordinator {
         switch event {
         case let .page(index, items):
             if index == 0 {
-                dataMerger.prepareBucketsIfNeeded(with: items)
-                state.items = items
+                // 首页与实时流并发加载。先建立历史周期，再按时间顺序重放 tick，
+                // 既保留新增 K 线，也避免较旧的 HTTP 快照覆盖同一根实时 K 线。
+                dataMerger.reset()
+                state.items = dataMerger.merge(current: [], patch: items)
+                for tick in pendingInitialTicks.values.sorted(by: { $0.timestamp < $1.timestamp }) {
+                    _ = dataMerger.applyLiveTick(tick, to: &state.items)
+                }
+                pendingInitialTicks.removeAll()
+                initialPageLoaded = true
             } else {
                 state.items = dataMerger.merge(current: state.items, patch: items)
             }
         case let .recovery(items):
             state.items = dataMerger.merge(current: state.items, patch: items)
         case let .liveTick(tick):
+            if !initialPageLoaded {
+                pendingInitialTicks[tick.timestamp] = tick
+            }
             liveTickResult = dataMerger.applyLiveTick(tick, to: &state.items)
         case let .failed(error):
             state.lastError = error

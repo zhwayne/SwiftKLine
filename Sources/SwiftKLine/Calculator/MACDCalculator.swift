@@ -42,8 +42,12 @@ struct MACDCalculator: IndicatorCalculator {
     }
     
     func calculate(for items: [any ChartItem]) -> [MACDIndicatorValue?] {
-        // 至少需要足够的数据来计算长期 EMA
-        guard items.count >= longPeriod else { return Array(repeating: nil, count: items.count) }
+        // SeriesKey 可由调用方构造；先校验周期，避免负索引、除零和整数加法溢出。
+        guard shortPeriod > 0, longPeriod > 0, signalPeriod > 0,
+              items.count >= longPeriod,
+              signalPeriod <= items.count - (longPeriod - 1) else {
+            return Array(repeating: nil, count: items.count)
+        }
         
         // 计算短期 EMA 和长期 EMA
         let shortEMA = EMACalculator(period: shortPeriod).calculate(for: items) 
