@@ -91,6 +91,48 @@ struct BuiltInIndicatorPlugin: ChartPlugin {
                       let max = key.parameters["afMax"].flatMap(Double.init) else { return nil }
                 return SARCalculator(afStart: start, afStep: step, afMax: max)
             }
+        case .bbi:
+            // BBI owns its complete period list in one key, so every channel instance stays independently cached.
+            return configuration.indicatorKeys(for: indicator).compactMap { key in
+                guard key.indicatorID == .bbi,
+                      let rawPeriods = key.parameters["periods"] else { return nil }
+                let periods = rawPeriods.split(separator: ",").compactMap { Int($0) }
+                guard !periods.isEmpty else { return nil }
+                return BBICalculator(periods: periods)
+            }
+        case .vwma:
+            return configuration.periods(for: indicator) { key in
+                guard key.indicatorID == .vwma,
+                      let period = key.parameters["period"].flatMap(Int.init) else { return nil }
+                return period
+            }.map { VWMACalculator(period: $0) }
+        case .donchian:
+            return configuration.periods(for: indicator) { key in
+                guard key.indicatorID == .donchian,
+                      let period = key.parameters["period"].flatMap(Int.init) else { return nil }
+                return period
+            }.map { DonchianCalculator(period: $0) }
+        case .superTrend:
+            return configuration.indicatorKeys(for: indicator).compactMap { key in
+                guard key.indicatorID == .superTrend,
+                      let period = key.parameters["period"].flatMap(Int.init),
+                      let multiplier = key.parameters["multiplier"].flatMap(Double.init) else { return nil }
+                return SuperTrendCalculator(period: period, multiplier: multiplier)
+            }
+        case .ichimoku:
+            return configuration.indicatorKeys(for: indicator).compactMap { key in
+                guard key.indicatorID == .ichimoku,
+                      let tenkan = key.parameters["tenkanPeriod"].flatMap(Int.init),
+                      let kijun = key.parameters["kijunPeriod"].flatMap(Int.init),
+                      let senkouB = key.parameters["senkouBPeriod"].flatMap(Int.init),
+                      let displacement = key.parameters["displacement"].flatMap(Int.init) else { return nil }
+                return IchimokuCalculator(
+                    tenkanPeriod: tenkan,
+                    kijunPeriod: kijun,
+                    senkouBPeriod: senkouB,
+                    displacement: displacement
+                )
+            }
         case .vol:
             return configuration.indicatorKeys(for: indicator).compactMap { key in
                 guard key.indicatorID == .vol else { return nil }
@@ -124,6 +166,21 @@ struct BuiltInIndicatorPlugin: ChartPlugin {
             return configuration.indicatorKeys(for: .boll).map { BOLLRenderer(key: $0) }
         case .sar:
             return configuration.indicatorKeys(for: .sar).map { SARRenderer(key: $0) }
+        case .bbi, .vwma:
+            let keys = configuration.indicatorKeys(for: indicator).filter { $0.indicatorID == indicator.id }
+            return keys.isEmpty ? [] : [LineIndicatorRenderer(series: keys)]
+        case .donchian:
+            return configuration.indicatorKeys(for: indicator)
+                .filter { $0.indicatorID == indicator.id }
+                .map { BandRenderer(key: $0) }
+        case .superTrend:
+            return configuration.indicatorKeys(for: indicator)
+                .filter { $0.indicatorID == indicator.id }
+                .map { SuperTrendRenderer(key: $0) }
+        case .ichimoku:
+            return configuration.indicatorKeys(for: indicator)
+                .filter { $0.indicatorID == indicator.id }
+                .map { IchimokuRenderer(key: $0) }
         case .vol:
             return [VOLRenderer()]
         case .rsi:

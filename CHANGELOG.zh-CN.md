@@ -8,6 +8,8 @@
 
 ### 新增
 
+- 内置 BBI、VWMA、Donchian 主图指标，提供可复用的通道渲染和包含参数的序列标识。
+- 内置 SuperTrend（SUPER）、Ichimoku（ICHI）主图指标，提供趋势方向色带与翻转断线，以及五线云图叠加。
 - UIKit 与 SwiftUI 共用的 `ChartConfiguration` API，包含 `CandleSource`、`ChartAppearance`、展示模式、插件、指标选择和能力开关。
 - `ChartPlugin` 生命周期，提供每图表独立协调器、局部资源注册、序列隔离、错误报告和重绘请求。
 - 通过 `RangeDataProvider`、`RangePage` 和 `RangeLoader` 实现独立时间范围分页，支持覆盖、重试、取消与有界缓存。

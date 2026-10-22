@@ -71,3 +71,77 @@ struct MACDStyle: IndicatorStyle {
         self.deaColor = deaColor
     }
 }
+
+/// Internal colors for the two SuperTrend trend directions.
+///
+/// Segments drawn while the trend is up use ``upColor``; segments drawn while it is down use ``downColor``.
+/// The translucent ``upFillColor`` and ``downFillColor`` shade the area between the active line and price.
+struct SuperTrendStyle: IndicatorStyle {
+    let upColor: UIColor
+    let downColor: UIColor
+    let upFillColor: UIColor
+    let downFillColor: UIColor
+
+    /// Creates a directional line and ribbon style for the SuperTrend overlay.
+    ///
+    /// - Parameters:
+    ///   - upColor: The color used while the active trailing stop supports price.
+    ///   - downColor: The color used while the active trailing stop caps price.
+    ///   - upFillColor: The ribbon color between the up-trend line and price; nil derives a translucent
+    ///     version of `upColor`.
+    ///   - downFillColor: The ribbon color between the down-trend line and price; nil derives a translucent
+    ///     version of `downColor`.
+    init(
+        upColor: UIColor,
+        downColor: UIColor,
+        upFillColor: UIColor? = nil,
+        downFillColor: UIColor? = nil
+    ) {
+        self.upColor = upColor
+        self.downColor = downColor
+        self.upFillColor = upFillColor ?? upColor.withAlphaComponent(0.08)
+        self.downFillColor = downFillColor ?? downColor.withAlphaComponent(0.08)
+    }
+}
+
+/// Internal line and cloud colors for the Ichimoku Kinko Hyo overlay.
+///
+/// Each line has its own color, while the Senkou cloud selects a bullish or bearish fill from the relative
+/// order of Senkou Span A and Senkou Span B.
+struct IchimokuStyle: IndicatorStyle {
+    let tenkanColor: UIColor
+    let kijunColor: UIColor
+    let spanAColor: UIColor
+    let spanBColor: UIColor
+    let chikouColor: UIColor
+    let bullishCloudColor: UIColor
+    let bearishCloudColor: UIColor
+
+    /// Creates a complete Ichimoku style.
+    ///
+    /// - Parameters:
+    ///   - tenkanColor: The Tenkan-sen line color.
+    ///   - kijunColor: The Kijun-sen line color.
+    ///   - spanAColor: The Senkou Span A line color.
+    ///   - spanBColor: The Senkou Span B line color.
+    ///   - chikouColor: The Chikou Span line color.
+    ///   - bullishCloudColor: The cloud fill when Senkou Span A is at or above Senkou Span B.
+    ///   - bearishCloudColor: The cloud fill when Senkou Span A is below Senkou Span B.
+    init(
+        tenkanColor: UIColor,
+        kijunColor: UIColor,
+        spanAColor: UIColor,
+        spanBColor: UIColor,
+        chikouColor: UIColor,
+        bullishCloudColor: UIColor,
+        bearishCloudColor: UIColor
+    ) {
+        self.tenkanColor = tenkanColor
+        self.kijunColor = kijunColor
+        self.spanAColor = spanAColor
+        self.spanBColor = spanBColor
+        self.chikouColor = chikouColor
+        self.bullishCloudColor = bullishCloudColor
+        self.bearishCloudColor = bearishCloudColor
+    }
+}

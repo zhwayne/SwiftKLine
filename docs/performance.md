@@ -22,9 +22,13 @@ The legend cache invalidates on data, configuration, resource changes, or explic
 | Live tail lookup | O(1) comparisons | Array mutation can still copy storage |
 | Interior lookup | O(log n) comparisons | Interior insertion moves O(n) elements |
 | Full MA / WMA / BOLL | O(n) | BOLL periodically rebuilds statistics for numerical stability |
+| Full VWMA / Donchian | O(n) | Donchian uses monotonic candidate queues |
 | MA / WMA / BOLL suffix update | O(period + changedCount) | Excludes output-array copying |
+| VWMA suffix update | O(period + changedCount) | Excludes output-array copying |
+| BBI full or suffix update | O(n × componentCount) | Rebuilds every component moving average, then rewrites the affected suffix |
 | EMA / VOL suffix update | O(changedCount) | Excludes output-array copying |
 | RSI / MACD / SAR | O(n) | Full calculation path |
+| Full SuperTrend / Ichimoku | O(n) | Path-dependent series use the full-recalculation path; Ichimoku keeps monotonic midpoint windows |
 | Built-in full draw | O(visibleCount × seriesCount) | Add legends, grid, formatting, and custom-renderer costs |
 
 Suffix costs assume compatible previous outputs and an unchanged prefix; missing seeds, changed keys or parameters, and prepended history can require full calculation.

@@ -22,9 +22,13 @@
 | 实时尾部查找 | O(1) 次比较 | 数组修改仍可能复制存储 |
 | 中间查找 | O(log n) 次比较 | 中间插入移动 O(n) 个元素 |
 | MA / WMA / BOLL 全量计算 | O(n) | BOLL 定期重建统计以保持数值稳定 |
+| VWMA / Donchian 全量计算 | O(n) | Donchian 使用单调候选队列 |
 | MA / WMA / BOLL 后缀更新 | O(period + changedCount) | 不含输出数组复制 |
+| VWMA 后缀更新 | O(period + changedCount) | 不含输出数组复制 |
+| BBI 全量或后缀更新 | O(n × componentCount) | 重建全部成分均线后写入受影响后缀 |
 | EMA / VOL 后缀更新 | O(changedCount) | 不含输出数组复制 |
 | RSI / MACD / SAR | O(n) | 全量计算路径 |
+| SuperTrend / Ichimoku 全量计算 | O(n) | 路径相关序列走全量重算路径；Ichimoku 使用单调中点窗口 |
 | 内置图表完整绘制 | O(visibleCount × seriesCount) | 另计图例、网格、格式化和自定义渲染成本 |
 
 后缀成本以兼容的历史输出和未变化的前缀为前提；缺少种子值、key 或参数变化、前插历史数据都可能需要全量计算。

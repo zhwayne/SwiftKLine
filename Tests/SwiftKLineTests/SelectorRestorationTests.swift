@@ -29,7 +29,9 @@ private final class MemorySelectionStore: IndicatorSelectionStore {
     let chart = ChartView(configuration: try testConfiguration(items: candles, appearance: appearance, indicators: selected))
     #expect(await eventually { chart.debugItemTimestamps.count == 100 })
     #expect(chart.indicatorSelection == selected)
-    #expect(chart.debugIndicatorTypeTitles.main == ["MA", "EMA", "WMA", "BOLL", "SAR"])
+    #expect(chart.debugIndicatorTypeTitles.main == [
+        "MA", "EMA", "WMA", "BOLL", "SAR", "BBI", "VWMA", "DONCHIAN", "SUPER", "ICHI"
+    ])
     #expect(chart.debugIndicatorTypeTitles.sub == ["VOL", "RSI", "MACD"])
     for period in [5, 10, 20] {
         #expect(chart.debugStore(for: "builtin.ma").values(for: .ma(period: period), as: Double.self)?.count == 100)
@@ -40,6 +42,38 @@ private final class MemorySelectionStore: IndicatorSelectionStore {
     #expect(chart.debugSelectorFrame.maxY == chart.bounds.maxY)
     #expect(chart.debugViewportFrame.maxY == chart.debugSelectorFrame.minY)
     #expect(!chart.hasAmbiguousLayout)
+}
+
+@available(iOS 16.0, *)
+@Test(.timeLimit(.minutes(1))) @MainActor func newMainIndicatorsPublishTypedSeries() async throws {
+    let selected = IndicatorSelectionState(
+        mainIndicatorIDs: [.bbi, .vwma, .donchian, .superTrend, .ichimoku]
+    )
+    let candles = (0..<100).map { testCandle($0 * 60, Double($0 + 1)) }
+    let chart = ChartView(configuration: try testConfiguration(items: candles, indicators: selected))
+    #expect(await eventually { chart.debugItemTimestamps.count == 100 })
+    #expect(chart.indicatorSelection == selected)
+
+    let bbi = chart.debugStore(for: "builtin.bbi").values(for: .bbi, as: Double.self)
+    let vwma = chart.debugStore(for: "builtin.vwma").values(for: .vwma(period: 20), as: Double.self)
+    let donchian = chart.debugStore(for: "builtin.donchian").values(for: .donchian(period: 20), as: BandIndicatorValue.self)
+    let superTrend = chart.debugStore(for: "builtin.super").values(
+        for: .superTrend(period: 10, multiplier: 3),
+        as: SuperTrendIndicatorValue.self
+    )
+    let ichimoku = chart.debugStore(for: "builtin.ichi").values(
+        for: .ichimoku(tenkanPeriod: 9, kijunPeriod: 26, senkouBPeriod: 52, displacement: 26),
+        as: IchimokuIndicatorValue.self
+    )
+    #expect(bbi?.count == 100 && bbi?[99] != nil)
+    #expect(vwma?.count == 100 && vwma?[99] != nil)
+    #expect(donchian?.count == 100 && donchian?[99] != nil)
+    #expect(superTrend?.count == 100 && superTrend?[99] != nil)
+    #expect(ichimoku?.count == 100 && ichimoku?[99]?.tenkan != nil && ichimoku?[99]?.spanB != nil)
+
+    chart.frame = CGRect(x: 0, y: 0, width: 390, height: chart.intrinsicContentSize.height)
+    _ = chart.debugRenderForInspection()
+    chart.shutdown()
 }
 
 @MainActor private final class TestRenderer: ChartRenderer {

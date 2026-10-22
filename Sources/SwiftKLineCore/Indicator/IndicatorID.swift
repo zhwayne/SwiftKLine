@@ -39,6 +39,16 @@ public struct IndicatorID: Hashable, Sendable, Codable, ExpressibleByStringLiter
     public static let boll = IndicatorID("builtin.boll")
     /// The built-in parabolic SAR indicator ID.
     public static let sar = IndicatorID("builtin.sar")
+    /// The built-in bull-bear index identity.
+    public static let bbi = IndicatorID("builtin.bbi")
+    /// The built-in volume-weighted moving average identity.
+    public static let vwma = IndicatorID("builtin.vwma")
+    /// The built-in Donchian channel identity.
+    public static let donchian = IndicatorID("builtin.donchian")
+    /// The built-in SuperTrend identity; the selector uses the short “SUPER” title.
+    public static let superTrend = IndicatorID("builtin.super")
+    /// The built-in Ichimoku Kinko Hyo identity; the selector uses the short “ICHI” title.
+    public static let ichimoku = IndicatorID("builtin.ichi")
     /// The built-in volume identity.
     public static let vol = IndicatorID("builtin.vol")
     /// The built-in relative strength index identity.
@@ -47,7 +57,10 @@ public struct IndicatorID: Hashable, Sendable, Codable, ExpressibleByStringLiter
     public static let macd = IndicatorID("builtin.macd")
 
     /// All built-in indicator IDs in their standard presentation order.
-    public static let allBuiltIn: [IndicatorID] = [.ma, .ema, .wma, .boll, .sar, .vol, .rsi, .macd]
+    public static let allBuiltIn: [IndicatorID] = [
+        .ma, .ema, .wma, .boll, .sar, .bbi, .vwma, .donchian,
+        .superTrend, .ichimoku, .vol, .rsi, .macd
+    ]
 
     /// Whether the identifier uses the built-in namespace; this does not verify plugin registration.
     public var isBuiltIn: Bool { rawValue.hasPrefix("builtin.") }
@@ -121,6 +134,67 @@ extension SeriesKey {
             "afStart": "\(afStart)", "afStep": "\(afStep)", "afMax": "\(afMax)"
         ])
     }
+
+    /// The standard BBI output key using MA periods 3, 6, 12, and 24.
+    public static let bbi = SeriesKey(indicatorID: .bbi, name: "BBI", parameters: [
+        "periods": "3,6,12,24"
+    ])
+
+    /// Creates a BBI key for the supplied moving-average periods.
+    ///
+    /// Periods are sorted before encoding so configurations that differ only in argument order share one
+    /// series identity and one calculator cache entry. The standard periods reuse the canonical ``bbi`` key.
+    /// - Parameter periods: Moving-average periods averaged by the bull-bear index.
+    public static func bbi(periods: [Int]) -> SeriesKey {
+        let canonical = periods.sorted()
+        if canonical == [3, 6, 12, 24] { return .bbi }
+        return SeriesKey(indicatorID: .bbi, name: "BBI", parameters: [
+            "periods": canonical.map(String.init).joined(separator: ",")
+        ])
+    }
+
+    /// Creates a volume-weighted moving average output key for the supplied candle period.
+    public static func vwma(period: Int) -> SeriesKey {
+        SeriesKey(indicatorID: .vwma, name: "VWMA", parameters: ["period": "\(period)"])
+    }
+
+    /// Creates a Donchian channel output key for the supplied lookback period.
+    public static func donchian(period: Int) -> SeriesKey {
+        SeriesKey(indicatorID: .donchian, name: "DC", parameters: ["period": "\(period)"])
+    }
+
+    /// Creates a SuperTrend output key containing the ATR period and band multiplier.
+    ///
+    /// - Parameters:
+    ///   - period: The ATR smoothing window.
+    ///   - multiplier: The ATR distance of the trailing stop from the candle midpoint.
+    public static func superTrend(period: Int, multiplier: Double) -> SeriesKey {
+        SeriesKey(indicatorID: .superTrend, name: "SUPER", parameters: [
+            "period": "\(period)", "multiplier": "\(multiplier)"
+        ])
+    }
+
+    /// Creates an Ichimoku Kinko Hyo output key containing every window and the plot displacement.
+    ///
+    /// - Parameters:
+    ///   - tenkanPeriod: The Tenkan-sen lookback.
+    ///   - kijunPeriod: The Kijun-sen lookback.
+    ///   - senkouBPeriod: The Senkou Span B lookback.
+    ///   - displacement: The number of chart positions used to shift the spans and Chikou.
+    public static func ichimoku(
+        tenkanPeriod: Int,
+        kijunPeriod: Int,
+        senkouBPeriod: Int,
+        displacement: Int
+    ) -> SeriesKey {
+        SeriesKey(indicatorID: .ichimoku, name: "ICHI", parameters: [
+            "tenkanPeriod": "\(tenkanPeriod)",
+            "kijunPeriod": "\(kijunPeriod)",
+            "senkouBPeriod": "\(senkouBPeriod)",
+            "displacement": "\(displacement)"
+        ])
+    }
+
     /// The built-in volume identity.
     public static let vol = SeriesKey(indicatorID: .vol, name: "VOL")
     /// Creates the relative strength index output key for the supplied candle period.

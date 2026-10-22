@@ -32,7 +32,7 @@ A modular candlestick chart library for iOS and iPadOS, built with Swift, UIKit,
 ## Features
 
 - Candlestick and time-series charts with scrolling, pinch zoom, and a crosshair.
-- Built-in MA, EMA, WMA, BOLL, SAR, VOL, RSI, and MACD indicators, a selector, and optional selection persistence.
+- Built-in MA, EMA, WMA, BOLL, SAR, BBI, VWMA, Donchian, SuperTrend (SUPER), Ichimoku (ICHI), VOL, RSI, and MACD indicators, a selector, and optional selection persistence.
 - Historical pagination, complete live candle snapshots, and optional gap recovery.
 - Shared `ChartConfiguration` for UIKit and SwiftUI, with light and dark theme presets.
 - Custom indicators, overlays, and sub-panels through `ChartPlugin`.

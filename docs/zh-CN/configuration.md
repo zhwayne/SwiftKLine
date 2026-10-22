@@ -63,7 +63,7 @@ UIKit 使用 `chart.apply(configuration)`。SwiftUI 向 `KLineChart` 传入更�
 
 ## 指标与选择状态
 
-选择器支持 MA、EMA、WMA、BOLL、SAR、VOL、RSI、MACD。通过 `ChartAppearance.indicators` 配置可选项，通过 `defaultMainIndicators` / `defaultSubIndicators` 配置默认与重置值，通过 `indicatorKeyOverrides` 配置参数。
+选择器支持 MA、EMA、WMA、BOLL、SAR、BBI、VWMA、Donchian、SuperTrend（SUPER）、Ichimoku（ICHI）、VOL、RSI、MACD。通过 `ChartAppearance.indicators` 配置可选项，通过 `defaultMainIndicators` / `defaultSubIndicators` 配置默认与重置值，通过 `indicatorKeyOverrides` 配置参数。
 
 初始选择按以下优先级取第一个适用来源，然后过滤无效、重复、不可用或放错面板的 ID：
 

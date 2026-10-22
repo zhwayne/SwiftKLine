@@ -63,7 +63,7 @@ Use `chart.apply(configuration)` in UIKit. In SwiftUI, pass the updated configur
 
 ## Indicators and selection
 
-The selector offers MA, EMA, WMA, BOLL, SAR, VOL, RSI, and MACD. Configure available entries with `ChartAppearance.indicators`, defaults and reset values with `defaultMainIndicators` / `defaultSubIndicators`, and parameters with `indicatorKeyOverrides`.
+The selector offers MA, EMA, WMA, BOLL, SAR, BBI, VWMA, Donchian, SuperTrend (SUPER), Ichimoku (ICHI), VOL, RSI, and MACD. Configure available entries with `ChartAppearance.indicators`, defaults and reset values with `defaultMainIndicators` / `defaultSubIndicators`, and parameters with `indicatorKeyOverrides`.
 
 The initial selection uses the first applicable source below, then removes invalid, duplicate, unavailable, and incorrectly placed IDs:
 

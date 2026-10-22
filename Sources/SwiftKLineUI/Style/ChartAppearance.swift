@@ -89,6 +89,22 @@ public struct ChartAppearance {
             .wma(period: 20): LineStyle(strokeColor: .systemGreen),
             .boll(period: 20, k: 2.0): LineStyle(strokeColor: .systemOrange),
             .sar: LineStyle(strokeColor: .systemOrange),
+            .bbi: LineStyle(strokeColor: .systemPurple),
+            .vwma(period: 20): LineStyle(strokeColor: .systemBrown),
+            .donchian(period: 20): LineStyle(strokeColor: .systemGreen),
+            .superTrend(period: 10, multiplier: 3): SuperTrendStyle(
+                upColor: UIColor(red: 0.16, green: 0.50, blue: 0.96, alpha: 1),
+                downColor: UIColor(red: 1.0, green: 0.58, blue: 0.04, alpha: 1)
+            ),
+            .ichimoku(tenkanPeriod: 9, kijunPeriod: 26, senkouBPeriod: 52, displacement: 26): IchimokuStyle(
+                tenkanColor: .systemOrange,
+                kijunColor: .systemBlue,
+                spanAColor: .systemGreen,
+                spanBColor: .systemRed,
+                chikouColor: .systemPurple,
+                bullishCloudColor: UIColor.systemGreen.withAlphaComponent(0.12),
+                bearishCloudColor: UIColor.systemRed.withAlphaComponent(0.12)
+            ),
             .rsi(period: 6): LineStyle(strokeColor: .systemOrange),
             .rsi(period: 12): LineStyle(strokeColor: .systemPink),
             .rsi(period: 24): LineStyle(strokeColor: .systemTeal),
@@ -170,6 +186,22 @@ public extension ChartAppearance.ThemePreset {
             .wma(period: 20): LineStyle(strokeColor: UIColor(red: 0.97, green: 0.84, blue: 0.96, alpha: 1)),
             .boll(period: 20, k: 2.0): LineStyle(strokeColor: UIColor(red: 0.64, green: 0.78, blue: 1, alpha: 1)),
             .sar: LineStyle(strokeColor: UIColor(red: 1, green: 0.71, blue: 0.45, alpha: 1)),
+            .bbi: LineStyle(strokeColor: UIColor(red: 0.82, green: 0.66, blue: 1, alpha: 1)),
+            .vwma(period: 20): LineStyle(strokeColor: UIColor(red: 0.95, green: 0.76, blue: 0.53, alpha: 1)),
+            .donchian(period: 20): LineStyle(strokeColor: UIColor(red: 0.53, green: 0.9, blue: 0.7, alpha: 1)),
+            .superTrend(period: 10, multiplier: 3): SuperTrendStyle(
+                upColor: UIColor(red: 0.33, green: 0.68, blue: 1, alpha: 1),
+                downColor: UIColor(red: 1, green: 0.63, blue: 0.10, alpha: 1)
+            ),
+            .ichimoku(tenkanPeriod: 9, kijunPeriod: 26, senkouBPeriod: 52, displacement: 26): IchimokuStyle(
+                tenkanColor: UIColor(red: 1, green: 0.78, blue: 0.32, alpha: 1),
+                kijunColor: UIColor(red: 0.4, green: 0.85, blue: 1, alpha: 1),
+                spanAColor: UIColor(red: 0.53, green: 0.9, blue: 0.7, alpha: 1),
+                spanBColor: UIColor(red: 0.97, green: 0.5, blue: 0.67, alpha: 1),
+                chikouColor: UIColor(red: 0.82, green: 0.66, blue: 1, alpha: 1),
+                bullishCloudColor: UIColor(red: 0.12, green: 0.84, blue: 0.72, alpha: 0.14),
+                bearishCloudColor: UIColor(red: 0.96, green: 0.32, blue: 0.48, alpha: 0.12)
+            ),
             .rsi(period: 6): LineStyle(strokeColor: UIColor(red: 0.83, green: 0.93, blue: 1, alpha: 1)),
             .rsi(period: 12): LineStyle(strokeColor: UIColor(red: 1, green: 0.77, blue: 0.53, alpha: 1)),
             .rsi(period: 24): LineStyle(strokeColor: UIColor(red: 0.58, green: 0.89, blue: 0.71, alpha: 1)),
@@ -214,6 +246,22 @@ public extension ChartAppearance.ThemePreset {
             .wma(period: 20): LineStyle(strokeColor: UIColor(red: 0.61, green: 0.63, blue: 0.54, alpha: 1)),
             .boll(period: 20, k: 2.0): LineStyle(strokeColor: UIColor(red: 0.95, green: 0.89, blue: 0.75, alpha: 1)),
             .sar: LineStyle(strokeColor: UIColor(red: 0.20, green: 0.27, blue: 0.38, alpha: 1)),
+            .bbi: LineStyle(strokeColor: UIColor(red: 0.55, green: 0.36, blue: 0.74, alpha: 1)),
+            .vwma(period: 20): LineStyle(strokeColor: UIColor(red: 0.63, green: 0.45, blue: 0.24, alpha: 1)),
+            .donchian(period: 20): LineStyle(strokeColor: UIColor(red: 0.3, green: 0.6, blue: 0.45, alpha: 1)),
+            .superTrend(period: 10, multiplier: 3): SuperTrendStyle(
+                upColor: UIColor(red: 0.22, green: 0.53, blue: 0.88, alpha: 1),
+                downColor: UIColor(red: 0.91, green: 0.52, blue: 0.12, alpha: 1)
+            ),
+            .ichimoku(tenkanPeriod: 9, kijunPeriod: 26, senkouBPeriod: 52, displacement: 26): IchimokuStyle(
+                tenkanColor: UIColor(red: 0.98, green: 0.50, blue: 0.15, alpha: 1),
+                kijunColor: UIColor(red: 0.36, green: 0.68, blue: 0.91, alpha: 1),
+                spanAColor: UIColor(red: 0.30, green: 0.60, blue: 0.45, alpha: 1),
+                spanBColor: UIColor(red: 0.78, green: 0.45, blue: 0.42, alpha: 1),
+                chikouColor: UIColor(red: 0.55, green: 0.36, blue: 0.74, alpha: 1),
+                bullishCloudColor: UIColor(red: 0.30, green: 0.60, blue: 0.45, alpha: 0.12),
+                bearishCloudColor: UIColor(red: 0.78, green: 0.45, blue: 0.42, alpha: 0.10)
+            ),
             .rsi(period: 6): LineStyle(strokeColor: UIColor(red: 0.98, green: 0.72, blue: 0.18, alpha: 1)),
             .rsi(period: 12): LineStyle(strokeColor: UIColor(red: 0.36, green: 0.68, blue: 0.91, alpha: 1)),
             .rsi(period: 24): LineStyle(strokeColor: UIColor(red: 0.79, green: 0.68, blue: 0.75, alpha: 1)),

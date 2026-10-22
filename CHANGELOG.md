@@ -8,6 +8,8 @@ Notable changes are grouped below. `Unreleased` describes the current developmen
 
 ### Added
 
+- Built-in BBI, VWMA, and Donchian main-chart indicators, with reusable channel rendering and parameter-aware series keys.
+- Built-in SuperTrend (SUPER) and Ichimoku (ICHI) main-chart indicators, with directional SuperTrend ribbons and flip breaks, and a five-line cloud overlay.
 - A shared `ChartConfiguration` API for UIKit and SwiftUI, with `CandleSource`, `ChartAppearance`, content mode, plugins, selection, and feature flags.
 - A `ChartPlugin` lifecycle with per-chart coordinators, scoped resource registration, isolated series, error reporting, and redraw requests.
 - Independent time-range pagination through `RangeDataProvider`, `RangePage`, and `RangeLoader`, including coverage, retry, cancellation, and bounded caches.
