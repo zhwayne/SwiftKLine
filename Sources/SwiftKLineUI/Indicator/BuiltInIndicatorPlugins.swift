@@ -58,6 +58,37 @@ struct BuiltInIndicatorPlugin: ChartPlugin {
 
     func makeCalculators(configuration: ChartAppearance) -> [any IndicatorCalculator] {
         switch indicator {
+        case .kdj, .cci, .wr, .dmi, .atr, .obv, .roc, .mfi, .trix:
+            return configuration.indicatorKeys(for: indicator).compactMap { key in
+                guard key.indicatorID == indicator.id else { return nil }
+                let calculator: (any IndicatorCalculator)?
+                switch indicator {
+                case .kdj:
+                    guard let period = key.parameters["period"].flatMap(Int.init),
+                          let k = key.parameters["kPeriod"].flatMap(Int.init),
+                          let d = key.parameters["dPeriod"].flatMap(Int.init) else { return nil }
+                    calculator = KDJCalculator(period: period, kPeriod: k, dPeriod: d)
+                case .dmi:
+                    guard let di = key.parameters["diPeriod"].flatMap(Int.init),
+                          let adx = key.parameters["adxPeriod"].flatMap(Int.init) else { return nil }
+                    calculator = DMICalculator(diPeriod: di, adxPeriod: adx)
+                case .obv: calculator = OBVCalculator()
+                default:
+                    guard let period = key.parameters["period"].flatMap(Int.init) else { return nil }
+                    switch indicator {
+                    case .cci: calculator = CCICalculator(period: period)
+                    case .wr: calculator = WRCalculator(period: period)
+                    case .atr: calculator = ATRCalculator(period: period)
+                    case .roc: calculator = ROCCalculator(period: period)
+                    case .mfi: calculator = MFICalculator(period: period)
+                    case .trix: calculator = TRIXCalculator(period: period)
+                    default: calculator = nil
+                    }
+                }
+                // Reject noncanonical/malformed keys rather than publishing under a different identity.
+                guard let calculator, calculator.id == key else { return nil }
+                return calculator
+            }
         case .ma:
             return configuration.periods(for: indicator) { key in
                 guard key.indicatorID == .ma, let periodStr = key.parameters["period"], let period = Int(periodStr) else { return nil }
@@ -159,6 +190,10 @@ struct BuiltInIndicatorPlugin: ChartPlugin {
 
     func makeRenderers(configuration: ChartAppearance) -> [any ChartRenderer] {
         switch indicator {
+        case .kdj, .cci, .wr, .dmi, .atr, .obv, .roc, .mfi, .trix:
+            let keys = Set(makeCalculators(configuration: configuration).map(\.id))
+            return configuration.indicatorKeys(for: indicator).filter { keys.contains($0) }
+                .enumerated().map { SubIndicatorRenderer.make(key: $0.element, showsLegend: $0.offset == 0) }
         case .ma, .ema, .wma:
             let keys = configuration.indicatorKeys(for: indicator).filter { $0.indicatorID == indicator.id }
             return keys.isEmpty ? [] : [LineIndicatorRenderer(series: keys)]

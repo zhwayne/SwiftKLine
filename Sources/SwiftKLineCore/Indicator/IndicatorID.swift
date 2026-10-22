@@ -56,10 +56,21 @@ public struct IndicatorID: Hashable, Sendable, Codable, ExpressibleByStringLiter
     /// The built-in MACD identity.
     public static let macd = IndicatorID("builtin.macd")
 
+    public static let kdj = IndicatorID("builtin.kdj")
+    public static let cci = IndicatorID("builtin.cci")
+    public static let wr = IndicatorID("builtin.wr")
+    public static let dmi = IndicatorID("builtin.dmi")
+    public static let atr = IndicatorID("builtin.atr")
+    public static let obv = IndicatorID("builtin.obv")
+    public static let roc = IndicatorID("builtin.roc")
+    public static let mfi = IndicatorID("builtin.mfi")
+    public static let trix = IndicatorID("builtin.trix")
+
     /// All built-in indicator IDs in their standard presentation order.
     public static let allBuiltIn: [IndicatorID] = [
         .ma, .ema, .wma, .boll, .sar, .bbi, .vwma, .donchian,
-        .superTrend, .ichimoku, .vol, .rsi, .macd
+        .superTrend, .ichimoku, .vol, .rsi, .macd,
+        .kdj, .cci, .wr, .dmi, .atr, .obv, .roc, .mfi, .trix
     ]
 
     /// Whether the identifier uses the built-in namespace; this does not verify plugin registration.
@@ -109,6 +120,40 @@ public struct SeriesKey: Hashable, Sendable, CustomStringConvertible {
 }
 
 extension SeriesKey {
+    /// KDJ identity including the lookback and both recursive smoothing periods.
+    public static func kdj(period: Int, kPeriod: Int, dPeriod: Int) -> SeriesKey {
+        SeriesKey(indicatorID: .kdj, name: "KDJ", parameters: [
+            "period": "\(period)", "kPeriod": "\(kPeriod)", "dPeriod": "\(dPeriod)"
+        ])
+    }
+
+    /// DMI identity including the DI window and ADX smoothing period.
+    public static func dmi(diPeriod: Int, adxPeriod: Int) -> SeriesKey {
+        SeriesKey(indicatorID: .dmi, name: "DMI", parameters: [
+            "diPeriod": "\(diPeriod)", "adxPeriod": "\(adxPeriod)"
+        ])
+    }
+
+    public static func cci(period: Int) -> SeriesKey {
+        SeriesKey(indicatorID: .cci, name: "CCI", parameters: ["period": "\(period)"])
+    }
+    public static func wr(period: Int) -> SeriesKey {
+        SeriesKey(indicatorID: .wr, name: "WR", parameters: ["period": "\(period)"])
+    }
+    public static func atr(period: Int) -> SeriesKey {
+        SeriesKey(indicatorID: .atr, name: "ATR", parameters: ["period": "\(period)"])
+    }
+    public static let obv = SeriesKey(indicatorID: .obv, name: "OBV")
+    public static func roc(period: Int) -> SeriesKey {
+        SeriesKey(indicatorID: .roc, name: "ROC", parameters: ["period": "\(period)"])
+    }
+    public static func mfi(period: Int) -> SeriesKey {
+        SeriesKey(indicatorID: .mfi, name: "MFI", parameters: ["period": "\(period)"])
+    }
+    public static func trix(period: Int) -> SeriesKey {
+        SeriesKey(indicatorID: .trix, name: "TRIX", parameters: ["period": "\(period)"])
+    }
+
     /// Creates the simple moving average output key for the supplied candle period.
     public static func ma(period: Int) -> SeriesKey {
         SeriesKey(indicatorID: .ma, name: "MA", parameters: ["period": "\(period)"])

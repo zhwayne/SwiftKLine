@@ -11,18 +11,32 @@ import UIKit
 /// Annotates visible high/low extremes and the latest price, with a chart-scoped control to follow the latest edge.
 final class PriceIndicatorRenderer: ChartRenderer {
         
-    var id: some Hashable { ObjectIdentifier(PriceIndicatorRenderer.self) }
+    private struct ID: Hashable {
+        let showsExtremes: Bool
+        let latestPointColor: UIColor?
+    }
+    var id: some Hashable { ID(showsExtremes: showsExtremes, latestPointColor: latestPointColor) }
     private let style: PriceIndicatorStyle
+    private let showsExtremes: Bool
+    private let latestPointColor: UIColor?
     
     private let priceLineLayer = CAShapeLayer()
     private let highestTextLayer = CATextLayer()
     private let lowestTextLayer = CATextLayer()
+    private let latestPointLayer = CAShapeLayer()
     private let dashLineLayer = CAShapeLayer()
     private let priceMarkView = PriceMarkView()
     private let formatter = PriceFormatter()
     
-    init(style: PriceIndicatorStyle) {
+    init(style: PriceIndicatorStyle, showsExtremes: Bool = true, latestPointColor: UIColor? = nil) {
         self.style = style
+        self.showsExtremes = showsExtremes
+        self.latestPointColor = latestPointColor
+        latestPointLayer.name = "latestPricePoint"
+        latestPointLayer.fillColor = latestPointColor?.cgColor
+        latestPointLayer.strokeColor = nil
+        latestPointLayer.zPosition = 3
+        dashLineLayer.name = "latestPriceGuide"
         priceLineLayer.lineWidth = 1
         dashLineLayer.lineWidth = 1 / UIScreen.main.scale
         dashLineLayer.lineDashPattern = [2, 2]
@@ -42,6 +56,7 @@ final class PriceIndicatorRenderer: ChartRenderer {
         layer.addSublayer(priceLineLayer)
         layer.addSublayer(highestTextLayer)
         layer.addSublayer(lowestTextLayer)
+        layer.addSublayer(latestPointLayer)
         layer.addSublayer(dashLineLayer)
         layer.owningView?.addSubview(priceMarkView)
     }
@@ -50,6 +65,7 @@ final class PriceIndicatorRenderer: ChartRenderer {
         priceLineLayer.removeFromSuperlayer()
         highestTextLayer.removeFromSuperlayer()
         lowestTextLayer.removeFromSuperlayer()
+        latestPointLayer.removeFromSuperlayer()
         dashLineLayer.removeFromSuperlayer()
         priceMarkView.removeFromSuperview()
     }
@@ -63,10 +79,12 @@ final class PriceIndicatorRenderer: ChartRenderer {
         highestTextLayer.foregroundColor = style.textColor.cgColor
         lowestTextLayer.foregroundColor = style.textColor.cgColor
         dashLineLayer.strokeColor = UIColor.label.cgColor
+        latestPointLayer.fillColor = latestPointColor?.cgColor
+        latestPointLayer.path = nil
         
         let priceLinePath = CGMutablePath()
         // MARK: - Visible high marker
-        if let (idx, item) = visibleItems.upperBoundItem {
+        if showsExtremes, let (idx, item) = visibleItems.upperBoundItem {
             let x = layout.xPosition(at: idx) + candleDims.width * 0.5
             let y = layout.yPosition(for: item.high, viewPort: viewPort)
             
@@ -86,7 +104,7 @@ final class PriceIndicatorRenderer: ChartRenderer {
         }
         
         // MARK: - Visible low marker
-        if let (idx, item) = visibleItems.lowerBoundItem {
+        if showsExtremes, let (idx, item) = visibleItems.lowerBoundItem {
             let x = layout.xPosition(at: idx) + candleDims.width * 0.5
             let y = layout.yPosition(for: item.low, viewPort: viewPort)
             
@@ -113,11 +131,15 @@ final class PriceIndicatorRenderer: ChartRenderer {
             let minY = layout.yPosition(for: dataBounds.max, viewPort: viewPort)
             let maxY = layout.yPosition(for: dataBounds.min, viewPort: viewPort)
             let rect = CGRectMake(0, viewPort.minY, layer.bounds.width, viewPort.height)
-            var y = layout.yPosition(for: item.close, viewPort: viewPort)
+            let priceY = layout.yPosition(for: item.close, viewPort: viewPort)
+            var y = priceY
             y = min(max(y, minY), maxY)
             let index = context.items.count - context.visibleRange.lowerBound - 1
-            var x = layout.xPosition(at: index)
-            if x > rect.maxX { x = 0 }
+            // Match the center x used by TimeSeriesRenderer, rather than the candle's left edge.
+            let priceX = layout.xPosition(at: index) + (latestPointColor == nil ? 0 : candleDims.width * 0.5)
+            let isLatestVisible = context.visibleRange.contains(context.items.count - 1)
+                && priceX >= rect.minX && priceX <= rect.maxX
+            let x = isLatestVisible ? priceX : 0
             let end = CGPoint(x: x, y: y)
             let start = CGPoint(x: rect.width, y: y)
             
@@ -125,8 +147,15 @@ final class PriceIndicatorRenderer: ChartRenderer {
             path.move(to: start)
             path.addLine(to: end)
             dashLineLayer.path = path
+
+            if latestPointColor != nil, isLatestVisible, priceY >= viewPort.minY, priceY <= viewPort.maxY {
+                let radius: CGFloat = 3
+                latestPointLayer.path = CGPath(ellipseIn: CGRect(
+                    x: end.x - radius, y: end.y - radius, width: radius * 2, height: radius * 2
+                ), transform: nil)
+            }
             
-            priceMarkView.showArrow = end.x == 0
+            priceMarkView.showArrow = !isLatestVisible
             priceMarkView.label.text = formatter.format(item.close as NSNumber)
             let indicatorSize = priceMarkView.systemLayoutSizeFitting(rect.size)
             priceMarkView.bounds.size = indicatorSize

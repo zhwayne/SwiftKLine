@@ -37,6 +37,16 @@ public enum BuiltInIndicator: String, CaseIterable, Sendable, Codable {
     /// The built-in MACD indicator.
     case macd     = "MACD"
 
+    case kdj = "KDJ"
+    case cci = "CCI"
+    case wr = "WR"
+    case dmi = "DMI"
+    case atr = "ATR"
+    case obv = "OBV"
+    case roc = "ROC"
+    case mfi = "MFI"
+    case trix = "TRIX"
+
     /// Whether the indicator overlays the price chart rather than occupying a lower panel.
     public var isMain: Bool {
         switch self {
@@ -73,6 +83,15 @@ public enum BuiltInIndicator: String, CaseIterable, Sendable, Codable {
         case .vol: return [.vol]
         case .rsi: return [.rsi(period: 6), .rsi(period: 12), .rsi(period: 24)]
         case .macd: return [.macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)]
+        case .kdj: return [.kdj(period: 9, kPeriod: 3, dPeriod: 3)]
+        case .cci: return [.cci(period: 20)]
+        case .wr: return [.wr(period: 14)]
+        case .dmi: return [.dmi(diPeriod: 14, adxPeriod: 14)]
+        case .atr: return [.atr(period: 14)]
+        case .obv: return [.obv]
+        case .roc: return [.roc(period: 9)]
+        case .mfi: return [.mfi(period: 14)]
+        case .trix: return [.trix(period: 18)]
         }
     }
 

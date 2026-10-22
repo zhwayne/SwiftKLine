@@ -29,6 +29,8 @@ The legend cache invalidates on data, configuration, resource changes, or explic
 | EMA / VOL suffix update | O(changedCount) | Excludes output-array copying |
 | RSI / MACD / SAR | O(n) | Full calculation path |
 | Full SuperTrend / Ichimoku | O(n) | Path-dependent series use the full-recalculation path; Ichimoku keeps monotonic midpoint windows |
+| KDJ / WR / DMI / ATR / OBV / ROC / MFI / TRIX | O(n) | Full rebuild for updates; KDJ/WR use monotonic deques; MFI periodically rebases rolling flow sums |
+| CCI | O(n × period) | Exact mean absolute deviation of each typical-price window |
 | Built-in full draw | O(visibleCount × seriesCount) | Add legends, grid, formatting, and custom-renderer costs |
 
 Suffix costs assume compatible previous outputs and an unchanged prefix; missing seeds, changed keys or parameters, and prepended history can require full calculation.

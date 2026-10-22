@@ -22,6 +22,32 @@ public struct LineStyle: IndicatorStyle {
     }
 }
 
+/// Independent line colors for one complete KDJ output, keyed by all calculation parameters.
+public struct KDJStyle: IndicatorStyle {
+    public let kColor: UIColor
+    public let dColor: UIColor
+    public let jColor: UIColor
+
+    public init(kColor: UIColor = .systemOrange, dColor: UIColor = .systemBlue, jColor: UIColor = .systemPurple) {
+        self.kColor = kColor
+        self.dColor = dColor
+        self.jColor = jColor
+    }
+}
+
+/// Independent +DI, -DI and ADX colors for one complete DMI output.
+public struct DMIStyle: IndicatorStyle {
+    public let plusDIColor: UIColor
+    public let minusDIColor: UIColor
+    public let adxColor: UIColor
+
+    public init(plusDIColor: UIColor = .systemGreen, minusDIColor: UIColor = .systemRed, adxColor: UIColor = .systemOrange) {
+        self.plusDIColor = plusDIColor
+        self.minusDIColor = minusDIColor
+        self.adxColor = adxColor
+    }
+}
+
 /// Internal text appearance for latest-price and visible-extreme annotations.
 struct PriceIndicatorStyle: IndicatorStyle {
     let textColor: UIColor = UIColor.label.withAlphaComponent(0.7)
@@ -42,9 +68,10 @@ struct TimeAxisStyle: IndicatorStyle {
     }
 }
 
-/// Internal line, area-fill, and border colors for time-series presentation.
+/// Internal line, gradient-fill, and border colors for time-series presentation.
 struct TimeSeriesStyle: IndicatorStyle {
     let lineColor: UIColor
+    /// Color at the top of the price viewport, fading to the same RGB with zero alpha at the bottom.
     let fillColor: UIColor
     let borderColor: UIColor
 

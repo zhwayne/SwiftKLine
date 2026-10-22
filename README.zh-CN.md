@@ -32,7 +32,7 @@
 ## 功能
 
 - 蜡烛图与分时折线图，支持滚动、双指缩放和十字光标。
-- 内置 MA、EMA、WMA、BOLL、SAR、BBI、VWMA、Donchian、SuperTrend（SUPER）、Ichimoku（ICHI）、VOL、RSI、MACD，提供指标选择器与可选的选择状态持久化。
+- 内置 MA、EMA、WMA、BOLL、SAR、BBI、VWMA、Donchian、SuperTrend（SUPER）、Ichimoku（ICHI）、VOL、RSI、MACD、KDJ、CCI、WR、DMI、ATR、OBV、ROC、MFI、TRIX，提供指标选择器与可选的选择状态持久化。
 - 历史数据分页、完整实时 K 线快照与可选的缺口恢复。
 - UIKit 与 SwiftUI 共用 `ChartConfiguration`，提供明暗主题预设。
 - 通过 `ChartPlugin` 扩展指标、叠加层与副图。

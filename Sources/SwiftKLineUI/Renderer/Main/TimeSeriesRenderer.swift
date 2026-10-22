@@ -8,14 +8,15 @@
 import SwiftKLineCore
 import UIKit
 
-/// Draws visible close prices and area fill, caching paths by geometry, value bounds, and the complete data revision.
+/// Draws visible close prices above a top-to-bottom fading area, caching paths by geometry and data revision.
 @MainActor
 final class TimeSeriesRenderer: ChartRenderer {
     
     var id: some Hashable { ObjectIdentifier(TimeSeriesRenderer.self) }
     private var style: TimeSeriesStyle
     private let lineLayer = CAShapeLayer()
-    private let fillLayer = CAShapeLayer()
+    private let fillLayer = CAGradientLayer()
+    private let fillMask = CAShapeLayer()
     private let borderLayer = CAShapeLayer()
     private let lineWidth = 1 / UIScreen.main.scale
     
@@ -54,7 +55,8 @@ final class TimeSeriesRenderer: ChartRenderer {
     
     func draw(in layer: CALayer, context: Context) {
         applyStyle()
-        fillLayer.frame = layer.bounds
+        fillLayer.frame = context.viewPort
+        fillMask.frame = fillLayer.bounds
         lineLayer.frame = layer.bounds
         borderLayer.frame = layer.bounds
         borderLayer.strokeColor = style.borderColor.cgColor
@@ -117,8 +119,14 @@ private extension TimeSeriesRenderer {
         lineLayer.lineJoin = .round
         lineLayer.lineCap = .round
         lineLayer.zPosition = 1
-        fillLayer.fillColor = style.fillColor.cgColor
-        fillLayer.strokeColor = UIColor.clear.cgColor
+        fillLayer.startPoint = CGPoint(x: 0.5, y: 0)
+        fillLayer.endPoint = CGPoint(x: 0.5, y: 1)
+        fillLayer.locations = [0, 1]
+        fillLayer.mask = fillMask
+        fillLayer.actions = ["bounds": NSNull(), "position": NSNull(), "colors": NSNull()]
+        fillMask.fillColor = UIColor.black.cgColor
+        fillMask.strokeColor = nil
+        fillMask.actions = ["bounds": NSNull(), "position": NSNull(), "path": NSNull()]
         fillLayer.zPosition = 0
         borderLayer.lineWidth = lineWidth
         borderLayer.fillColor = UIColor.clear.cgColor
@@ -128,7 +136,7 @@ private extension TimeSeriesRenderer {
     
     func applyStyle() {
         lineLayer.strokeColor = style.lineColor.cgColor
-        fillLayer.fillColor = style.fillColor.cgColor
+        fillLayer.colors = [style.fillColor.cgColor, style.fillColor.withAlphaComponent(0).cgColor]
         borderLayer.strokeColor = style.borderColor.cgColor
     }
     
@@ -147,7 +155,7 @@ private extension TimeSeriesRenderer {
         let visibleItems = context.visibleItems
         guard !visibleItems.isEmpty else {
             lineLayer.path = nil
-            fillLayer.path = nil
+            fillMask.path = nil
             return
         }
         let candleDims = context.candleDimensions
@@ -178,6 +186,8 @@ private extension TimeSeriesRenderer {
             fillPath.closeSubpath()
         }
         lineLayer.path = linePath
-        fillLayer.path = fillPath
+        // Price paths use canvas coordinates; the gradient and its mask are local to the price viewport.
+        var translation = CGAffineTransform(translationX: -viewPort.minX, y: -viewPort.minY)
+        fillMask.path = fillPath.copy(using: &translation)
     }
 }

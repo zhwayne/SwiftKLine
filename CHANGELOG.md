@@ -8,6 +8,8 @@ Notable changes are grouped below. `Unreleased` describes the current developmen
 
 ### Added
 
+- Nine lower-panel indicators: KDJ, CCI, WR, DMI, ATR, OBV, ROC, MFI, and TRIX, with parameter-aware keys, public KDJ/DMI styles, international defaults, reference levels, and independent selection/persistence.
+
 - Built-in BBI, VWMA, and Donchian main-chart indicators, with reusable channel rendering and parameter-aware series keys.
 - Built-in SuperTrend (SUPER) and Ichimoku (ICHI) main-chart indicators, with directional SuperTrend ribbons and flip breaks, and a five-line cloud overlay.
 - A shared `ChartConfiguration` API for UIKit and SwiftUI, with `CandleSource`, `ChartAppearance`, content mode, plugins, selection, and feature flags.
@@ -17,6 +19,10 @@ Notable changes are grouped below. `Unreleased` describes the current developmen
 - Complete English and Simplified Chinese documentation, page-to-page language switches, a documentation index, a contribution guide, and a changelog.
 
 ### Changed
+
+- Time-series area fills now fade vertically from the configured fill color to transparent, clipped beneath the price line.
+- Time-series mode retains the latest-price label, guide line, and return-to-latest control while hiding candle high/low annotations.
+- The visible latest point on the time-series line has a solid line-colored dot, with the price guide ending at its center.
 
 - Built-in indicators use the plugin pipeline while retaining selector, persistence, appearance, and layout behavior.
 - Candles and their indicator outputs publish as a consistent batch; independent external data does not delay that publication.

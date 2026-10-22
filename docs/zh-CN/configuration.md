@@ -63,7 +63,7 @@ UIKit 使用 `chart.apply(configuration)`。SwiftUI 向 `KLineChart` 传入更�
 
 ## 指标与选择状态
 
-选择器支持 MA、EMA、WMA、BOLL、SAR、BBI、VWMA、Donchian、SuperTrend（SUPER）、Ichimoku（ICHI）、VOL、RSI、MACD。通过 `ChartAppearance.indicators` 配置可选项，通过 `defaultMainIndicators` / `defaultSubIndicators` 配置默认与重置值，通过 `indicatorKeyOverrides` 配置参数。
+选择器支持 MA、EMA、WMA、BOLL、SAR、BBI、VWMA、Donchian、SuperTrend（SUPER）、Ichimoku（ICHI）、VOL、RSI、MACD、KDJ、CCI、WR、DMI、ATR、OBV、ROC、MFI、TRIX。通过 `ChartAppearance.indicators` 配置可选项，通过 `defaultMainIndicators` / `defaultSubIndicators` 配置默认与重置值，通过 `indicatorKeyOverrides` 配置参数。
 
 初始选择按以下优先级取第一个适用来源，然后过滤无效、重复、不可用或放错面板的 ID：
 
@@ -110,6 +110,54 @@ struct SelectionChart: View {
 
 提供绑定后，每次 SwiftUI 更新以绑定值为准。适配器将其同步到 UIKit，并回传后续用户选择，避免在同步过程中写入 SwiftUI 状态。UIKit 过滤掉的 ID 不会在这次同步中自动回写。选择器变化不会重启主 provider，也不会重建身份未变的业务插件协调器。
 
+### 新增附图指标
+
+每个选中指标对应一个独立面板，同一指标的多组参数共用该面板。示例的默认选择仍为 VOL、MACD。
+
+| 指标 | 默认参数与输出 | 首个有效索引 / 行为 |
+|---|---|---|
+| KDJ | (9, 3, 3)，K/D/J | period − 1；K/D 初始值 50，递归权重为 1/kPeriod、1/dPeriod；J = 3K − 2D |
+| CCI | 20，典型价 CCI | period − 1；典型价 (H+L+C)/3，常数 0.015，精确平均绝对偏差 |
+| WR | 14，Williams %R | period − 1；国际 −100...0 刻度 |
+| DMI | (14, 14)，+DI/−DI/ADX | DI 位于 diPeriod，ADX 位于 diPeriod + adxPeriod − 1；Wilder 平滑，不含 ADXR |
+| ATR | 14，真实波幅的 Wilder RMA | period − 1；首根 TR = H−L，以完整窗口均值播种 |
+| OBV | 无周期，累计有符号成交量 | 0；初始值为 0，收盘持平时不变 |
+| ROC | 9，收盘价变化百分比 | period；100 × (close / historicalClose − 1)，无信号线 |
+| MFI | 14，典型价资金流 | period；按典型价涨跌归类成交量加权资金流 |
+| TRIX | 18，三重 EMA 单期变化百分比 | 3 × (period − 1) + 1；每级 EMA 使用完整 SMA 播种，无信号线 |
+
+索引从零开始。输出与输入等长，预热阶段为 nil；DMI 在 ADX 预热时先发布 DI 双线。非正周期返回对齐的 nil。CCI 平均偏差为零时输出 0；KDJ 平盘窗口取 RSV 50；WR 高低价相等时输出 nil；ROC/TRIX 分母为零时输出 nil。DMI 方向变化相等、TR 为零或 DI 总和为零时贡献为 0。MFI 只有正流时为 100，只有负流时为 0，两者均无时为 nil。这些约定明确库内初始化行为，不承诺跨平台或不同历史起点下逐点一致。
+
+参考线为 KDJ/MFI 的 20、80，WR 的 −80、−20，CCI 的 −100/0/100，DMI 的 20/25，以及 ROC/TRIX 的 0。KDJ 纵轴包含超出 0...100 的 J 值；ATR 纵轴包含零；OBV 按可见值缩放。缺失或非有限值会断开路径；图例跟随选中 K 线或最后一根可见 K 线。
+
+参数与颜色均使用完整 key。单线使用 `LineStyle`，复合输出使用公开的 `KDJStyle`、`DMIStyle`。自定义 key 没有匹配样式时回退到可读颜色。显式样式字典会替换默认值：
+
+```swift
+import UIKit
+import SwiftKLine
+
+let kdjKey = SeriesKey.kdj(period: 9, kPeriod: 3, dPeriod: 3)
+let dmiKey = SeriesKey.dmi(diPeriod: 14, adxPeriod: 14)
+let appearance = ChartAppearance(
+    indicatorStyleRegistry: [
+        kdjKey: KDJStyle(kColor: .systemOrange, dColor: .systemBlue, jColor: .systemPurple),
+        dmiKey: DMIStyle(plusDIColor: .systemGreen, minusDIColor: .systemRed, adxColor: .systemOrange),
+        .wr(period: 14): LineStyle(strokeColor: .systemBlue),
+        .wr(period: 7): LineStyle(strokeColor: .systemPurple)
+    ],
+    indicatorKeyOverrides: [
+        .kdj: [kdjKey],
+        .dmi: [dmiKey],
+        .wr: [.wr(period: 14), .wr(period: 7)]
+    ]
+)
+let selection = IndicatorSelectionState(subIndicatorIDs: [.kdj, .dmi, .wr])
+```
+
+仅使用 Core 时可直接实例化 `KDJCalculator`、`CCICalculator`、`WRCalculator`、`DMICalculator`、`ATRCalculator`、`OBVCalculator`、`ROCCalculator`、`MFICalculator`、`TRIXCalculator`。KDJ 返回 `KDJIndicatorValue`，DMI 返回 ADX 可选的 `DMIIndicatorValue`，其余返回 Double。更新采用全量重算。
+
+公式参考：[KDJ](https://support.futunn.com/topic149)、[CCI](https://www.tradingview.com/support/solutions/43000502001-commodity-channel-index-cci/)、[DMI](https://www.tradingview.com/support/solutions/43000502250-directional-movement-dmi/)、[ATR](https://www.tradingview.com/support/solutions/43000501823-average-true-range-atr/)、[OBV](https://www.tradingview.com/support/solutions/43000502593-on-balance-volume-obv/)、[MFI](https://www.tradingview.com/support/solutions/43000502348-money-flow-mfi/) 和 [TRIX](https://www.tradingview.com/support/solutions/43000502331-trix/)。
+
 ## 外观与布局
 
 `.themed(.solaris)` 提供明亮预设，`.themed(.midnight)` 提供深色预设。直接构造 `ChartAppearance` 可以设置蜡烛样式、布局、图例字体和水印文字。
@@ -118,7 +166,7 @@ struct SelectionChart: View {
 
 图表固有高度包含主图、时间轴、副图和选择器。UIKit 中提供水平方向约束；SwiftUI 中使用 `.fixedSize(horizontal: false, vertical: true)` 接受固有高度。
 
-`.timeSeries` 隐藏使用已知内置 ID 的主图插件和额外价格标记。使用应用专属 ID 的自定义 `.main` 插件在两种模式中均绘制。隐藏的内置指标仍处于选中状态，也可能继续计算。
+`.timeSeries` 隐藏使用已知内置 ID 的主图插件和 K 线高低点标注。最新价格标签、价格指示线和返回最新位置控件在两种模式中均保留。分时折线下方的面积填充从上到下逐渐透明。使用应用专属 ID 的自定义 `.main` 插件在两种模式中均绘制。隐藏的内置指标仍处于选中状态，也可能继续计算。
 
 ## 加载与错误
 

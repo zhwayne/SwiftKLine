@@ -81,7 +81,7 @@ Teardown cancels sessions, revokes contexts, dismantles plugin resources, and re
 
 The canvas remains viewport-sized. Total history width affects scrolling without creating a view for each candle. Renderers reuse layers and process visible data.
 
-The main panel supports candlestick and time-series presentation. Time-series presentation hides main-panel plugins whose IDs resolve to built-in indicators, plus extra price marks; application `.main` plugins with their own IDs render in both modes. Hiding an indicator does not remove its calculator. Each plugin's `.sub` renderers share one sub-panel.
+The main panel supports candlestick and time-series presentation. Time-series presentation hides main-panel plugins whose IDs resolve to built-in indicators and candle high/low annotations, while preserving the latest-price label, guide line, and return-to-latest control. Application `.main` plugins with their own IDs render in both modes. Hiding an indicator does not remove its calculator. Each plugin's `.sub` renderers share one sub-panel.
 
 Scroll, zoom, and data updates redraw visible content. Crosshair updates can target interaction layers and legends. Data, configuration, and explicit plugin requests invalidate the legend cache; time-series paths also track interior candle revisions.
 

@@ -55,5 +55,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView(usesOfflineData: true)
+    ContentView(usesOfflineData: false)
 }

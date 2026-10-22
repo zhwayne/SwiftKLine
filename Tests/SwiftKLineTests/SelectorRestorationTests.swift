@@ -32,7 +32,9 @@ private final class MemorySelectionStore: IndicatorSelectionStore {
     #expect(chart.debugIndicatorTypeTitles.main == [
         "MA", "EMA", "WMA", "BOLL", "SAR", "BBI", "VWMA", "DONCHIAN", "SUPER", "ICHI"
     ])
-    #expect(chart.debugIndicatorTypeTitles.sub == ["VOL", "RSI", "MACD"])
+    #expect(chart.debugIndicatorTypeTitles.sub == [
+        "VOL", "RSI", "MACD", "KDJ", "CCI", "WR", "DMI", "ATR", "OBV", "ROC", "MFI", "TRIX"
+    ])
     for period in [5, 10, 20] {
         #expect(chart.debugStore(for: "builtin.ma").values(for: .ma(period: period), as: Double.self)?.count == 100)
     }

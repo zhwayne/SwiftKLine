@@ -63,7 +63,7 @@ Use `chart.apply(configuration)` in UIKit. In SwiftUI, pass the updated configur
 
 ## Indicators and selection
 
-The selector offers MA, EMA, WMA, BOLL, SAR, BBI, VWMA, Donchian, SuperTrend (SUPER), Ichimoku (ICHI), VOL, RSI, and MACD. Configure available entries with `ChartAppearance.indicators`, defaults and reset values with `defaultMainIndicators` / `defaultSubIndicators`, and parameters with `indicatorKeyOverrides`.
+The selector offers MA, EMA, WMA, BOLL, SAR, BBI, VWMA, Donchian, SuperTrend (SUPER), Ichimoku (ICHI), VOL, RSI, MACD, KDJ, CCI, WR, DMI, ATR, OBV, ROC, MFI, and TRIX. Configure available entries with `ChartAppearance.indicators`, defaults and reset values with `defaultMainIndicators` / `defaultSubIndicators`, and parameters with `indicatorKeyOverrides`.
 
 The initial selection uses the first applicable source below, then removes invalid, duplicate, unavailable, and incorrectly placed IDs:
 
@@ -110,6 +110,54 @@ struct SelectionChart: View {
 
 When supplied, the binding takes priority on each SwiftUI update. The adapter synchronizes it into UIKit and reports subsequent user selections back without writing SwiftUI state during synchronization. IDs filtered out by UIKit are not automatically written back during that synchronization. Selector changes retain the primary provider and application plugin coordinators whose identities remain unchanged.
 
+### Additional lower-panel indicators
+
+Each selected indicator has one panel; multiple parameter keys for the same indicator share that panel. The existing example selection remains VOL and MACD.
+
+| Indicator | Default and output | First available index / behavior |
+|---|---|---|
+| KDJ | (9, 3, 3), K/D/J | period − 1; K/D seeded at 50; recursive weights 1/kPeriod and 1/dPeriod; J = 3K − 2D |
+| CCI | 20, typical-price CCI | period − 1; (H+L+C)/3, constant 0.015, exact mean absolute deviation |
+| WR | 14, Williams %R | period − 1; international −100...0 scale |
+| DMI | (14, 14), +DI/−DI/ADX | DI at diPeriod; ADX at diPeriod + adxPeriod − 1; Wilder smoothing; no ADXR |
+| ATR | 14, Wilder RMA of true range | period − 1; first candle TR = H−L, complete-window mean seed |
+| OBV | no period, cumulative signed volume | 0; starts at 0, unchanged close leaves OBV unchanged |
+| ROC | 9, percentage close change | period; 100 × (close / historicalClose − 1), no signal line |
+| MFI | 14, typical-price money flow | period; typical-price direction classifies volume-weighted flows |
+| TRIX | 18, percentage change of triple EMA | 3 × (period − 1) + 1; every EMA uses a complete SMA seed; no signal line |
+
+Indexes are zero-based. Outputs are input-aligned and nil during warm-up; DMI publishes its DI pair while ADX is still nil. Nonpositive periods return aligned nil outputs. CCI returns 0 for zero mean deviation. Flat KDJ windows use RSV 50, flat WR windows yield nil, and zero ROC/TRIX denominators yield nil. DMI tied directional moves, zero TR, and zero DI sum contribute 0. MFI with only positive flow is 100, only negative flow is 0, and neither flow is nil. These definitions fix this library's initialization; they do not promise identical values across platforms or different history start points.
+
+Reference levels are KDJ/MFI 20 and 80, WR −80 and −20, CCI −100/0/100, DMI 20/25, and ROC/TRIX 0. KDJ bounds include J outside 0...100. ATR includes zero in its bounds; OBV scales to visible values. Missing/non-finite samples break paths; legends follow the selected or last visible candle.
+
+Use the full key for both parameters and colors. Scalar indicators use `LineStyle`; compound outputs use public `KDJStyle` and `DMIStyle`. Custom keys fall back to readable line colors when no style matches. An explicit style map replaces defaults:
+
+```swift
+import UIKit
+import SwiftKLine
+
+let kdjKey = SeriesKey.kdj(period: 9, kPeriod: 3, dPeriod: 3)
+let dmiKey = SeriesKey.dmi(diPeriod: 14, adxPeriod: 14)
+let appearance = ChartAppearance(
+    indicatorStyleRegistry: [
+        kdjKey: KDJStyle(kColor: .systemOrange, dColor: .systemBlue, jColor: .systemPurple),
+        dmiKey: DMIStyle(plusDIColor: .systemGreen, minusDIColor: .systemRed, adxColor: .systemOrange),
+        .wr(period: 14): LineStyle(strokeColor: .systemBlue),
+        .wr(period: 7): LineStyle(strokeColor: .systemPurple)
+    ],
+    indicatorKeyOverrides: [
+        .kdj: [kdjKey],
+        .dmi: [dmiKey],
+        .wr: [.wr(period: 14), .wr(period: 7)]
+    ]
+)
+let selection = IndicatorSelectionState(subIndicatorIDs: [.kdj, .dmi, .wr])
+```
+
+Core-only clients can instantiate `KDJCalculator`, `CCICalculator`, `WRCalculator`, `DMICalculator`, `ATRCalculator`, `OBVCalculator`, `ROCCalculator`, `MFICalculator`, and `TRIXCalculator` directly. KDJ returns `KDJIndicatorValue`, DMI returns `DMIIndicatorValue` with optional ADX, and the others return Double values. Updates use full recalculation.
+
+Formula references: [KDJ](https://support.futunn.com/topic149), [CCI](https://www.tradingview.com/support/solutions/43000502001-commodity-channel-index-cci/), [DMI](https://www.tradingview.com/support/solutions/43000502250-directional-movement-dmi/), [ATR](https://www.tradingview.com/support/solutions/43000501823-average-true-range-atr/), [OBV](https://www.tradingview.com/support/solutions/43000502593-on-balance-volume-obv/), [MFI](https://www.tradingview.com/support/solutions/43000502348-money-flow-mfi/), and [TRIX](https://www.tradingview.com/support/solutions/43000502331-trix/).
+
 ## Appearance and layout
 
 Use `.themed(.solaris)` for a light preset or `.themed(.midnight)` for a dark preset. Construct `ChartAppearance` directly to set candle styling, layout, legend fonts, and watermark text.
@@ -118,7 +166,7 @@ Indicator styles are keyed by the complete `SeriesKey`, including parameters. Su
 
 The chart's intrinsic height includes the main panel, time axis, sub-panels, and selector. Provide horizontal constraints in UIKit. In SwiftUI, `.fixedSize(horizontal: false, vertical: true)` allows the intrinsic vertical size.
 
-`.timeSeries` hides main-panel plugins with recognized built-in IDs and extra price marks. Custom `.main` plugins using application-specific IDs draw in both content modes. Hidden built-in indicators remain selected and can still calculate.
+`.timeSeries` hides main-panel plugins with recognized built-in IDs and candle high/low annotations. The latest-price label, guide line, and return-to-latest control remain available in both modes. The area beneath the time-series line fades vertically to transparent. Custom `.main` plugins using application-specific IDs draw in both content modes. Hidden built-in indicators remain selected and can still calculate.
 
 ## Loading and errors
 

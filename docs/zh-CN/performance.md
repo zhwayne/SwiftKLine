@@ -29,6 +29,8 @@
 | EMA / VOL 后缀更新 | O(changedCount) | 不含输出数组复制 |
 | RSI / MACD / SAR | O(n) | 全量计算路径 |
 | SuperTrend / Ichimoku 全量计算 | O(n) | 路径相关序列走全量重算路径；Ichimoku 使用单调中点窗口 |
+| KDJ / WR / DMI / ATR / OBV / ROC / MFI / TRIX | O(n) | 更新时全量重算；KDJ/WR 使用单调双端队列；MFI 定期重建滚动资金流和 |
+| CCI | O(n × period) | 精确计算典型价窗口的平均绝对偏差 |
 | 内置图表完整绘制 | O(visibleCount × seriesCount) | 另计图例、网格、格式化和自定义渲染成本 |
 
 后缀成本以兼容的历史输出和未变化的前缀为前提；缺少种子值、key 或参数变化、前插历史数据都可能需要全量计算。

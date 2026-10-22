@@ -13,6 +13,7 @@ import UIKit
 struct DescriptorFactory {
     func makeDescriptor(content: ChartType, appearance: ChartAppearance,
                         contexts: [ChartPluginContext]) -> ChartDescriptor {
+        let timeSeriesStyle = TimeSeriesStyle()
         func renderers(_ context: ChartPluginContext, panel: PluginPanel) -> [AnyRenderer] {
             context.renderers.filter { $0.1 == panel }.map {
                 PluginRenderer(plugin: context.id, local: $0.0, renderer: $0.2).eraseToAnyRenderer()
@@ -21,7 +22,7 @@ struct DescriptorFactory {
         return ChartDescriptor {
             RendererGroup(chartSection: .mainChart, height: appearance.layoutMetrics.mainChartHeight, padding: (16, 12)) {
                 XAxisRenderer()
-                if content == .timeSeries { TimeSeriesRenderer(style: TimeSeriesStyle()) }
+                if content == .timeSeries { TimeSeriesRenderer(style: timeSeriesStyle) }
                 else { CandleRenderer() }
                 for context in contexts {
                     // Preserve the original time-series UI; independent custom overlays remain supported.
@@ -30,7 +31,8 @@ struct DescriptorFactory {
                     }
                 }
                 YAxisRenderer()
-                if content != .timeSeries { PriceIndicatorRenderer(style: PriceIndicatorStyle()) }
+                PriceIndicatorRenderer(style: PriceIndicatorStyle(), showsExtremes: content != .timeSeries,
+                    latestPointColor: content == .timeSeries ? timeSeriesStyle.lineColor : nil)
             }
             RendererGroup(chartSection: .timeline, height: appearance.layoutMetrics.timelineHeight, padding: (0, 0)) {
                 TimeAxisRenderer(style: TimeAxisStyle())

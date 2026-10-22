@@ -109,6 +109,21 @@ public struct ChartAppearance {
             .rsi(period: 12): LineStyle(strokeColor: .systemPink),
             .rsi(period: 24): LineStyle(strokeColor: .systemTeal),
             .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9): MACDStyle(macdColor: .systemOrange, difColor: .systemPink, deaColor: .systemTeal)
+        ].merging(makeAdditionalSubStyles(primary: .systemOrange, secondary: .systemBlue, tertiary: .systemPurple)) { _, new in new }
+    }
+
+    /// Theme-specific defaults for the nine additional lower-panel indicators.
+    static func makeAdditionalSubStyles(primary: UIColor, secondary: UIColor, tertiary: UIColor) -> [SeriesKey: any IndicatorStyle] {
+        [
+            .kdj(period: 9, kPeriod: 3, dPeriod: 3): KDJStyle(kColor: primary, dColor: secondary, jColor: tertiary),
+            .cci(period: 20): LineStyle(strokeColor: primary),
+            .wr(period: 14): LineStyle(strokeColor: secondary),
+            .dmi(diPeriod: 14, adxPeriod: 14): DMIStyle(plusDIColor: secondary, minusDIColor: tertiary, adxColor: primary),
+            .atr(period: 14): LineStyle(strokeColor: primary),
+            .obv: LineStyle(strokeColor: secondary),
+            .roc(period: 9): LineStyle(strokeColor: tertiary),
+            .mfi(period: 14): LineStyle(strokeColor: secondary),
+            .trix(period: 18): LineStyle(strokeColor: primary)
         ]
     }
 }
@@ -216,7 +231,11 @@ public extension ChartAppearance.ThemePreset {
             legendFont: UIFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
             watermarkText: "SwiftKLine • Midnight",
             layout: layout,
-            indicatorStyles: indicatorStyles
+            indicatorStyles: indicatorStyles.merging(ChartAppearance.makeAdditionalSubStyles(
+                primary: UIColor(red: 1, green: 0.78, blue: 0.32, alpha: 1),
+                secondary: UIColor(red: 0.4, green: 0.85, blue: 1, alpha: 1),
+                tertiary: UIColor(red: 0.97, green: 0.5, blue: 0.67, alpha: 1)
+            )) { _, new in new }
         )
     }
 
@@ -276,7 +295,11 @@ public extension ChartAppearance.ThemePreset {
             legendFont: UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
             watermarkText: "SwiftKLine • Solaris",
             layout: layout,
-            indicatorStyles: indicatorStyles
+            indicatorStyles: indicatorStyles.merging(ChartAppearance.makeAdditionalSubStyles(
+                primary: UIColor(red: 0.98, green: 0.50, blue: 0.15, alpha: 1),
+                secondary: UIColor(red: 0.36, green: 0.68, blue: 0.91, alpha: 1),
+                tertiary: UIColor(red: 0.55, green: 0.36, blue: 0.74, alpha: 1)
+            )) { _, new in new }
         )
     }
 }
