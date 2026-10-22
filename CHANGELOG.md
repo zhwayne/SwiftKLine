@@ -8,6 +8,8 @@ Notable changes are grouped below. `Unreleased` describes the current developmen
 
 ### Added
 
+- Reorganized documentation around an integration path: new getting-started, built-in indicators, and appearance guides; configuration/data-provider guides restructured; a refreshed documentation index with reading paths.
+
 - Nine lower-panel indicators: KDJ, CCI, WR, DMI, ATR, OBV, ROC, MFI, and TRIX, with parameter-aware keys, public KDJ/DMI styles, international defaults, reference levels, and independent selection/persistence.
 
 - Built-in BBI, VWMA, and Donchian main-chart indicators, with reusable channel rendering and parameter-aware series keys.
@@ -24,7 +26,8 @@ Notable changes are grouped below. `Unreleased` describes the current developmen
 - Time-series mode retains the latest-price label, guide line, and return-to-latest control while hiding candle high/low annotations.
 - The visible latest point on the time-series line has a solid line-colored dot, with the price guide ending at its center.
 
-- Built-in indicators use the plugin pipeline while retaining selector, persistence, appearance, and layout behavior.
+- Built-in indicators use the plugin pipeline while retaining selection persistence, appearance, and layout behavior.
+- Indicator selector UI now belongs to the application: `ChartView` no longer embeds or reserves height for a selector, the example provides a SwiftUI implementation, and `KLineChart` can inject a selection store and hydrate its binding from persisted state.
 - Candles and their indicator outputs publish as a consistent batch; independent external data does not delay that publication.
 - History and configuration invalidation preempt the coalesced live timer.
 - Resource namespaces allow multiple instances of a feature in one chart.

@@ -32,7 +32,7 @@
 ## 功能
 
 - 蜡烛图与分时折线图，支持滚动、双指缩放和十字光标。
-- 内置 MA、EMA、WMA、BOLL、SAR、BBI、VWMA、Donchian、SuperTrend（SUPER）、Ichimoku（ICHI）、VOL、RSI、MACD、KDJ、CCI、WR、DMI、ATR、OBV、ROC、MFI、TRIX，提供指标选择器与可选的选择状态持久化。
+- 内置 MA、EMA、WMA、BOLL、SAR、BBI、VWMA、Donchian、SuperTrend（SUPER）、Ichimoku（ICHI）、VOL、RSI、MACD、KDJ、CCI、WR、DMI、ATR、OBV、ROC、MFI、TRIX，提供开放的选择状态与可选持久化，供应用实现自有控件。
 - 历史数据分页、完整实时 K 线快照与可选的缺口恢复。
 - UIKit 与 SwiftUI 共用 `ChartConfiguration`，提供明暗主题预设。
 - 通过 `ChartPlugin` 扩展指标、叠加层与副图。
@@ -147,15 +147,15 @@ func installChart(in container: UIView, configuration: ChartConfiguration) -> Ch
 }
 ```
 
-图表会根据面板和选择器提供固有高度。后续使用 `chart.apply(configuration)` 应用配置变更。
+图表会根据主图、时间轴和已选副图面板提供固有高度。后续使用 `chart.apply(configuration)` 应用配置变更。
 
-当 `.liveUpdates` 和 `.gapRecovery` 不变时，稳定的 `CandleSource.id` 会保留 provider 会话。当交易对、周期、市场日历或快照变化时，应更换 ID。仅替换 provider 工厂闭包不会刷新相同 ID 的会话。接入网络行情时，实现 `ChartItemProvider` 并启用所需的[加载能力](docs/zh-CN/configuration.md#加载与错误)。
+当 `.liveUpdates` 和 `.gapRecovery` 不变时，稳定的 `CandleSource.id` 会保留 provider 会话。当交易对、周期、市场日历或快照变化时，应更换 ID。仅替换 provider 工厂闭包不会刷新相同 ID 的会话。接入网络行情时，实现 `ChartItemProvider`，参见[数据源指南](docs/zh-CN/data-providers.md)。
 
 ## 示例应用
 
 在 Xcode 中打开 [SwiftKLineExample.xcodeproj](SwiftKLineExample.xcodeproj)，选择 `SwiftKLineExample` scheme，在 iOS 18+ 模拟器或设备上运行。
 
-应用演示周期切换、蜡烛图与分时图切换、指标选择器。正常运行使用示例中的 Binance provider，需要能够访问该服务；SwiftUI 预览使用确定性的离线数据。
+应用演示周期切换、蜡烛图与分时图切换，以及应用自有的 SwiftUI 指标选择器。正常运行使用示例中的 Binance provider，需要能够访问该服务；SwiftUI 预览使用确定性的离线数据。
 
 可选的[成交标记示例](SwiftKLineExample/TradeMarkers/TradeMarkerExample.swift) 演示应用自有的 provider、插件和渲染器，以及独立分页。默认页面未启用该插件。成交模型与账户或查询身份属于示例代码，不是库的公开 API。
 
@@ -165,8 +165,11 @@ func installChart(in container: UIView, configuration: ChartConfiguration) -> Ch
 
 | 指南 | 内容 |
 |---|---|
-| [配置与集成](docs/zh-CN/configuration.md) | 接入、稳定标识、外观、指标选择和错误处理 |
-| [数据源与分页](docs/zh-CN/data-providers.md) | 行情数据、时间边界、分页、重试和缓存 |
+| [快速开始](docs/zh-CN/getting-started.md) | 添加依赖、构建配置，并在 SwiftUI 与 UIKit 中渲染图表 |
+| [配置与集成](docs/zh-CN/configuration.md) | 配置字段、更新语义、功能开关、错误处理与图表 API |
+| [数据源接入](docs/zh-CN/data-providers.md) | 行情数据、历史分页、实时快照、缺口恢复、时间边界与独立分页 |
+| [内置指标](docs/zh-CN/indicators.md) | 指标目录、选择与持久化、参数以及 Core 计算器 |
+| [外观定制](docs/zh-CN/appearance.md) | 主题、蜡烛样式、布局、图例与指标样式 |
 | [插件与自定义图表](docs/zh-CN/plugins.md) | 自定义指标、叠加层、副图和生命周期清理 |
 | [架构与所有权](docs/zh-CN/architecture.md) | 模块、状态归属、并发和渲染 |
 | [性能与测量](docs/zh-CN/performance.md) | 运行成本、基准测试和测量方法 |

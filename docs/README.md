@@ -2,21 +2,25 @@
 
 **English** | [简体中文](zh-CN/README.md)
 
-Start with the [project README](../README.md) to install SwiftKLine and display a chart. These guides describe the API in the current source tree.
+Start with the [project README](../README.md) or the [getting-started guide](getting-started.md) to install SwiftKLine and display a chart. These guides describe the API in the current source tree.
 
 ## Guides
 
 | Guide | What you will learn |
 |---|---|
-| [Configuration and integration](configuration.md) | Embed a chart, update configuration, choose indicators, and handle errors |
-| [Data providers and pagination](data-providers.md) | Supply candles and independently paginated application data |
-| [Plugins and custom charts](plugins.md) | Add calculations, overlays, and sub-panels with per-chart state |
-| [Architecture and ownership](architecture.md) | Understand module boundaries, data publication, concurrency, and rendering |
-| [Performance and measurement](performance.md) | Understand costs and measure calculations and interactions |
+| [Getting started](getting-started.md) | Add the package, build a configuration, and render a chart in SwiftUI and UIKit |
+| [Configuration and integration](configuration.md) | Configuration fields, update semantics, feature switches, error reporting, and the chart API |
+| [Data providers](data-providers.md) | Candle values, the provider contract, history paging, live snapshots, gap recovery, and independent range data |
+| [Built-in indicators](indicators.md) | The built-in catalog, selection and persistence, parameters, and Core calculators |
+| [Appearance](appearance.md) | Themes, candle style, layout metrics, legend and watermark, and series-keyed styles |
+| [Plugins and custom charts](plugins.md) | Custom calculations, overlays, and sub panels with per-chart state |
+| [Architecture and ownership](architecture.md) | Module boundaries, data publication, concurrency, and rendering (deep dive) |
+| [Performance and measurement](performance.md) | Run costs, benchmarks, and measurement methods (deep dive) |
 
 ## Suggested reading
 
-- **Integrate a chart:** [Quick start](../README.md#quick-start) → [Configuration](configuration.md) → [Data providers](data-providers.md).
+- **Integrate a chart:** [Getting started](getting-started.md) → [Configuration](configuration.md) → [Data providers](data-providers.md).
+- **Shape built-ins:** [Indicators](indicators.md) → [Appearance](appearance.md).
 - **Extend the chart:** [Plugins](plugins.md) → [Independent range pagination](data-providers.md#independent-range-pagination) → [Trade-marker example](../SwiftKLineExample/TradeMarkers/TradeMarkerExample.swift).
 - **Work on the library:** [Contribution guide](../CONTRIBUTING.md) → [Architecture](architecture.md) → [Performance](performance.md).
 - **Review changes:** [Changelog](../CHANGELOG.md).

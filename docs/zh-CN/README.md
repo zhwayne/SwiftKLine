@@ -2,21 +2,25 @@
 
 [English](../README.md) | **简体中文**
 
-从[项目 README](../../README.zh-CN.md) 开始安装并显示图表。以下指南对应当前源码中的 API。
+从[项目 README](../../README.zh-CN.md)或[快速开始](getting-started.md)开始安装并显示图表。以下指南对应当前源码中的 API。
 
 ## 指南
 
 | 指南 | 阅读后可以了解 |
 |---|---|
-| [配置与集成](configuration.md) | 嵌入图表、更新配置、选择指标和处理错误 |
-| [数据源与分页](data-providers.md) | 提供 K 线数据与独立分页的业务数据 |
-| [插件与自定义图表](plugins.md) | 使用独立于其他图表的状态添加计算、叠加层和副图 |
-| [架构与所有权](architecture.md) | 理解模块边界、数据发布、并发与渲染 |
-| [性能与测量](performance.md) | 理解运行成本并测量计算与交互表现 |
+| [快速开始](getting-started.md) | 添加依赖、构建配置，并在 SwiftUI 与 UIKit 中渲染图表 |
+| [配置与集成](configuration.md) | 配置字段、更新语义、功能开关、错误上报与图表 API |
+| [数据源接入](data-providers.md) | K 线净值契约、历史分页、实时快照、缺口恢复与独立业务数据 |
+| [内置指标](indicators.md) | 指标目录、选择与持久化、参数以及 Core 计算器 |
+| [外观定制](appearance.md) | 主题、蜡烛样式、布局、图例水印与按 key 的指标样式 |
+| [插件与自定义图表](plugins.md) | 自定义计算、叠加层与副图，以及每图表独立状态 |
+| [架构与所有权](architecture.md) | 模块边界、数据发布、并发与渲染（深入） |
+| [性能与测量](performance.md) | 运行成本、基准测试与测量方法（深入） |
 
 ## 推荐阅读路径
 
-- **接入图表：**[快速开始](../../README.zh-CN.md#快速开始) → [配置与集成](configuration.md) → [数据源](data-providers.md)。
+- **接入图表：**[快速开始](getting-started.md) → [配置与集成](configuration.md) → [数据源接入](data-providers.md)。
+- **调整内置能力：**[内置指标](indicators.md) → [外观定制](appearance.md)。
 - **扩展图表：**[插件](plugins.md) → [独立范围分页](data-providers.md#独立范围分页) → [成交标记示例](../../SwiftKLineExample/TradeMarkers/TradeMarkerExample.swift)。
 - **参与库开发：**[贡献指南](../../CONTRIBUTING.zh-CN.md) → [架构](architecture.md) → [性能](performance.md)。
 - **查看变更：**[变更记录](../../CHANGELOG.zh-CN.md)。
@@ -30,12 +34,12 @@
 | `SwiftKLineUI` | 包内部 target | 配置、生命周期协调、UIKit 与 Core Animation 渲染 |
 | `SwiftKLineSwiftUI` | 包内部 target | `UIViewRepresentable` 适配器 |
 
-使用方可以添加的产品是 `SwiftKLine` 和 `SwiftKLineCore`。UI target 中的公开 API 由 `SwiftKLine` 重新导出，不作为独立包产品发布。
+包使用者可用的两个库产品是 `SwiftKLine` 和 `SwiftKLineCore`。UI target 包含由 `SwiftKLine` 再导出的公开 API；它们不是独立的包产品。
 
-## 语言与示例约定
+## 双语与示例
 
-每页顶部提供 **English / 简体中文** 切换入口，直接打开相同主题的另一种语言版本。指南内的导航保持在当前语言。
+每份文档页面顶部都有 **English / 简体中文** 切换，指向同页的另一语言。页面内的导航保持当前语言。
 
-英文指南位于 `docs/`，中文指南位于 `docs/zh-CN/`。根目录中文文档使用 `.zh-CN.md` 后缀。行为变更时同步更新两种语言。API 名称与可执行示例在两种语言中保持一致；源码注释使用英文。
+英文指南位于 `docs/`；中文指南位于 `docs/zh-CN/`。根级文档的中文版使用 `.zh-CN.md` 后缀。行为变化时请同时更新两个版本。API 名称与可执行示例在两种语言中保持一致；代码注释保持英文。
 
-提交文档变更前，在仓库根目录运行 `./script/validate-docs.py`。它会检查本地路径、标题链接、双语对应页面和可执行片段一致性。Swift 片段可在引用当前库的 iOS 应用 target 中编译验证；其他构建与测试命令见[贡献指南](../../CONTRIBUTING.zh-CN.md#构建与测试)。
+提交文档变更前，请在仓库根目录运行 `./script/validate-docs.py`。它检查本地路径、标题锚点、双语对应与可执行片段一致性。Swift 片段需在 iOS 应用 target 中用当前库编译。其它构建与测试命令见[贡献指南](../../CONTRIBUTING.zh-CN.md#构建与测试)。

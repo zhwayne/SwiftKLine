@@ -2,7 +2,7 @@
 
 **English** | [简体中文](zh-CN/plugins.md)
 
-[Documentation](README.md) · [Configuration](configuration.md) · [Data providers](data-providers.md)
+[Documentation](README.md) · [Configuration](configuration.md) · [Appearance](appearance.md) · [Data providers](data-providers.md)
 
 Declare application features in `ChartConfiguration.plugins`. Each entry can own calculations, rendering, and an independent data source. Stable IDs identify features; declaration order determines plugin panel order. Prefix custom IDs with an application-specific name; the `builtin.` namespace is reserved. Selected built-in plugins are prepended to application plugins, except where an exact declared ID overrides one.
 
@@ -63,7 +63,7 @@ func trendConfiguration(source: CandleSource) throws -> ChartConfiguration {
 }
 ```
 
-Keep `id` stable when changing `period`. `SeriesKey` includes the calculation parameters. Renderers access typed results through `ChartContext.values(for:as:)` or `visibleValues(for:as:)`. Style lookup also uses the complete key; see [appearance](configuration.md#appearance-and-layout).
+Keep `id` stable when changing `period`. `SeriesKey` includes the calculation parameters. Renderers access typed results through `ChartContext.values(for:as:)` or `visibleValues(for:as:)`. Style lookup also uses the complete key; see [indicator styles](appearance.md#indicator-styles).
 
 ## Inputs and resource registration
 

@@ -2,7 +2,7 @@
 
 [English](../plugins.md) | **简体中文**
 
-[文档索引](README.md) · [配置](configuration.md) · [数据源](data-providers.md)
+[文档索引](README.md) · [配置](configuration.md) · [外观](appearance.md) · [数据源](data-providers.md)
 
 在 `ChartConfiguration.plugins` 中声明业务功能。每项可拥有计算、绘制与独立数据源。稳定 ID 标识功能，声明顺序决定插件面板顺序。自定义 ID 使用应用专属前缀，`builtin.` 命名空间为内置指标保留。选中的内置插件会添加到业务插件之前；与显式声明 ID 完全相同时，由显式声明覆盖。
 
@@ -63,7 +63,7 @@ func trendConfiguration(source: CandleSource) throws -> ChartConfiguration {
 }
 ```
 
-改变 `period` 时保持 `id` 稳定。`SeriesKey` 包含计算参数。渲染器通过 `ChartContext.values(for:as:)` 或 `visibleValues(for:as:)` 读取类型匹配的结果。样式也使用完整 key 查找，详见[外观](configuration.md#外观与布局)。
+改变 `period` 时保持 `id` 稳定。`SeriesKey` 包含计算参数。渲染器通过 `ChartContext.values(for:as:)` 或 `visibleValues(for:as:)` 读取类型匹配的结果。样式也使用完整 key 查找，详见[指标样式](appearance.md#指标样式)。
 
 ## 输入与资源注册
 

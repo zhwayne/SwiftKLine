@@ -32,7 +32,7 @@ A modular candlestick chart library for iOS and iPadOS, built with Swift, UIKit,
 ## Features
 
 - Candlestick and time-series charts with scrolling, pinch zoom, and a crosshair.
-- Built-in MA, EMA, WMA, BOLL, SAR, BBI, VWMA, Donchian, SuperTrend (SUPER), Ichimoku (ICHI), VOL, RSI, MACD, KDJ, CCI, WR, DMI, ATR, OBV, ROC, MFI, and TRIX indicators, a selector, and optional selection persistence.
+- Built-in MA, EMA, WMA, BOLL, SAR, BBI, VWMA, Donchian, SuperTrend (SUPER), Ichimoku (ICHI), VOL, RSI, MACD, KDJ, CCI, WR, DMI, ATR, OBV, ROC, MFI, and TRIX indicators, with open selection state and optional persistence for application-owned controls.
 - Historical pagination, complete live candle snapshots, and optional gap recovery.
 - Shared `ChartConfiguration` for UIKit and SwiftUI, with light and dark theme presets.
 - Custom indicators, overlays, and sub-panels through `ChartPlugin`.
@@ -147,15 +147,15 @@ func installChart(in container: UIView, configuration: ChartConfiguration) -> Ch
 }
 ```
 
-The chart supplies an intrinsic height for its panels and selector. Apply later changes with `chart.apply(configuration)`.
+The chart supplies an intrinsic height for its main, time-axis, and selected sub-panels. Apply later changes with `chart.apply(configuration)`.
 
-A stable `CandleSource.id` retains the provider session while `.liveUpdates` and `.gapRecovery` remain unchanged. Change it when the symbol, period, market calendar, or snapshot changes. Replacing a provider factory alone does not refresh a session with the same ID. For a network feed, implement `ChartItemProvider` and enable the required [loading capabilities](docs/configuration.md#loading-and-errors).
+A stable `CandleSource.id` retains the provider session while `.liveUpdates` and `.gapRecovery` remain unchanged. Change it when the symbol, period, market calendar, or snapshot changes. Replacing a provider factory alone does not refresh a session with the same ID. For a network feed, implement `ChartItemProvider` and see the [data provider guide](docs/data-providers.md).
 
 ## Example app
 
 Open [SwiftKLineExample.xcodeproj](SwiftKLineExample.xcodeproj) in Xcode, select the `SwiftKLineExample` scheme, and run on an iOS 18+ simulator or device.
 
-The app demonstrates period switching, candlestick and time-series presentation, and the indicator selector. Normal runs use the example's Binance provider and require network access to that service. SwiftUI previews use deterministic offline data.
+The app demonstrates period switching, candlestick and time-series presentation, and an application-owned SwiftUI indicator selector. Normal runs use the example's Binance provider and require network access to that service. SwiftUI previews use deterministic offline data.
 
 The optional [trade-marker example](SwiftKLineExample/TradeMarkers/TradeMarkerExample.swift) demonstrates an application-owned provider, plugin, and renderer with separate pagination. It is not enabled on the default page. Its trade types and account/query identities belong to the example, not the public library API.
 
@@ -165,8 +165,11 @@ The [documentation index](docs/README.md) provides reading paths and links to th
 
 | Guide | Topics |
 |---|---|
-| [Configuration](docs/configuration.md) | Integration, stable identities, appearance, selection, and errors |
-| [Data providers](docs/data-providers.md) | Candle feeds, time boundaries, pagination, retries, and caches |
+| [Getting started](docs/getting-started.md) | Install, build a configuration, and render a chart in SwiftUI and UIKit |
+| [Configuration](docs/configuration.md) | Fields, update semantics, features, errors, and the chart API |
+| [Data providers](docs/data-providers.md) | Candle feeds, paging, live snapshots, recovery, time boundaries, and range data |
+| [Indicators](docs/indicators.md) | Built-in catalog, selection, persistence, parameters, and Core calculators |
+| [Appearance](docs/appearance.md) | Themes, candle style, layout, legend, and series styles |
 | [Plugins](docs/plugins.md) | Custom indicators, overlays, panels, and lifecycle cleanup |
 | [Architecture](docs/architecture.md) | Modules, ownership, concurrency, and rendering |
 | [Performance](docs/performance.md) | Runtime costs, benchmarks, and measurement |
