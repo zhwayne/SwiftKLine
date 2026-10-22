@@ -11,7 +11,7 @@ import UIKit
 /// Internal price-direction classification used to choose configured candle colors.
 enum Trend: Sendable {
     case rising, falling
-    @MainActor func color(using configuration: ChartConfiguration) -> UIColor {
+    @MainActor func color(using configuration: ChartAppearance) -> UIColor {
         self == .rising ? configuration.candleStyle.risingColor : configuration.candleStyle.fallingColor
     }
 }

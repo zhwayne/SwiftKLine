@@ -41,7 +41,7 @@ class MarkView: UIView {
         didSet { update() }
     }
     
-    private let configuration: ChartConfiguration
+    private let configuration: ChartAppearance
     private let stackView = UIStackView()
     private let dateLabel = ItemLabel()
     private let openingLabel = ItemLabel()
@@ -57,7 +57,7 @@ class MarkView: UIView {
     private let volumeFormatter = VolumeFormatter()
     private let priceFormatter = PriceFormatter()
     
-    init(configuration: ChartConfiguration) {
+    init(configuration: ChartAppearance) {
         self.configuration = configuration
         super.init(frame: .zero)
         // TODO: Adapt date formatting to the selected candle period.
@@ -91,7 +91,7 @@ class MarkView: UIView {
     }
     
     override convenience init(frame: CGRect) {
-        self.init(configuration: ChartConfiguration())
+        self.init(configuration: ChartAppearance())
     }
     
     required init?(coder: NSCoder) {

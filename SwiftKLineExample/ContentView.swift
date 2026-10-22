@@ -28,11 +28,11 @@ struct ContentView: View {
     
     @State private var period: ChartPeriod = .oneMinute
     @State private var chartMode: ChartDisplayMode = .candlestick
-    private let usesDemoData: Bool
+    private let usesOfflineData: Bool
 
-    /// Selects offline sample data for previews or the --demo launch mode; normal runs use the exchange provider.
-    init(usesDemoData: Bool = ProcessInfo.processInfo.arguments.contains("--demo")) {
-        self.usesDemoData = usesDemoData
+    /// Keeps previews offline while normal app launches use Binance.
+    init(usesOfflineData: Bool = false) {
+        self.usesOfflineData = usesOfflineData
     }
     
     var body: some View {
@@ -47,7 +47,7 @@ struct ContentView: View {
                 .padding(.horizontal, 16)
                 
                 ChartPeriodPicker(period: $period)
-                KLineSwiftUIView(period: period, mode: chartMode, usesDemoData: usesDemoData)
+                KLineSwiftUIView(period: period, mode: chartMode, usesOfflineData: usesOfflineData)
             }
         }
         .contentMargins(.vertical, 16)
@@ -55,5 +55,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView(usesDemoData: true)
+    ContentView(usesOfflineData: true)
 }

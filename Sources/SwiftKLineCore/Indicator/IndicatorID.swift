@@ -95,16 +95,6 @@ public struct SeriesKey: Hashable, Sendable, CustomStringConvertible {
     }
 }
 
-/// The chart region in which a plugin is eligible for indicator selection.
-public enum IndicatorPlacement: Sendable, Equatable {
-    /// The main price chart.
-    case main
-    /// A lower indicator panel; a RendererPlacement sub case targets the supplied indicator ID.
-    case sub
-    /// An additional overlay on the main chart.
-    case overlay
-}
-
 extension SeriesKey {
     /// Creates the simple moving average output key for the supplied candle period.
     public static func ma(period: Int) -> SeriesKey {
@@ -143,18 +133,4 @@ extension SeriesKey {
             "shortPeriod": "\(shortPeriod)", "longPeriod": "\(longPeriod)", "signalPeriod": "\(signalPeriod)"
         ])
     }
-}
-
-/// A renderer registration hook, independent of which calculator supplies its values.
-public enum RendererPlacement: Sendable, Hashable {
-    /// The main price chart.
-    case main
-    /// An additional renderer associated with a specific selected main-chart indicator.
-    case mainIndicator(IndicatorID)
-    /// A lower indicator panel; a RendererPlacement sub case targets the supplied indicator ID.
-    case sub(IndicatorID)
-    /// An additional overlay on the main chart.
-    case overlay
-    /// A registration identity for crosshair-related rendering.
-    case crosshair
 }

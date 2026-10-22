@@ -72,65 +72,59 @@ private final class ControlledProvider: ChartItemProvider, Sendable {
     }
 }
 
-@MainActor private func makeCoordinator() -> ChartCoordinator {
-    let config = ChartConfiguration()
-    return ChartCoordinator(configuration: config, features: [.liveUpdates], indicatorPipeline: IndicatorPipeline(
-        configuration: config,
-        normalizer: IndicatorSelectionNormalizer(availableMain: [], availableSub: []),
-        selectionStore: nil,
-        registry: .default
-    ))
+
+@MainActor private func configuration(_ provider: ControlledProvider, id: String = "live",
+                                      plugins: [any ChartPlugin] = []) -> ChartConfiguration {
+    try! ChartConfiguration(source: CandleSource(id: id, duration: 60, provider: { provider }),
+                            plugins: plugins, features: [.liveUpdates])
 }
 
 @available(iOS 16.0, *)
 @Test(.timeLimit(.minutes(1))) @MainActor func initialPagePreservesNewAndUpdatedLiveCandles() async {
     let provider = ControlledProvider()
-    let coordinator = makeCoordinator()
-    let receivedTicks = Signal()
-    let receivedPage = Signal()
-    coordinator.onStateUpdated = { state, _, event in
-        if case .liveTick = event, state.items.count == 2 {
-            Task { await receivedTicks.signal() }
-        }
-        if case .page = event { Task { await receivedPage.signal() } }
+    let config = configuration(provider)
+    let coordinator = ChartCoordinator(configuration: config)
+    let ticks = Signal(), page = Signal()
+    coordinator.onSnapshot = { _ in
+        if coordinator.snapshot.items.map(\.timestamp) == [120, 180] { Task { await ticks.signal() } }
+        if coordinator.snapshot.items.map(\.timestamp) == [60, 120, 180] { Task { await page.signal() } }
     }
-    coordinator.loadData(using: provider)
+    coordinator.apply(config, initial: true)
     await provider.streamRequested.wait()
     provider.continuation.yield(RegressionItem(timestamp: 120, close: 20))
     provider.continuation.yield(RegressionItem(timestamp: 120, close: 22))
     provider.continuation.yield(RegressionItem(timestamp: 180, close: 3))
-    await receivedTicks.wait()
+    await ticks.wait()
     await provider.releasePage.signal()
-    await receivedPage.wait()
-
-    #expect(coordinator.state.items.map(\.timestamp) == [60, 120, 180])
-    #expect(coordinator.state.items.map(\.close) == [1, 22, 3])
-    coordinator.stopDataLoading()
+    await page.wait()
+    #expect(coordinator.snapshot.items.map(\.close) == [1, 22, 3])
+    coordinator.shutdown()
     await provider.terminated.wait()
 }
 
 @available(iOS 16.0, *)
 @Test(.timeLimit(.minutes(1))) func releasingLoaderCancelsInfiniteStream() async {
     let provider = ControlledProvider()
-    // Complete history first so the test isolates whether an infinite stream retains its loader.
     await provider.releasePage.signal()
     var loader: ChartItemLoader? = ChartItemLoader(provider: provider, eventHandler: { _ in })
-    weak var weakLoader = loader
+    weak var reference: ChartItemLoader?
+    reference = loader
     await loader?.start()
     await provider.streamRequested.wait()
     loader = nil
     await provider.terminated.wait()
-    #expect(weakLoader == nil)
+    #expect(reference == nil)
 }
 
 @available(iOS 16.0, *)
 @Test(.timeLimit(.minutes(1))) @MainActor func stoppingCoordinatorTerminatesLiveSubscription() async {
     let provider = ControlledProvider()
     await provider.releasePage.signal()
-    let coordinator = makeCoordinator()
-    coordinator.loadData(using: provider)
+    let config = configuration(provider)
+    let coordinator = ChartCoordinator(configuration: config)
+    coordinator.apply(config, initial: true)
     await provider.streamRequested.wait()
-    coordinator.stopDataLoading()
+    coordinator.shutdown()
     await provider.terminated.wait()
 }
 
@@ -163,75 +157,56 @@ private final class CalculationGate: @unchecked Sendable {
 private struct GatedCalculator: IndicatorCalculator {
     let id = SeriesKey(indicatorID: "test.gated", name: "gated")
     let gate: CalculationGate
+    let factor: Double
     func calculate(for items: [any ChartItem]) -> [Double?] {
         if items.first?.timestamp == 999 { gate.block() }
-        return items.map { $0.close }
+        return items.map { $0.close * factor }
     }
 }
 
-/// Installs the gated calculator under either a custom or replaced built-in ID for lifecycle regression tests.
-private struct GatedPlugin: IndicatorPlugin {
-    let id: IndicatorID
-    let title = "Gated"
-    let placement: IndicatorPlacement = .main
-    let defaultSeriesKeys = [SeriesKey(indicatorID: "test.gated", name: "gated")]
+
+@MainActor private struct GatedPlugin: ChartPlugin {
+    let id = "test.gated"
     let gate: CalculationGate
-    func makeCalculators(configuration: ChartConfiguration) -> [any IndicatorCalculator] { [GatedCalculator(gate: gate)] }
-    func makeRenderers(configuration: ChartConfiguration) -> [any ChartRenderer] { [] }
+    var factor: Double = 1
+    @MainActor final class Coordinator { var factor: Double? }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    func update(coordinator: Coordinator, context: ChartPluginContext) {
+        guard coordinator.factor != factor else { return }
+        coordinator.factor = factor
+        context.setCalculator(GatedCalculator(gate: gate, factor: factor), for: "gated")
+    }
 }
 
 @available(iOS 16.0, *)
 @Test(.timeLimit(.minutes(1))) @MainActor func oldDrawCannotRestoreItemsAfterProviderReplacement() async {
     let gate = CalculationGate()
     defer { gate.release() }
-    let registry = PluginRegistry.default
-    registry.register(GatedPlugin(id: "test.gated", gate: gate))
-    let view = ChartView(options: ChartOptions(
-        indicators: IndicatorSelectionState(mainIndicatorIDs: ["test.gated"]), features: [], plugins: registry
-    ))
-    let oldDraw = Task { await view.debugDraw(items: [RegressionItem(timestamp: 999, close: 99)]) }
+    let view = ChartView(configuration: try! testConfiguration(id: "old", items: [testCandle(999, 99)],
+        plugins: [GatedPlugin(gate: gate)]))
     for await _ in gate.started { break }
     let provider = ControlledProvider()
-    view.loadData(using: provider)
+    view.apply(configuration(provider, id: "new", plugins: [GatedPlugin(gate: gate)]))
     gate.release()
-    await oldDraw.value
+    await view.debugWaitForRefresh()
     #expect(view.debugCoordinatorItemTimestamps.isEmpty)
     #expect(view.debugItemTimestamps.isEmpty)
-    // Release the pending history request so the test leaves no suspended producer task.
     await provider.releasePage.signal()
+    view.shutdown()
 }
 
 @available(iOS 16.0, *)
 @Test(.timeLimit(.minutes(1))) @MainActor func oldCalculationCannotOverwriteNewIndicatorValues() async {
     let gate = CalculationGate()
     defer { gate.release() }
-    let registry = PluginRegistry.default
-    registry.register(GatedPlugin(id: "test.gated", gate: gate))
-    let view = ChartView(options: ChartOptions(
-        indicators: IndicatorSelectionState(mainIndicatorIDs: ["test.gated"]), features: [], plugins: registry
-    ))
-    let oldDraw = Task { await view.debugDraw(items: [RegressionItem(timestamp: 999, close: 99)]) }
+    let view = ChartView(configuration: try! testConfiguration(items: [testCandle(999, 99)],
+        plugins: [GatedPlugin(gate: gate)]))
     for await _ in gate.started { break }
-    await view.debugDraw(items: [RegressionItem(timestamp: 60, close: 7)])
+    view.apply(try! testConfiguration(items: [testCandle(999, 99)], plugins: [GatedPlugin(gate: gate, factor: 2)]))
     gate.release()
-    await oldDraw.value
-    #expect(view.debugCoordinatorItemTimestamps == [60])
-    #expect(view.debugIndicatorSeriesStore.values(for: SeriesKey(indicatorID: "test.gated", name: "gated"), as: Double.self) == [7])
-}
-
-@available(iOS 16.0, *)
-@Test(.timeLimit(.minutes(1))) @MainActor func replacementBuiltInPluginSuppliesItsOwnCalculator() async {
-    let gate = CalculationGate()
-    let registry = PluginRegistry.default
-    registry.register(GatedPlugin(id: .ma, gate: gate))
-    let config = ChartConfiguration()
-    let pipeline = IndicatorPipeline(configuration: config,
-        normalizer: IndicatorSelectionNormalizer(availableMain: [.ma], availableSub: []),
-        selectionStore: nil, registry: registry)
-    let store = await pipeline.calculate(items: [RegressionItem(timestamp: 60, close: 7)],
-        selection: IndicatorSelectionState(mainIndicatorIDs: [.ma]))
-    #expect(store.values(for: SeriesKey(indicatorID: "test.gated", name: "gated"), as: Double.self) == [7])
-    #expect(store.values(for: .ma(period: 5), as: Double.self) == nil)
+    await view.debugWaitForRefresh()
+    #expect(view.debugItemTimestamps == [999])
+    #expect(view.debugStore(for: "test.gated").values(for: SeriesKey(indicatorID: "test.gated", name: "gated"), as: Double.self) == [198])
 }
 
 @Test(arguments: [(0, 26, 9), (12, 0, 1), (12, 26, 0), (-1, 26, 9), (12, -1, 9), (12, 26, -1), (12, 26, Int.max)])
@@ -259,58 +234,97 @@ func sarUsesReversalExtremeOnReversalCandle(mirrored: Bool) {
     #expect(values[2] == (mirrored ? 7 : 13))
 }
 
+
 @available(iOS 16.0, *)
-@Test(.timeLimit(.minutes(1))) @MainActor
-func ticksDuringSlowCalculationAreEventuallyPublished() async {
+@Test(.timeLimit(.minutes(1))) @MainActor func ticksDuringSlowCalculationAreEventuallyPublished() async {
     let gate = CalculationGate()
     defer { gate.release() }
-    let registry = PluginRegistry.default
-    registry.register(GatedPlugin(id: "test.gated", gate: gate))
-    let view = ChartView(options: ChartOptions(
-        indicators: IndicatorSelectionState(mainIndicatorIDs: ["test.gated"]), features: [], plugins: registry))
-    view.setItems([RegressionItem(timestamp: 999, close: 1)])
+    let provider = ControlledProvider(initialItems: [RegressionItem(timestamp: 999, close: 1)])
+    await provider.releasePage.signal()
+    let view = ChartView(configuration: configuration(provider, plugins: [GatedPlugin(gate: gate)]))
     for await _ in gate.started { break }
-    view.update(RegressionItem(timestamp: 999, close: 7))
-    view.update(RegressionItem(timestamp: 1000, close: 8))
+    provider.continuation.yield(RegressionItem(timestamp: 999, close: 7))
+    provider.continuation.yield(RegressionItem(timestamp: 1000, close: 8))
+    #expect(await eventually { view.debugCoordinatorItemTimestamps == [999, 1000] })
     gate.release()
     await view.debugWaitForRefresh()
     #expect(view.debugRenderedCloses == [7, 8])
-    #expect(view.debugIndicatorSeriesStore.values(for: SeriesKey(indicatorID: "test.gated", name: "gated"), as: Double.self) == [7, 8])
+    #expect(view.debugStore(for: "test.gated").values(for: SeriesKey(indicatorID: "test.gated", name: "gated"), as: Double.self) == [7, 8])
+    view.shutdown()
 }
 
 @available(iOS 16.0, *)
-@Test(.timeLimit(.minutes(1))) @MainActor
-func emptyInitialPageStillReplaysLiveTicks() async {
+@Test(.timeLimit(.minutes(1))) @MainActor func emptyInitialPageStillReplaysLiveTicks() async {
     let provider = ControlledProvider(initialItems: [])
-    let coordinator = makeCoordinator()
-    let tickReceived = Signal()
-    let pageReceived = Signal()
-    coordinator.onStateUpdated = { _, _, event in
-        if case .liveTick = event { Task { await tickReceived.signal() } }
-        if case .page = event { Task { await pageReceived.signal() } }
+    let config = configuration(provider)
+    let coordinator = ChartCoordinator(configuration: config)
+    let tick = Signal(), page = Signal()
+    coordinator.onSnapshot = { _ in
+        if !coordinator.snapshot.items.isEmpty { Task { await tick.signal() } }
     }
-    coordinator.loadData(using: provider)
+    coordinator.apply(config, initial: true)
     await provider.streamRequested.wait()
     provider.continuation.yield(RegressionItem(timestamp: 60, close: 7))
-    await tickReceived.wait()
+    await tick.wait()
+    coordinator.onSnapshot = { _ in Task { await page.signal() } }
     await provider.releasePage.signal()
-    await pageReceived.wait()
-    #expect(coordinator.state.items.map(\.close) == [7])
-    coordinator.stopDataLoading()
+    await page.wait()
+    #expect(coordinator.snapshot.items.map(\.close) == [7])
+    coordinator.shutdown()
     await provider.terminated.wait()
 }
 
 @available(iOS 16.0, *)
-@Test(.timeLimit(.minutes(1)))
-func releasingLoaderDoesNotWaitForUncooperativePageRequest() async {
+@Test(.timeLimit(.minutes(1))) func releasingLoaderDoesNotWaitForUncooperativePageRequest() async {
     let provider = ControlledProvider()
     var loader: ChartItemLoader? = ChartItemLoader(provider: provider, enablesLiveUpdates: false, eventHandler: { _ in })
     await loader?.start()
     await provider.pageRequested.wait()
-    weak var weakLoader = loader
+    weak var reference: ChartItemLoader?
+    reference = loader
     loader = nil
-    #expect(weakLoader == nil)
+    #expect(reference == nil)
     await provider.releasePage.signal()
 }
+private final class TwoPageProvider: ChartItemProvider, Sendable {
+    func fetchChartItems(forPage page: Int) async throws -> [any ChartItem] {
+        switch page {
+        case 0: return [RegressionItem(timestamp: 999, close: 2)]
+        case 1: return [RegressionItem(timestamp: 60, close: 1)]
+        default: return []
+        }
+    }
+    func fetchChartItems(from start: Date, to end: Date) async throws -> [any ChartItem] { [] }
+}
 
+@available(iOS 16.0, *)
+@Test(.timeLimit(.minutes(1))) @MainActor func historyQueuedDuringCalculationBypassesLiveThrottling() async throws {
+    let gate = CalculationGate()
+    defer { gate.release() }
+    let config = try ChartConfiguration(source: CandleSource(id: "history", duration: 60) { TwoPageProvider() },
+        plugins: [GatedPlugin(gate: gate)], features: [])
+    // A deliberately long live delay makes the priority contract observable without a tight timing threshold.
+    let coordinator = ChartCoordinator(configuration: config, liveUpdateDelay: 10_000_000_000)
+    defer { coordinator.shutdown() }
+    coordinator.apply(config, initial: true)
+    for await _ in gate.started { break }
+    coordinator.loadMore(contentOffsetX: 0, viewportWidth: 390)
+    #expect(await eventually { coordinator.rawItems.count == 2 })
+    gate.release()
+    #expect(await eventually { coordinator.snapshot.items.map(\.timestamp) == [60, 999] })
+}
+
+@available(iOS 16.0, *)
+@Test(.timeLimit(.minutes(1))) @MainActor func initialHistoryPreemptsAPendingLiveTimer() async {
+    let provider = ControlledProvider()
+    let config = configuration(provider)
+    let coordinator = ChartCoordinator(configuration: config, liveUpdateDelay: 10_000_000_000)
+    defer { coordinator.shutdown() }
+    coordinator.apply(config, initial: true)
+    await provider.streamRequested.wait()
+    provider.continuation.yield(RegressionItem(timestamp: 180, close: 3))
+    #expect(await eventually { coordinator.rawItems.count == 1 })
+    await provider.releasePage.signal()
+    #expect(await eventually { coordinator.snapshot.items.map(\.timestamp) == [60, 120, 180] })
+}
 #endif

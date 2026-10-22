@@ -8,33 +8,55 @@
 import SwiftKLineCore
 import Foundation
 
-extension ChartConfiguration {
+extension ChartAppearance {
     func periods(for indicator: BuiltInIndicator, matching extractor: (SeriesKey) -> Int?) -> [Int] {
         indicatorKeys(for: indicator).compactMap(extractor)
     }
 }
 
 @MainActor
-struct BuiltInIndicatorPlugin: IndicatorPlugin {
+struct BuiltInIndicatorPlugin: ChartPlugin {
     let indicator: BuiltInIndicator
+    let appearance: ChartAppearance
 
-    var id: IndicatorID {
-        indicator.id
+    var id: String {
+        indicator.id.rawValue
     }
 
     var title: String {
         indicator.rawValue
     }
 
-    var placement: IndicatorPlacement {
-        indicator.isMain ? .main : .sub
-    }
-
     var defaultSeriesKeys: [SeriesKey] {
         indicator.defaultSeriesKeys
     }
 
-    func makeCalculators(configuration: ChartConfiguration) -> [any IndicatorCalculator] {
+
+    @MainActor final class Coordinator {
+        var keys: [SeriesKey]?
+        var calculatorCount = 0
+        var rendererCount = 0
+    }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    func update(coordinator: Coordinator, context: ChartPluginContext) {
+        let keys = appearance.indicatorKeys(for: indicator)
+        guard coordinator.keys != keys else { return }
+        coordinator.keys = keys
+        for index in 0..<coordinator.calculatorCount { context.removeCalculator(for: "series.\(index)") }
+        let calculators = makeCalculators(configuration: appearance)
+        coordinator.calculatorCount = calculators.count
+        for (index, calculator) in calculators.enumerated() {
+            context.setCalculator(calculator, for: "series.\(index)")
+        }
+        for index in 0..<coordinator.rendererCount { context.removeRenderer(for: "drawing.\(index)") }
+        let renderers = makeRenderers(configuration: appearance)
+        coordinator.rendererCount = renderers.count
+        for (index, renderer) in renderers.enumerated() {
+            context.setRenderer(renderer, for: "drawing.\(index)", panel: indicator.isMain ? .main : .sub)
+        }
+    }
+
+    func makeCalculators(configuration: ChartAppearance) -> [any IndicatorCalculator] {
         switch indicator {
         case .ma:
             return configuration.periods(for: indicator) { key in
@@ -93,7 +115,7 @@ struct BuiltInIndicatorPlugin: IndicatorPlugin {
         }
     }
 
-    func makeRenderers(configuration: ChartConfiguration) -> [any ChartRenderer] {
+    func makeRenderers(configuration: ChartAppearance) -> [any ChartRenderer] {
         switch indicator {
         case .ma, .ema, .wma:
             let keys = configuration.indicatorKeys(for: indicator).filter { $0.indicatorID == indicator.id }

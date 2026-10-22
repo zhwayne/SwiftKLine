@@ -6,518 +6,289 @@
 //
 
 #if canImport(UIKit)
-import Testing
+import Foundation
 import UIKit
+import Testing
+import SwiftKLineCore
 @testable import SwiftKLineUI
-@testable import SwiftKLineCore
 
-private struct TestChartItem: ChartItem {
-    let open: Double
-    let close: Double
-    let high: Double
-    let low: Double
-    let volume: Double
-    let value: Double
-    let timestamp: Int
-
-    init(timestamp: Int, close: Double) {
-        self.open = close
-        self.close = close
-        self.high = close
-        self.low = close
-        self.volume = 0
-        self.value = 0
-        self.timestamp = timestamp
-    }
+@MainActor private final class Recorder {
+    var created: [ObjectIdentifier] = []
+    var dismantled = 0
+    var installed = 0
+    var uninstalled = 0
+    var contexts: [String: ChartPluginContext] = [:]
+    var draws: [String: ContiguousArray<Double?>] = [:]
+    let calculations = TestCounter()
 }
-
-@Test func indicatorIDSupportsStringLiteralAndRawValue() {
-    let id: IndicatorID = "custom.vwap"
-
-    #expect(id.rawValue == "custom.vwap")
-    #expect(String(describing: id) == "custom.vwap")
-}
-
-@Test func builtInIndicatorMapsToStableOpenID() {
-    #expect(BuiltInIndicator.ma.id == IndicatorID("builtin.ma"))
-    #expect(BuiltInIndicator.macd.id == IndicatorID("builtin.macd"))
-}
-
-@Test func builtInIndicatorDefaultSeriesKeysAreStable() {
-    let maKeys = BuiltInIndicator.ma.defaultSeriesKeys
-    let macdKeys = BuiltInIndicator.macd.defaultSeriesKeys
-
-    #expect(maKeys.first?.indicatorID == .ma)
-    #expect(maKeys.first?.name == "MA")
-    #expect(maKeys.first?.parameters == ["period": "5"])
-
-    #expect(macdKeys.first?.indicatorID == .macd)
-    #expect(macdKeys.first?.name == "MACD")
-}
-
-@Test @MainActor func chartConfigurationThemeBuildsAppearanceConfiguration() {
-    let chart = ChartOptions(
-        appearance: .theme(.midnight),
-        content: .candlestick,
-        indicators: IndicatorSelectionState(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol]),
-        features: [.liveUpdates, .gapRecovery, .indicatorPersistence],
-        plugins: .default
-    )
-
-    #expect(chart.resolvedConfiguration.watermarkText == "SwiftKLine • Midnight")
-    #expect(chart.content == .candlestick)
-    #expect(chart.indicators?.mainIndicatorIDs == [.ma])
-    #expect(chart.features.contains(.liveUpdates))
-}
-
-private struct TestScalarCalculator: IndicatorCalculator {
-    let id = SeriesKey(indicatorID: "test.scalar", name: "TEST")
-
+private let probeKey = SeriesKey(indicatorID: "probe", name: "value")
+private struct ProbeCalculator: IndicatorCalculator {
+    let id = probeKey
+    let factor: Double
+    let calls: TestCounter
     func calculate(for items: [any ChartItem]) -> [Double?] {
-        items.map { Optional($0.close) }
+        calls.increment()
+        return items.map { $0.close * factor }
     }
 }
-
-private struct TestIndicatorPlugin: IndicatorPlugin {
-    let id: IndicatorID = "test.scalar"
-    let title = "TEST"
-    let placement: IndicatorPlacement = .sub
-    let defaultSeriesKeys = [SeriesKey(indicatorID: "test.scalar", name: "TEST")]
-
-    func makeCalculators(configuration: ChartConfiguration) -> [any IndicatorCalculator] {
-        [TestScalarCalculator()]
-    }
-
-    @MainActor func makeRenderers(configuration: ChartConfiguration) -> [any ChartRenderer] {
-        []
+@MainActor private final class ProbeRenderer: ChartRenderer {
+    let id = "same-semantic-id"
+    let plugin: String
+    let recorder: Recorder
+    init(plugin: String, recorder: Recorder) { self.plugin = plugin; self.recorder = recorder }
+    func install(to layer: CALayer) { recorder.installed += 1 }
+    func uninstall(from layer: CALayer) { recorder.uninstalled += 1 }
+    func draw(in layer: CALayer, context: ChartContext) {
+        recorder.draws[plugin] = context.values(for: probeKey, as: Double.self)
     }
 }
-
-private final class InMemoryIndicatorSelectionStore: IndicatorSelectionStore {
-    var savedState: IndicatorSelectionState?
-
-    func load() -> IndicatorSelectionState? {
-        savedState
+@MainActor private struct ProbePlugin: ChartPlugin {
+    let id: String
+    var factor: Double = 1
+    var colorVersion = 0
+    var panel: PluginPanel = .main
+    let recorder: Recorder
+    @MainActor final class Coordinator { var factor: Double?; var color: Int? }
+    func makeCoordinator() -> Coordinator {
+        let value = Coordinator(); recorder.created.append(ObjectIdentifier(value)); return value
     }
-
-    func save(state: IndicatorSelectionState) {
-        savedState = state
-    }
-
-    func reset() {
-        savedState = nil
-    }
-}
-
-@MainActor private final class TestRenderer: ChartRenderer {
-    let id = "test-renderer"
-
-    func install(to layer: CALayer) {}
-    func uninstall(from layer: CALayer) {}
-    func draw(in layer: CALayer, context: Context) {}
-}
-
-@MainActor private final class RecordingRenderer: ChartRenderer {
-    static var installCount = 0
-
-    let id = "recording-renderer"
-
-    func install(to layer: CALayer) {
-        Self.installCount += 1
-    }
-
-    func uninstall(from layer: CALayer) {}
-    func draw(in layer: CALayer, context: Context) {}
-}
-
-@Test @MainActor func pluginRegistryStoresPluginsPerInstance() {
-    let first = PluginRegistry()
-    let second = PluginRegistry()
-
-    first.register(TestIndicatorPlugin())
-
-    #expect(first.plugin(for: "test.scalar") != nil)
-    #expect(second.plugin(for: "test.scalar") == nil)
-}
-
-@Test func indicatorSeriesStoreStoresAndReadsOpenKeySeries() {
-    var store = IndicatorSeriesStore()
-    let key = SeriesKey(indicatorID: "test.scalar", name: "TEST")
-
-    store.setValues(ContiguousArray<Double?>([1, nil, 3]), for: key)
-
-    let values = store.values(for: key, as: Double.self)
-    #expect(values == ContiguousArray<Double?>([1, nil, 3]))
-}
-
-@Test func legacyMACalculatorWritesOpenSeriesKey() async {
-    let items: [any ChartItem] = [
-        TestChartItem(timestamp: 1, close: 1),
-        TestChartItem(timestamp: 2, close: 2),
-        TestChartItem(timestamp: 3, close: 3)
-    ]
-
-    let store = await [MACalculator(period: 2).eraseToAnyIndicatorCalculator()].calculate(items: items)
-    let values = store.values(for: .ma(period: 2), as: Double.self)
-
-    #expect(values?[0] == nil)
-    #expect(values?[1] == 1.5)
-    #expect(values?[2] == 2.5)
-}
-
-@Test @MainActor func defaultRegistryContainsBuiltInPlugins() {
-    let registry = PluginRegistry.default
-
-    #expect(registry.plugin(for: .ma) != nil)
-    #expect(registry.plugin(for: .macd) != nil)
-}
-
-@Test @MainActor func builtInMAPluginCreatesCalculatorsAndRenderers() {
-    let plugin = PluginRegistry.default.plugin(for: .ma)
-    let configuration = ChartConfiguration()
-
-    #expect(plugin?.defaultSeriesKeys == BuiltInIndicator.ma.defaultSeriesKeys)
-    #expect(plugin?.makeCalculators(configuration: configuration).isEmpty == false)
-    #expect(plugin?.makeRenderers(configuration: configuration).isEmpty == false)
-}
-
-@Test func chartStateDefaultsAreEmptyAndCandlestick() {
-    let state = ChartState()
-
-    #expect(state.items.isEmpty)
-    #expect(state.contentStyle == .candlestick)
-    #expect(state.selectedIndex == nil)
-    #expect(state.lastError == nil)
-}
-
-@Test func dataMergerMergesHistoricalPageIntoState() {
-    var merger = DataMerger(period: .oneMinute)
-    let items: [any ChartItem] = [
-        TestChartItem(timestamp: 60, close: 1),
-        TestChartItem(timestamp: 120, close: 2)
-    ]
-
-    let result = merger.merge(current: [], patch: items)
-
-    #expect(result.map(\.timestamp) == [60, 120])
-}
-
-@Test func dataMergerAppliesLiveTickReplacement() {
-    var merger = DataMerger(period: .oneMinute)
-    let items: [any ChartItem] = [
-        TestChartItem(timestamp: 60, close: 1),
-        TestChartItem(timestamp: 120, close: 2)
-    ]
-    var merged = merger.merge(current: [], patch: items)
-
-    let result = merger.applyLiveTick(TestChartItem(timestamp: 120, close: 22), to: &merged)
-
-    #expect(merged.map(\.close) == [1, 22])
-    #expect(result == .replaced(index: 1))
-}
-
-@Test @MainActor func indicatorPipelineNormalizesAndPersistsSelection() {
-    let normalizer = IndicatorSelectionNormalizer(availableMain: [.ma, .ema], availableSub: [.vol])
-    let store = InMemoryIndicatorSelectionStore()
-    let pipeline = IndicatorPipeline(
-        configuration: ChartConfiguration(defaultMainIndicators: [.ma], defaultSubIndicators: [.vol]),
-        normalizer: normalizer,
-        selectionStore: store,
-        registry: .default
-    )
-
-    let state = pipeline.setSelection(main: [.ma, .vol, .ema], sub: [.ema, .vol])
-
-    #expect(state.mainIndicators == [.ma, .ema])
-    #expect(state.subIndicators == [.vol])
-    #expect(store.savedState == state)
-}
-
-@Test @MainActor func indicatorPipelinePersistsCustomSelection() {
-    let normalizer = IndicatorSelectionNormalizer(availableMain: [.ma], availableSub: [.vol])
-    let registry = PluginRegistry()
-    registry.register(CloseEchoPlugin())
-    let store = InMemoryIndicatorSelectionStore()
-    let pipeline = IndicatorPipeline(
-        configuration: ChartConfiguration(defaultMainIndicators: [.ma], defaultSubIndicators: [.vol]),
-        normalizer: normalizer,
-        selectionStore: store,
-        registry: registry
-    )
-
-    let state = pipeline.setSelection(
-        IndicatorSelectionState(mainIndicatorIDs: [.ma, "custom.closeEcho"], subIndicatorIDs: [.vol])
-    )
-
-    #expect(state.mainIndicatorIDs == [.ma, "custom.closeEcho"])
-    #expect(state.subIndicatorIDs == [.vol])
-    #expect(state.mainIndicators == [.ma])
-    #expect(store.savedState == state)
-}
-
-@Test @MainActor func descriptorFactoryUsesInstanceRegistry() {
-    let firstRegistry = PluginRegistry()
-    let secondRegistry = PluginRegistry()
-    firstRegistry.registerRenderer(placement: .overlay) { _, _ in [TestRenderer()] }
-
-    let factory = DescriptorFactory()
-    let config = ChartConfiguration()
-    let first = factory.makeDescriptor(
-        contentStyle: .candlestick,
-        mainIndicators: [],
-        subIndicators: [],
-        customRenderers: [],
-        configuration: config,
-        layoutMetrics: config.layoutMetrics,
-        registry: firstRegistry
-    )
-    let second = factory.makeDescriptor(
-        contentStyle: .candlestick,
-        mainIndicators: [],
-        subIndicators: [],
-        customRenderers: [],
-        configuration: config,
-        layoutMetrics: config.layoutMetrics,
-        registry: secondRegistry
-    )
-
-    #expect(first.renderers.contains { String(describing: $0.id) == "test-renderer" })
-    #expect(!second.renderers.contains { String(describing: $0.id) == "test-renderer" })
-}
-
-@Test @MainActor func chartCoordinatorUpdatesContentStyle() {
-    let coordinator = ChartCoordinator(
-        configuration: ChartConfiguration(),
-        features: [],
-        indicatorPipeline: IndicatorPipeline(
-            configuration: ChartConfiguration(),
-            normalizer: IndicatorSelectionNormalizer(availableMain: [], availableSub: []),
-            selectionStore: nil,
-            registry: .default
-        )
-    )
-
-    coordinator.setContentStyle(.timeSeries)
-
-    #expect(coordinator.state.contentStyle == .timeSeries)
-}
-
-private struct CloseEchoCalculator: IndicatorCalculator {
-    let id = SeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho")
-
-    func calculate(for items: [any ChartItem]) -> [Double?] {
-        items.map { Optional($0.close) }
-    }
-}
-
-private struct CloseEchoPlugin: IndicatorPlugin {
-    let id: IndicatorID = "custom.closeEcho"
-    let title = "Close Echo"
-    let placement = IndicatorPlacement.main
-    let defaultSeriesKeys = [SeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho")]
-
-    func makeCalculators(configuration: ChartConfiguration) -> [any IndicatorCalculator] {
-        [CloseEchoCalculator()]
-    }
-
-    @MainActor func makeRenderers(configuration: ChartConfiguration) -> [any ChartRenderer] {
-        [RecordingRenderer()]
-    }
-}
-
-private final class RecordingChartItemProvider: ChartItemProvider, @unchecked Sendable {
-    private let lock = NSLock()
-    private var liveStreamRequests = 0
-    private var recoveryRequests = 0
-
-    var liveStreamRequestCount: Int {
-        lock.withLock { liveStreamRequests }
-    }
-
-    var recoveryRequestCount: Int {
-        lock.withLock { recoveryRequests }
-    }
-
-    func fetchChartItems(forPage page: Int) async throws -> [any ChartItem] {
-        [
-            TestChartItem(timestamp: 60, close: 1),
-            TestChartItem(timestamp: 120, close: 2)
-        ]
-    }
-
-    func fetchChartItems(from start: Date, to end: Date) async throws -> [any ChartItem] {
-        lock.withLock { recoveryRequests += 1 }
-        return []
-    }
-
-    func liveStream() -> AsyncStream<any ChartItem> {
-        lock.withLock { liveStreamRequests += 1 }
-        return AsyncStream { continuation in
-            continuation.finish()
+    func update(coordinator: Coordinator, context: ChartPluginContext) {
+        recorder.contexts[id] = context
+        if coordinator.factor != factor {
+            coordinator.factor = factor
+            context.setCalculator(ProbeCalculator(factor: factor, calls: recorder.calculations), for: "values")
+        }
+        if coordinator.color != colorVersion {
+            coordinator.color = colorVersion
+            context.setRenderer(ProbeRenderer(plugin: id, recorder: recorder), for: "drawing", panel: panel)
         }
     }
+    static func dismantleCoordinator(_ coordinator: Coordinator) {}
+}
+@MainActor private struct EmptyPlugin: ChartPlugin {
+    let id: String
+    func update(coordinator: Void, context: ChartPluginContext) {}
 }
 
-@Test @MainActor func externalCustomIndicatorCanBeRegisteredCalculatedAndRendered() async {
-    let registry = PluginRegistry()
-    registry.register(CloseEchoPlugin())
-    let plugin = registry.plugin(for: "custom.closeEcho")
-    let items: [any ChartItem] = [
-        TestChartItem(timestamp: 1, close: 10),
-        TestChartItem(timestamp: 2, close: 11)
-    ]
-
-    let calculators = plugin?.makeCalculators(configuration: ChartConfiguration()).map {
-        $0.eraseToAnyIndicatorCalculator()
-    } ?? []
-    let store = await calculators.calculate(items: items)
-    let values = store.values(for: SeriesKey(indicatorID: "custom.closeEcho", name: "CloseEcho"), as: Double.self)
-
-    #expect(values == ContiguousArray<Double?>([10, 11]))
-    #expect(plugin?.makeRenderers(configuration: ChartConfiguration()).isEmpty == false)
+@Test @MainActor func duplicateAndEmptyPluginIDsAreRejected() throws {
+    #expect(throws: ChartConfigurationError.duplicatePluginID("same")) {
+        try testConfiguration(plugins: [EmptyPlugin(id: "same"), EmptyPlugin(id: "same")])
+    }
+    #expect(throws: ChartConfigurationError.emptyPluginID) {
+        try testConfiguration(plugins: [EmptyPlugin(id: "")])
+    }
 }
 
-@Test @MainActor func chartConfigurationIndicatorsDriveInitialViewSelection() {
-    let chart = ChartOptions(
-        appearance: .configuration(
-            ChartConfiguration(
-                defaultMainIndicators: [.ma],
-                defaultSubIndicators: [.vol]
-            )
-        ),
-        indicators: IndicatorSelectionState(sub: [.macd]),
-        features: []
-    )
-
-    let view = ChartView(options: chart)
-
-    #expect(view.debugSelectedBuiltInIndicators.main == [])
-    #expect(view.debugSelectedBuiltInIndicators.sub == [.macd])
+@available(iOS 16.0, *)
+@Test(.timeLimit(.minutes(1))) @MainActor func pluginOutputsAndRendererIDsAreIsolated() async throws {
+    let recorder = Recorder()
+    let chart = ChartView(configuration: try testConfiguration(plugins: [
+        ProbePlugin(id: "a", factor: 2, recorder: recorder), ProbePlugin(id: "b", factor: 3, recorder: recorder)]))
+    #expect(await eventually { chart.debugItemTimestamps.count == 2 })
+    await chart.debugWaitForRefresh()
+    #expect(chart.debugStore(for: "a").values(for: probeKey, as: Double.self) == [2, 4])
+    #expect(chart.debugStore(for: "b").values(for: probeKey, as: Double.self) == [3, 6])
+    chart.frame = CGRect(x: 0, y: 0, width: 300, height: chart.intrinsicContentSize.height)
+    _ = chart.debugRenderForInspection()
+    #expect(recorder.draws["a"] == [2, 4])
+    #expect(recorder.draws["b"] == [3, 6])
+    #expect(recorder.installed == 2)
 }
 
-@Test @MainActor func persistedIndicatorSelectionOverridesChartConfigurationWhenEnabled() {
-    let store = InMemoryIndicatorSelectionStore()
-    store.savedState = IndicatorSelectionState(mainIndicators: [.ema], subIndicators: [.rsi])
-    let chart = ChartOptions(
-        appearance: .configuration(
-            ChartConfiguration(
-                defaultMainIndicators: [.ma],
-                defaultSubIndicators: [.vol]
-            )
-        ),
-        indicators: IndicatorSelectionState(sub: [.macd]),
-        features: [.indicatorPersistence]
-    )
-
-    let view = ChartView(options: chart, indicatorSelectionStore: store)
-
-    #expect(view.debugSelectedBuiltInIndicators.main == [.ema])
-    #expect(view.debugSelectedBuiltInIndicators.sub == [.rsi])
+@available(iOS 16.0, *)
+@Test(.timeLimit(.minutes(1))) @MainActor func appearanceAndExternalRedrawDoNotRecalculate() async throws {
+    let recorder = Recorder(), factories = TestCounter()
+    let source = CandleSource(id: "stable", duration: 60) { factories.increment(); return TestSnapshotProvider([testCandle(60, 1)]) }
+    let plugin = ProbePlugin(id: "a", recorder: recorder)
+    var config = try ChartConfiguration(source: source, plugins: [plugin], features: [])
+    let chart = ChartView(configuration: config)
+    #expect(await eventually { chart.debugItemTimestamps.count == 1 })
+    await chart.debugWaitForRefresh()
+    let calls = recorder.calculations.count
+    config.appearance = .themed(.solaris)
+    chart.apply(config)
+    recorder.contexts["a"]?.requestRedraw()
+    await chart.debugWaitForRefresh()
+    #expect(recorder.calculations.count == calls)
+    #expect(factories.count == 1)
+    #expect(recorder.created.count == 1)
 }
 
-@Test @MainActor func chartConfigurationCanActivateCustomIndicator() {
-    RecordingRenderer.installCount = 0
-    let registry = PluginRegistry()
-    registry.register(CloseEchoPlugin())
-    let chart = ChartOptions(
-        indicators: IndicatorSelectionState(mainIndicatorIDs: ["custom.closeEcho"]),
-        features: [],
-        plugins: registry
-    )
-
-    _ = ChartView(options: chart)
-
-    #expect(RecordingRenderer.installCount == 1)
+@available(iOS 16.0, *)
+@Test(.timeLimit(.minutes(1))) @MainActor func rendererReplacementWithSameSemanticIDActuallyReplacesIt() async throws {
+    let recorder = Recorder()
+    let chart = ChartView(configuration: try testConfiguration(plugins: [ProbePlugin(id: "a", recorder: recorder)]))
+    #expect(await eventually { chart.debugItemTimestamps.count == 2 })
+    let calls = recorder.calculations.count
+    chart.apply(try testConfiguration(plugins: [ProbePlugin(id: "a", colorVersion: 1, recorder: recorder)]))
+    #expect(recorder.installed == 2)
+    #expect(recorder.uninstalled == 1)
+    #expect(recorder.created.count == 1)
+    #expect(recorder.calculations.count == calls)
 }
 
-@Test @MainActor func customIndicatorAppearsInIndicatorTypeViewAndCanBeToggled() {
-    let registry = PluginRegistry()
-    registry.register(CloseEchoPlugin())
-    let chart = ChartOptions(
-        indicators: IndicatorSelectionState(mainIndicatorIDs: [], subIndicatorIDs: []),
-        features: [],
-        plugins: registry
-    )
-    let view = ChartView(options: chart)
-
-    #expect(view.debugIndicatorTypeTitles.main.contains("Close Echo"))
-
-    view.debugToggleIndicator("custom.closeEcho", in: .mainChart)
-
-    #expect(view.debugSelectedIndicators.main.contains("custom.closeEcho"))
+@MainActor private struct AveragePlugin: ChartPlugin {
+    let id: String
+    let period: Int
+    @MainActor final class Coordinator { var period: Int? }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    func update(coordinator: Coordinator, context: ChartPluginContext) {
+        guard coordinator.period != period else { return }
+        coordinator.period = period
+        context.setCalculator(MACalculator(period: period), for: "average")
+    }
 }
 
-@Test @MainActor func resetIndicatorsToDefaultUsesPipelineAndDropsCustomSelection() {
-    let registry = PluginRegistry()
-    registry.register(CloseEchoPlugin())
-    let store = InMemoryIndicatorSelectionStore()
-    let chart = ChartOptions(
-        appearance: .configuration(
-            ChartConfiguration(
-                defaultMainIndicators: [.ma],
-                defaultSubIndicators: [.vol]
-            )
-        ),
-        indicators: IndicatorSelectionState(mainIndicatorIDs: ["custom.closeEcho"], subIndicatorIDs: []),
-        features: [.indicatorPersistence],
-        plugins: registry
-    )
-    let view = ChartView(options: chart, indicatorSelectionStore: store)
-
-    view.resetIndicatorsToDefault()
-
-    #expect(view.debugSelectedIndicators.main == [.ma])
-    #expect(view.debugSelectedIndicators.sub == [.vol])
-    #expect(store.savedState?.mainIndicatorIDs == [.ma])
-    #expect(store.savedState?.subIndicatorIDs == [.vol])
+@available(iOS 16.0, *)
+@Test(.timeLimit(.minutes(1))) @MainActor func parameterChangesReplaceOnlyTheirOwnOutput() async throws {
+    let chart = ChartView(configuration: try testConfiguration(plugins: [
+        AveragePlugin(id: "a", period: 1), AveragePlugin(id: "b", period: 1)]))
+    #expect(await eventually { chart.debugItemTimestamps.count == 2 })
+    chart.apply(try testConfiguration(plugins: [AveragePlugin(id: "a", period: 2), AveragePlugin(id: "b", period: 1)]))
+    await chart.debugWaitForRefresh()
+    #expect(chart.debugStore(for: "a").values(for: .ma(period: 2), as: Double.self) == [nil, 1.5])
+    #expect(chart.debugStore(for: "a").values(for: .ma(period: 1), as: Double.self) == nil)
+    #expect(chart.debugStore(for: "b").values(for: .ma(period: 1), as: Double.self) == [1, 2])
 }
 
-@Test @MainActor func drawSynchronizesCoordinatorStateWithLegacyViewFields() async {
-    let chart = ChartOptions(features: [])
-    let view = ChartView(options: chart)
-    let items: [any ChartItem] = [
-        TestChartItem(timestamp: 60, close: 1),
-        TestChartItem(timestamp: 120, close: 2)
-    ]
-
-    await view.debugDraw(items: items)
-
-    #expect(view.debugItemTimestamps == [60, 120])
-    #expect(view.debugCoordinatorItemTimestamps == [60, 120])
+@available(iOS 16.0, *)
+@Test(.timeLimit(.minutes(1))) @MainActor func removedContextCannotReinstallResources() async throws {
+    let recorder = Recorder()
+    let chart = ChartView(configuration: try testConfiguration(plugins: [ProbePlugin(id: "a", recorder: recorder)]))
+    #expect(await eventually { chart.debugItemTimestamps.count == 2 })
+    let context = try #require(recorder.contexts["a"])
+    chart.apply(try testConfiguration(plugins: [EmptyPlugin(id: "a")]))
+    await chart.debugWaitForRefresh()
+    let calls = recorder.calculations.count
+    context.setCalculator(ProbeCalculator(factor: 100, calls: recorder.calculations), for: "late")
+    context.requestRedraw()
+    await chart.debugWaitForRefresh()
+    #expect(!context.isValid)
+    #expect(recorder.calculations.count == calls)
+    #expect(recorder.uninstalled == 1)
+    #expect(chart.debugStore(for: "a").values(for: probeKey, as: Double.self) == nil)
 }
 
-@Test func loaderDoesNotStartLiveStreamWhenLiveUpdatesAreDisabled() async throws {
-    let provider = RecordingChartItemProvider()
-    let loader = ChartItemLoader(
-        provider: provider,
-        enablesLiveUpdates: false,
-        enablesGapRecovery: true,
-        eventHandler: { _ in }
-    )
-
-    await loader.start()
-    try await Task.sleep(nanoseconds: 50_000_000)
-    await loader.stop()
-
-    #expect(provider.liveStreamRequestCount == 0)
+@Test @MainActor func reorderingPreservesCoordinatorsAndRendererObjects() throws {
+    let recorder = Recorder()
+    let a = ProbePlugin(id: "a", recorder: recorder), b = ProbePlugin(id: "b", recorder: recorder)
+    let chart = ChartView(configuration: try testConfiguration(plugins: [a, b]))
+    let identities = chart.debugRendererIdentities
+    chart.apply(try testConfiguration(plugins: [b, a]))
+    #expect(recorder.created.count == 2)
+    #expect(recorder.installed == 2)
+    #expect(recorder.uninstalled == 0)
+    #expect(Set(chart.debugRendererIdentities) == Set(identities))
 }
 
-@Test func loaderDoesNotRecoverWhenGapRecoveryIsDisabled() async throws {
-    let provider = RecordingChartItemProvider()
-    let loader = ChartItemLoader(
-        provider: provider,
-        enablesLiveUpdates: true,
-        enablesGapRecovery: false,
-        eventHandler: { _ in }
-    )
-
-    await loader.start()
-    await loader.didEnterBackground(latestTimestamp: 120)
-    await loader.willEnterForeground(latestTimestamp: 120)
-    try await Task.sleep(nanoseconds: 50_000_000)
-    await loader.stop()
-
-    #expect(provider.recoveryRequestCount == 0)
+@Test @MainActor func oneConfigurationCreatesIndependentCharts() throws {
+    let recorder = Recorder(), factories = TestCounter()
+    let source = CandleSource(id: "shared-definition", duration: 60) { factories.increment(); return TestSnapshotProvider([]) }
+    let config = try ChartConfiguration(source: source, plugins: [ProbePlugin(id: "a", recorder: recorder)], features: [])
+    let first = ChartView(configuration: config), second = ChartView(configuration: config)
+    #expect(factories.count == 2)
+    #expect(Set(recorder.created).count == 2)
+    #expect(Set(first.debugRendererIdentities).isDisjoint(with: Set(second.debugRendererIdentities)))
 }
 
+@Test @MainActor func unchangedSourceIdentityIgnoresNewFactories() throws {
+    let first = TestCounter(), second = TestCounter()
+    func config(_ counter: TestCounter) throws -> ChartConfiguration {
+        try ChartConfiguration(source: CandleSource(id: "same", duration: 60) {
+            counter.increment(); return TestSnapshotProvider([])
+        }, features: [])
+    }
+    let chart = ChartView(configuration: try config(first))
+    chart.apply(try config(second))
+    #expect(first.count == 1)
+    #expect(second.count == 0)
+}
+
+@Test @MainActor func changingTheSourceRecreatesCoordinators() throws {
+    let recorder = Recorder()
+    let chart = ChartView(configuration: try testConfiguration(id: "one", plugins: [ProbePlugin(id: "a", recorder: recorder)]))
+    let previous = try #require(recorder.contexts["a"])
+    chart.apply(try testConfiguration(id: "two", plugins: [ProbePlugin(id: "a", recorder: recorder)]))
+    #expect(recorder.created.count == 2)
+    #expect(!previous.isValid)
+    #expect(chart.debugItemTimestamps.isEmpty)
+}
+
+@MainActor private struct DuplicateSeriesPlugin: ChartPlugin {
+    let id = "duplicate-series"
+    @MainActor final class Coordinator { var configured = false }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    func update(coordinator: Coordinator, context: ChartPluginContext) {
+        guard !coordinator.configured else { return }
+        coordinator.configured = true
+        context.setCalculator(MACalculator(period: 1), for: "first")
+        context.setCalculator(MACalculator(period: 1), for: "second")
+    }
+}
+
+@Test @MainActor func synchronousPluginDeclarationErrorsReachTheInitialHandler() throws {
+    var failures: [(String, ChartPluginError)] = []
+    let chart = ChartView(configuration: try testConfiguration(plugins: [DuplicateSeriesPlugin()]),
+                          onPluginError: { id, error in
+        if let error = error as? ChartPluginError { failures.append((id, error)) }
+    })
+    #expect(failures.count == 1)
+    #expect(failures.first?.0 == "duplicate-series")
+    #expect(failures.first?.1 == .duplicateSeries(.ma(period: 1)))
+    chart.shutdown()
+}
+@Test @MainActor func viewportAndActivityInputsDoNotInvalidateUnchangedResources() throws {
+    let configuration = try testConfiguration(plugins: [EmptyPlugin(id: "passive")])
+    let coordinator = ChartCoordinator(configuration: configuration)
+    var notifications: [Bool] = []
+    coordinator.onResources = { notifications.append($0) }
+    coordinator.apply(configuration, initial: true)
+    notifications.removeAll()
+    for offset in 0..<20 { coordinator.setVisibleRange(offset..<(offset + 10)) }
+    coordinator.setActive(false)
+    coordinator.setActive(true)
+    #expect(notifications.isEmpty)
+
+    // Explicit drawing invalidation and new appearance configurations must still reach the host.
+    let context = try #require(coordinator.plugins.contexts.first)
+    context.requestRedraw()
+    #expect(notifications == [false])
+    coordinator.apply(configuration)
+    #expect(notifications == [false, false])
+    coordinator.shutdown()
+}
+@available(iOS 16.0, *)
+@Test(.timeLimit(.minutes(1))) @MainActor func builtInOnlyScrollingSkipsUnusedDemandButCustomPluginsReceiveIt() async throws {
+    let boundaries = TestCounter()
+    let source = CandleSource(id: "demand", candleInterval: { timestamp in
+        boundaries.increment()
+        let start = Date(timeIntervalSince1970: Double(timestamp))
+        return start..<start.addingTimeInterval(60)
+    }, provider: { TestSnapshotProvider((0..<100).map { testCandle($0 * 60, Double($0)) }) })
+    let selection = IndicatorSelectionState(mainIndicatorIDs: [.ma])
+    let chart = ChartView(configuration: try ChartConfiguration(source: source, indicators: selection, features: []))
+    #expect(await eventually { chart.debugItemTimestamps.count == 100 })
+    chart.frame = CGRect(x: 0, y: 0, width: 390, height: chart.intrinsicContentSize.height)
+    _ = chart.debugRenderForInspection()
+    #expect(boundaries.count == 0)
+
+    func findScrollView(in view: UIView) -> ChartScrollView? {
+        if let scroll = view as? ChartScrollView { return scroll }
+        return view.subviews.lazy.compactMap { findScrollView(in: $0) }.first
+    }
+    let scroll = try #require(findScrollView(in: chart))
+    scroll.contentOffset.x = 200
+    scroll.setNeedsLayout(); scroll.layoutIfNeeded()
+    #expect(boundaries.count == 0)
+
+    let recorder = Recorder()
+    chart.apply(try ChartConfiguration(source: source,
+        plugins: [ProbePlugin(id: "custom", recorder: recorder)], indicators: selection, features: []))
+    let before = boundaries.count
+    scroll.contentOffset.x = 400
+    scroll.setNeedsLayout(); scroll.layoutIfNeeded()
+    #expect(boundaries.count > before)
+    #expect(recorder.contexts["custom"]?.input.visibleTimeRange != nil)
+    chart.shutdown()
+}
 #endif

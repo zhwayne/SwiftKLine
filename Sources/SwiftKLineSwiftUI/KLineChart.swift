@@ -8,100 +8,60 @@
 #if canImport(UIKit)
 import SwiftUI
 import SwiftKLineUI
-import SwiftKLineCore
 
-/// A SwiftUI adapter with explicit provider identity and automatic subscription teardown.
-///
-/// Content style and an optional selection binding update in place. Appearance and plugin options are captured
-/// at UIView creation; change the SwiftUI view’s identity to replace those creation-time inputs.
+/// A thin SwiftUI adapter sharing UIKit's configuration reconciliation and lifecycle.
 @MainActor
 public struct KLineChart: UIViewRepresentable {
-    private let sourceID: AnyHashable
-    private let makeProvider: @MainActor () -> any ChartItemProvider
-    private let options: ChartOptions
-    private let content: ChartType
+    /// The complete declarative input, owned by the application.
+    public let configuration: ChartConfiguration
     private let indicators: Binding<IndicatorSelectionState>?
     private let onLoadError: ((Error) -> Void)?
+    private let onPluginError: ((String, Error) -> Void)?
 
-    /// Creates an adapter whose source identity is the provider object’s identity.
-    ///
-    /// Keep the provider instance stable across body evaluations to avoid reloading history and reconnecting the stream.
-    /// - Parameters:
-    ///   - provider: The stable Sendable provider instance.
-    ///   - options: Creation-time appearance, plugins, feature flags, and initial selection.
-    ///   - content: Optional dynamic presentation override; nil uses options.content.
-    ///   - indicators: Optional two-way selection binding.
-    ///   - onLoadError: Main-actor callback for history and recovery request errors.
-    public init(provider: any ChartItemProvider, options: ChartOptions = ChartOptions(),
-                content: ChartType? = nil, indicators: Binding<IndicatorSelectionState>? = nil,
-                onLoadError: ((Error) -> Void)? = nil) {
-        self.init(sourceID: ObjectIdentifier(provider), options: options, content: content,
-                  indicators: indicators, onLoadError: onLoadError, provider: { provider })
-    }
-
-    /// Creates a provider only when the supplied source identity changes.
-    ///
-    /// - Parameters:
-    ///   - sourceID: A stable symbol/period or equivalent data-source identity.
-    ///   - options: Creation-time appearance, plugins, feature flags, and initial selection.
-    ///   - content: Optional dynamic presentation override.
-    ///   - indicators: Optional two-way selection binding.
-    ///   - onLoadError: Main-actor callback for history and recovery request errors.
-    ///   - provider: Factory invoked on the main actor when sourceID first appears or changes.
-    public init<ID: Hashable>(sourceID: ID, options: ChartOptions = ChartOptions(),
-                             content: ChartType? = nil, indicators: Binding<IndicatorSelectionState>? = nil,
-                             onLoadError: ((Error) -> Void)? = nil,
-                             provider: @escaping @MainActor () -> any ChartItemProvider) {
-        self.sourceID = AnyHashable(sourceID)
-        self.makeProvider = provider
-        self.options = options
-        self.content = content ?? options.content
+    /// Creates an adapter with optional candle and plugin error callbacks.
+    public init(configuration: ChartConfiguration, indicators: Binding<IndicatorSelectionState>? = nil, onLoadError: ((Error) -> Void)? = nil,
+                onPluginError: ((String, Error) -> Void)? = nil) {
+        self.configuration = configuration
         self.indicators = indicators
         self.onLoadError = onLoadError
+        self.onPluginError = onPluginError
     }
-
-    /// Creates the UIKit chart; updateUIView binds the provider and dynamic inputs.
+    /// Creates the same UIKit host used by direct UIKit clients.
     public func makeUIView(context: Context) -> ChartView {
-        ChartView(options: options)
+        ChartView(configuration: configuration, onLoadError: onLoadError, onPluginError: onPluginError)
     }
-
-    /// Synchronizes source identity, presentation, callbacks, and selection without writing bindings during the update pass.
+    /// Reconciles configuration without recreating unchanged provider sessions.
     public func updateUIView(_ uiView: ChartView, context: Context) {
-        uiView.onLoadError = onLoadError
-        // Programmatic synchronization must not write SwiftUI state during updateUIView.
+        context.coordinator.isSynchronizing = true
+        defer { context.coordinator.isSynchronizing = false }
         uiView.indicatorSelectionChanged = nil
-        if context.coordinator.sourceID != sourceID {
-            context.coordinator.sourceID = sourceID
-            uiView.loadData(using: makeProvider())
+        uiView.onLoadError = onLoadError
+        uiView.onPluginError = onPluginError
+        uiView.apply(configuration)
+        if let indicators, uiView.indicatorSelection != indicators.wrappedValue {
+            uiView.setIndicators(indicators.wrappedValue)
         }
-        uiView.setContentStyle(content)
-        if let indicators { uiView.setIndicators(indicators.wrappedValue) }
         let binding = indicators
-        uiView.indicatorSelectionChanged = { selection in
-            if let binding, binding.wrappedValue != selection { binding.wrappedValue = selection }
+        let coordinator = context.coordinator
+        uiView.indicatorSelectionChanged = { [weak coordinator] value in
+            guard coordinator?.isSynchronizing == false else { return }
+            if let binding, binding.wrappedValue != value { binding.wrappedValue = value }
         }
     }
-
-    /// Uses the proposed width and the UIKit chart’s descriptor-driven height when custom representable sizing is available.
+    /// Uses the proposed width and the UIKit host’s intrinsic panel and selector height.
     @available(iOS 16.0, *)
     public func sizeThatFits(_ proposal: ProposedViewSize, uiView: ChartView, context: Context) -> CGSize? {
         uiView.sizeThatFits(CGSize(width: proposal.width ?? uiView.bounds.width,
                                   height: proposal.height ?? uiView.intrinsicContentSize.height))
     }
-
-    /// Stops provider work and clears callbacks when SwiftUI removes the underlying UIKit view.
+    /// Ends owned sessions before SwiftUI releases the UIKit host.
     public static func dismantleUIView(_ uiView: ChartView, coordinator: Coordinator) {
-        uiView.stopDataLoading()
-        uiView.onLoadError = nil
         uiView.indicatorSelectionChanged = nil
+        uiView.shutdown()
     }
-
-    /// Creates the identity holder shared by successive SwiftUI value updates.
+    /// Creates binding synchronization state without owning a second loading session.
     public func makeCoordinator() -> Coordinator { Coordinator() }
-
-    /// Stores the last applied source identity without owning a provider or duplicating chart state.
-    public final class Coordinator {
-        fileprivate var sourceID: AnyHashable?
-    }
+    /// Prevents binding feedback while UIKit is synchronizing declared state.
+    @MainActor public final class Coordinator { fileprivate var isSynchronizing = false }
 }
 #endif

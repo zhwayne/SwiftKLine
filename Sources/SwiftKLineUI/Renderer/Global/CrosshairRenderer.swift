@@ -27,7 +27,7 @@ final class CrosshairRenderer: ChartRenderer {
     var candleGroup: RendererGroup?
     var timelineGroup: RendererGroup?
         
-    init(configuration: ChartConfiguration) {
+    init(configuration: ChartAppearance) {
         klineMarkView = MarkView(configuration: configuration)
         dashLineLayer.lineWidth = 1 / UIScreen.main.scale
         dashLineLayer.lineDashPattern = [2, 2]

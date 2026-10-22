@@ -42,7 +42,7 @@ public final class LineIndicatorRenderer: ChartRenderer {
         let origin = CGFloat(context.visibleRange.lowerBound) * itemWidth - context.layout.scrollView.contentOffset.x
         for (key, line) in zip(keys, lineLayers) {
             guard let values = context.visibleScalarValues(for: key) else { line.path = nil; continue }
-            line.strokeColor = (context.configuration.indicatorStyle(for: key, type: LineStyle.self)?.strokeColor ?? .label).cgColor
+            line.strokeColor = (context.appearance.indicatorStyle(for: key, type: LineStyle.self)?.strokeColor ?? .label).cgColor
             let path = CGMutablePath()
             var connected = false
             for (offset, value) in values.enumerated() {
@@ -63,9 +63,9 @@ public final class LineIndicatorRenderer: ChartRenderer {
             guard let values = context.scalarValues(for: key), values.indices.contains(context.currentIndex),
                   let value = values[context.currentIndex], value.isFinite else { continue }
             let title = key.name + (key.parameters["period"] ?? "")
-            let color = context.configuration.indicatorStyle(for: key, type: LineStyle.self)?.strokeColor ?? .label
+            let color = context.appearance.indicatorStyle(for: key, type: LineStyle.self)?.strokeColor ?? .label
             result.append(NSAttributedString(string: "\(title): \(priceFormatter.format(value as NSNumber)) ",
-                attributes: [.foregroundColor: color, .font: context.configuration.legendFont]))
+                attributes: [.foregroundColor: color, .font: context.appearance.legendFont]))
         }
         return result
     }

@@ -53,7 +53,7 @@ final class BOLLRenderer: ChartRenderer {
         guard let visibleValues = context.visibleBollValues(for: key) else {
             return
         }
-        let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
+        let style = context.appearance.indicatorStyle(for: key, type: LineStyle.self)
         upperLayer.strokeColor = style?.strokeColor.cgColor
         middleLayer.strokeColor = style?.strokeColor.cgColor
         lowerLayer.strokeColor = style?.strokeColor.cgColor
@@ -100,7 +100,7 @@ final class BOLLRenderer: ChartRenderer {
     }
     
     func legend(context: Context) -> NSAttributedString? {
-        let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
+        let style = context.appearance.indicatorStyle(for: key, type: LineStyle.self)
         guard let values = context.bollValues(for: key), !values.isEmpty,
               context.currentIndex >= 0,
               context.currentIndex < values.count,
@@ -112,21 +112,21 @@ final class BOLLRenderer: ChartRenderer {
             string: "BOLL:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.middle))) ",
             attributes: [
                 .foregroundColor: style?.strokeColor ?? UIColor.label,
-                .font: context.configuration.legendFont
+                .font: context.appearance.legendFont
             ]
         ))
         partialResult.append(NSAttributedString(
             string: "UB:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.upper))) ",
             attributes: [
                 .foregroundColor: style?.strokeColor ?? UIColor.label,
-                .font: context.configuration.legendFont
+                .font: context.appearance.legendFont
             ]
         ))
         partialResult.append(NSAttributedString(
             string: "LB:\(priceFormatter.format(NSDecimalNumber(floatLiteral: value.lower))) ",
             attributes: [
                 .foregroundColor: style?.strokeColor ?? UIColor.label,
-                .font: context.configuration.legendFont
+                .font: context.appearance.legendFont
             ]
         ))
         return partialResult

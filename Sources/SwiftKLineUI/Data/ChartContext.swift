@@ -14,12 +14,15 @@ import UIKit
 /// during the current draw or legend call; do not retain the mutable context as a cache across passes.
 @MainActor public final class ChartContext {
     let indicatorSeriesStore: IndicatorSeriesStore
+    let pluginStores: [String: IndicatorSeriesStore]
+    private var scopedContexts: [String: ChartContext] = [:]
+    let candleInterval: (@Sendable (Int) -> Range<Date>)?
     /// Changes whenever a coherent candle/indicator snapshot is published, including interior candle revisions.
     public let dataRevision: UInt64
     /// The full chronological candle snapshot corresponding to all indicator indexes.
     public let items: [any ChartItem]
-    /// The chart’s captured creation-time visual configuration.
-    public let configuration: ChartConfiguration
+    /// The visual appearance captured for this drawing pass.
+    public let appearance: ChartAppearance
     let candleDimensions: CandleDimensions
     /// Absolute candle indexes included in this drawing pass.
     public let visibleRange: Range<Int>
@@ -45,18 +48,22 @@ import UIKit
     init(
         indicatorSeriesStore: IndicatorSeriesStore,
         items: [any ChartItem],
-        configuration: ChartConfiguration,
+        appearance: ChartAppearance,
         candleDimensions: CandleDimensions,
         visibleRange: Range<Int>,
         layout: ChartLayout,
         location: CGPoint?,
         selectedIndex: Int?,
-        dataRevision: UInt64 = 0
+        dataRevision: UInt64 = 0,
+        pluginStores: [String: IndicatorSeriesStore] = [:],
+        candleInterval: (@Sendable (Int) -> Range<Date>)? = nil
     ) {
         self.indicatorSeriesStore = indicatorSeriesStore
+        self.pluginStores = pluginStores
+        self.candleInterval = candleInterval
         self.items = items
         self.dataRevision = dataRevision
-        self.configuration = configuration
+        self.appearance = appearance
         self.candleDimensions = candleDimensions
         self.visibleRange = visibleRange
         self.layout = layout
@@ -131,5 +138,47 @@ extension ChartContext {
 
     func visibleMacdValues(for key: SeriesKey = .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)) -> ArraySlice<MACDIndicatorValue?>? {
         visibleValues(from: macdValues(for: key))
+    }
+}
+
+extension ChartContext {
+    /// The half-open interval spanned by visible candles, including any gaps between them.
+    ///
+    /// Returns nil until visible candles and their boundary rules are available. Use
+    /// `candleIndex(containing:)` to exclude events that fall in a missing candle bucket.
+    public var visibleTimeRange: Range<Date>? {
+        guard let first = visibleItems.first, let last = visibleItems.last,
+              let candleInterval else { return nil }
+        let start = candleInterval(first.timestamp).lowerBound
+        let end = candleInterval(last.timestamp).upperBound
+        return start < end ? start..<end : nil
+    }
+
+    /// Finds an existing candle whose explicit half-open interval contains the event.
+    public func candleIndex(containing date: Date) -> Int? {
+        guard let candleInterval else { return nil }
+        let timestamp = date.timeIntervalSince1970
+        var low = 0, high = items.count
+        while low < high {
+            let middle = low + (high - low) / 2
+            if Double(items[middle].timestamp) <= timestamp { low = middle + 1 } else { high = middle }
+        }
+        guard low > 0, candleInterval(items[low - 1].timestamp).contains(date) else { return nil }
+        return low - 1
+    }
+
+    func scoped(to plugin: String) -> ChartContext {
+        let result: ChartContext
+        if let cached = scopedContexts[plugin] { result = cached }
+        else {
+            result = ChartContext(indicatorSeriesStore: pluginStores[plugin] ?? IndicatorSeriesStore(),
+                items: items, appearance: appearance, candleDimensions: candleDimensions,
+                visibleRange: visibleRange, layout: layout, location: location, selectedIndex: currentIndex,
+                dataRevision: dataRevision, candleInterval: candleInterval)
+            scopedContexts[plugin] = result
+        }
+        result.groupFrame = groupFrame; result.viewPort = viewPort
+        result.legendFrame = legendFrame; result.legendText = legendText
+        return result
     }
 }

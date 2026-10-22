@@ -14,9 +14,22 @@
 		9636C3BD2DABED4C00420970 /* SwiftKLineExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwiftKLineExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		8A511D352EA78A8000CD7251 /* Exceptions for "SwiftKLineExample" folder in "SwiftKLineExample" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				TradeMarkers/Tests/TradeMarkerTests.swift,
+			);
+			target = 9636C3BC2DABED4C00420970 /* SwiftKLineExample */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		9636C3BF2DABED4C00420970 /* SwiftKLineExample */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				8A511D352EA78A8000CD7251 /* Exceptions for "SwiftKLineExample" folder in "SwiftKLineExample" target */,
+			);
 			path = SwiftKLineExample;
 			sourceTree = "<group>";
 		};

@@ -8,25 +8,35 @@
 import SwiftUI
 import SwiftKLine
 
-/// Demonstrates stable period-based provider identity and dynamic presentation through the public SwiftUI adapter.
+/// Displays Binance candles while retaining deterministic offline preview fixtures.
 struct KLineSwiftUIView: View {
     let period: ChartPeriod
     let mode: ChartDisplayMode
-    let usesDemoData: Bool
+    let usesOfflineData: Bool
 
     var body: some View {
-        KLineChart(sourceID: period, options: ChartOptions(
-            appearance: .theme(.midnight),
-            indicators: IndicatorSelectionState(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])
-        ),
-                   content: mode == .candlestick ? .candlestick : .timeSeries) {
-            if usesDemoData {
-                DemoProvider(period: period)
-            } else {
-                BinanceDataProvider(symbol: "BTCUSDT", period: period)
+        KLineChart(configuration: configuration)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @MainActor private var configuration: ChartConfiguration {
+        let period = period, offline = usesOfflineData
+        let source = CandleSource(id: "BTCUSDT:\(period.identifier):\(period.seconds):\(offline)", candleInterval: { timestamp in
+            let start = Date(timeIntervalSince1970: Double(timestamp))
+            if period == .oneMonth {
+                var calendar = Calendar(identifier: .gregorian)
+                calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+                return start..<calendar.date(byAdding: .month, value: 1, to: start)!
             }
-        }
-        .fixedSize(horizontal: false, vertical: true)
+            return start..<start.addingTimeInterval(Double(period.seconds))
+        }, provider: {
+            if offline { return DemoProvider(period: period) }
+            return BinanceDataProvider(symbol: "BTCUSDT", period: period)
+        })
+        // These fixed declarations are unique; construction cannot fail for user-supplied identities.
+        return try! ChartConfiguration(source: source, appearance: .themed(.midnight),
+            content: mode == .candlestick ? .candlestick : .timeSeries,
+            indicators: IndicatorSelectionState(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
     }
 }
 
@@ -38,7 +48,12 @@ final class DemoProvider: ChartItemProvider, Sendable {
 
     func fetchChartItems(forPage page: Int) async throws -> [any ChartItem] {
         guard page == 0 else { return [] }
-        return (0..<100).map { index in
+        return Self.candles(for: period)
+    }
+
+    /// Shared immutable fixtures keep candle prices and sample executions reproducible across previews.
+    static func candles(for period: ChartPeriod) -> [Candle] {
+        (0..<100).map { index in
             let price = 100 + sin(Double(index) * 0.3) * 10
             return Candle(timestamp: 1_700_000_000 + index * period.seconds, open: price - 2,
                           high: price + 3, low: price - 3, close: price, volume: 1000)
@@ -47,7 +62,6 @@ final class DemoProvider: ChartItemProvider, Sendable {
     func fetchChartItems(from start: Date, to end: Date) async throws -> [any ChartItem] { [] }
 }
 
-#Preview {
-    KLineChart(sourceID: "preview", options: ChartOptions(features: [])) { DemoProvider() }
-        .fixedSize(horizontal: false, vertical: true)
+#Preview("Chart") {
+    KLineSwiftUIView(period: .oneMinute, mode: .candlestick, usesOfflineData: true)
 }

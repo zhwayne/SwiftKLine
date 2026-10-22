@@ -33,7 +33,7 @@ final class SARRenderer: ChartRenderer {
     }
     
     func draw(in layer: CALayer, context: Context) {
-        let configuration = context.configuration
+        let configuration = context.appearance
         let candleDims = context.candleDimensions
         let layout = context.layout
 
@@ -59,7 +59,7 @@ final class SARRenderer: ChartRenderer {
     }
     
     func legend(context: Context) -> NSAttributedString? {
-        let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
+        let style = context.appearance.indicatorStyle(for: key, type: LineStyle.self)
         guard let values = context.scalarValues(for: key), !values.isEmpty,
               context.currentIndex >= 0,
               context.currentIndex < values.count,
@@ -71,7 +71,7 @@ final class SARRenderer: ChartRenderer {
             string: "\(key.description):\(priceFormatter.format(NSDecimalNumber(floatLiteral: value))) ",
             attributes: [
                 .foregroundColor: style?.strokeColor ?? UIColor.label,
-                .font: context.configuration.legendFont
+                .font: context.appearance.legendFont
             ]
         ))
         return partialResult

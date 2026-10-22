@@ -6,81 +6,41 @@
 //
 
 import SwiftKLineCore
-import CoreGraphics
+import UIKit
 
-/// Assembles price, time-axis, and selected lower-panel groups from presentation, configuration, and instance plugins.
+/// Assembles reusable main, timeline, and per-plugin lower panels.
 @MainActor
 struct DescriptorFactory {
-    /// Creates a descriptor structure without calculating values or installing its renderer layers.
-    func makeDescriptor(
-        contentStyle: ChartType,
-        mainIndicatorIDs: [IndicatorID],
-        subIndicatorIDs: [IndicatorID],
-        customRenderers: [AnyRenderer],
-        configuration: ChartConfiguration,
-        layoutMetrics: LayoutMetrics,
-        registry: PluginRegistry = .default
-    ) -> ChartDescriptor {
-        ChartDescriptor {
-            RendererGroup(
-                chartSection: .mainChart,
-                height: layoutMetrics.mainChartHeight,
-                padding: (16, 12)
-            ) {
-                XAxisRenderer()
-                if contentStyle == .timeSeries {
-                    TimeSeriesRenderer(style: TimeSeriesStyle())
-                    YAxisRenderer()
-                } else {
-                    CandleRenderer()
-                    for id in mainIndicatorIDs {
-                        registry.pluginRenderers(for: id, configuration: configuration)
-                        registry.renderers(for: .mainIndicator(id), configuration: configuration)
-                    }
-                    customRenderers
-                    registry.renderers(for: .main, configuration: configuration)
-                    registry.renderers(for: .overlay, configuration: configuration)
-                    YAxisRenderer()
-                    PriceIndicatorRenderer(style: PriceIndicatorStyle())
-                }
+    func makeDescriptor(content: ChartType, appearance: ChartAppearance,
+                        contexts: [ChartPluginContext]) -> ChartDescriptor {
+        func renderers(_ context: ChartPluginContext, panel: PluginPanel) -> [AnyRenderer] {
+            context.renderers.filter { $0.1 == panel }.map {
+                PluginRenderer(plugin: context.id, local: $0.0, renderer: $0.2).eraseToAnyRenderer()
             }
-
-            RendererGroup(
-                chartSection: .timeline,
-                height: layoutMetrics.timelineHeight,
-                padding: (0, 0)
-            ) {
+        }
+        return ChartDescriptor {
+            RendererGroup(chartSection: .mainChart, height: appearance.layoutMetrics.mainChartHeight, padding: (16, 12)) {
+                XAxisRenderer()
+                if content == .timeSeries { TimeSeriesRenderer(style: TimeSeriesStyle()) }
+                else { CandleRenderer() }
+                for context in contexts {
+                    // Preserve the original time-series UI; independent custom overlays remain supported.
+                    if content != .timeSeries || BuiltInIndicator(id: IndicatorID(context.id)) == nil {
+                        renderers(context, panel: .main)
+                    }
+                }
+                YAxisRenderer()
+                if content != .timeSeries { PriceIndicatorRenderer(style: PriceIndicatorStyle()) }
+            }
+            RendererGroup(chartSection: .timeline, height: appearance.layoutMetrics.timelineHeight, padding: (0, 0)) {
                 TimeAxisRenderer(style: TimeAxisStyle())
             }
-
-            for id in subIndicatorIDs {
-                RendererGroup(chartSection: .subChart, height: layoutMetrics.indicatorHeight) {
+            for context in contexts where context.renderers.contains(where: { $0.1 == .sub }) {
+                RendererGroup(chartSection: .subChart, height: appearance.layoutMetrics.indicatorHeight) {
                     XAxisRenderer()
-                    registry.renderers(for: .sub(id), configuration: configuration)
-                    registry.pluginRenderers(for: id, configuration: configuration)
+                    renderers(context, panel: .sub)
                 }
             }
         }
-    }
-
-    /// Creates a descriptor structure without calculating values or installing its renderer layers.
-    func makeDescriptor(
-        contentStyle: ChartType,
-        mainIndicators: [BuiltInIndicator],
-        subIndicators: [BuiltInIndicator],
-        customRenderers: [AnyRenderer],
-        configuration: ChartConfiguration,
-        layoutMetrics: LayoutMetrics,
-        registry: PluginRegistry = .default
-    ) -> ChartDescriptor {
-        makeDescriptor(
-            contentStyle: contentStyle,
-            mainIndicatorIDs: mainIndicators.map(\.id),
-            subIndicatorIDs: subIndicators.map(\.id),
-            customRenderers: customRenderers,
-            configuration: configuration,
-            layoutMetrics: layoutMetrics,
-            registry: registry
-        )
     }
 }

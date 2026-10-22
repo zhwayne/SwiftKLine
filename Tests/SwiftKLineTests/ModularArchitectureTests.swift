@@ -16,27 +16,6 @@ private func item(_ timestamp: Int, _ close: Double) -> Candle {
     Candle(timestamp: timestamp, open: close, high: 30, low: 0, close: close, volume: 10)
 }
 
-@available(iOS 16.0, *)
-@Test(.timeLimit(.minutes(1))) @MainActor
-func manualUpdatesKeepRenderersAndIndicatorsCoherent() async {
-    let chart = ChartView(options: ChartOptions(
-        indicators: IndicatorSelectionState(mainIndicatorIDs: [.ma]), features: []))
-    await chart.debugWaitForRefresh()
-    let identities = chart.debugRendererIdentities
-    chart.setItems((0..<10).map { item($0 * 60, Double($0)) })
-    await chart.debugWaitForRefresh()
-    #expect(chart.debugRendererIdentities == identities)
-    for i in 0..<100 { chart.update(item(540, Double(i))) }
-    await chart.debugWaitForRefresh()
-    #expect(chart.debugRenderedCloses.last == 99)
-    #expect(chart.debugCoordinatorItemTimestamps == chart.debugItemTimestamps)
-    #expect(chart.debugIndicatorSeriesStore.values(for: .ma(period: 5), as: Double.self)?.last! == (5 + 6 + 7 + 8 + 99) / 5.0)
-    #expect(chart.debugRendererIdentities == identities)
-    chart.setItems([])
-    await chart.debugWaitForRefresh()
-    #expect(chart.debugItemTimestamps.isEmpty)
-}
-
 @Test @MainActor func timeSeriesInvalidatesWhenAnInteriorCandleChanges() {
     let scroll = ChartScrollView(frame: CGRect(x: 0, y: 0, width: 300, height: 150))
     let dimensions = CandleDimensions(width: 8, gap: 2)
@@ -50,7 +29,7 @@ func manualUpdatesKeepRenderersAndIndicatorsCoherent() async {
     func context(_ closes: [Double], revision: UInt64) -> ChartContext {
         let context = ChartContext(indicatorSeriesStore: IndicatorSeriesStore(),
             items: closes.enumerated().map { item($0.offset * 60, $0.element) },
-            configuration: ChartConfiguration(), candleDimensions: dimensions, visibleRange: 0..<3,
+            appearance: ChartAppearance(), candleDimensions: dimensions, visibleRange: 0..<3,
             layout: layout, location: nil, selectedIndex: nil, dataRevision: revision)
         context.viewPort = layer.bounds
         context.groupFrame = layer.bounds
@@ -77,7 +56,7 @@ func manualUpdatesKeepRenderersAndIndicatorsCoherent() async {
     store.setValues(ContiguousArray<Double?>([10, 20]), for: .ma(period: 1))
     func context(_ store: IndicatorSeriesStore) -> ChartContext {
         let ctx = ChartContext(indicatorSeriesStore: store, items: [item(0, 10), item(60, 20)],
-            configuration: ChartConfiguration(), candleDimensions: dims, visibleRange: 0..<2,
+            appearance: ChartAppearance(), candleDimensions: dims, visibleRange: 0..<2,
             layout: layout, location: nil, selectedIndex: nil)
         ctx.viewPort = scroll.bounds
         return ctx
@@ -117,19 +96,21 @@ private final class LifecycleProvider: ChartItemProvider, Sendable {
     #expect(await provider.counter.streams == 0)
 }
 @available(iOS 16.0, *)
-@Test(.timeLimit(.minutes(1))) @MainActor
-func offlineChartLaysOutAndDrawsFinitePaths() async throws {
-    let chart = ChartView(options: ChartOptions(appearance: .theme(.solaris),
-        indicators: IndicatorSelectionState(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]), features: []))
-    chart.overrideUserInterfaceStyle = .light
-    chart.backgroundColor = .white
-    chart.setItems((0..<100).map { index in
+@Test(.timeLimit(.minutes(1)), arguments: [CGFloat(390), CGFloat(1024)]) @MainActor
+func offlineChartLaysOutAndDrawsFinitePaths(width: CGFloat) async throws {
+    let candles = (0..<100).map { index in
         let price = 100 + sin(Double(index) * 0.3) * 10
         return Candle(timestamp: 1_700_000_000 + index * 60, open: price - 2,
                       high: price + 3, low: price - 3, close: price, volume: Double(100 + index % 10) * 10)
-    })
+    }
+    let chart = ChartView(configuration: try testConfiguration(items: candles,
+        appearance: .themed(.solaris),
+        indicators: IndicatorSelectionState(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])))
+    chart.overrideUserInterfaceStyle = .light
+    chart.backgroundColor = .white
+    #expect(await eventually { chart.debugItemTimestamps.count == 100 })
     await chart.debugWaitForRefresh()
-    chart.frame = CGRect(x: 0, y: 0, width: 390, height: chart.intrinsicContentSize.height)
+    chart.frame = CGRect(x: 0, y: 0, width: width, height: chart.intrinsicContentSize.height)
     chart.layoutIfNeeded()
     chart.scrollToLatest()
     let image = chart.debugRenderForInspection()
@@ -148,8 +129,9 @@ func offlineChartLaysOutAndDrawsFinitePaths() async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let folder = root.appendingPathComponent(".build/validation")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-    let output = folder.appendingPathComponent("offline-chart.png")
+    let output = folder.appendingPathComponent("offline-chart-\(Int(width)).png")
     try png.write(to: output)
+    if width == 390 { try png.write(to: folder.appendingPathComponent("offline-chart.png")) }
     print("SwiftKLine visual inspection: \(output.path)")
 }
 

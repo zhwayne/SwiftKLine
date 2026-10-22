@@ -55,7 +55,7 @@ final class RSIRenderer: ChartRenderer, LegendUpdatable {
     }
     
     func draw(in layer: CALayer, context: Context) {
-        let configuration = context.configuration
+        let configuration = context.appearance
         let candleDims = context.candleDimensions
         let layout = context.layout
         
@@ -116,7 +116,7 @@ final class RSIRenderer: ChartRenderer, LegendUpdatable {
     func legend(context: Context) -> NSAttributedString? {
         return periods.reduce(NSMutableAttributedString()) { partialResult, period in
             let key = SeriesKey.rsi(period: period)
-            let style = context.configuration.indicatorStyle(for: key, type: LineStyle.self)
+            let style = context.appearance.indicatorStyle(for: key, type: LineStyle.self)
             guard let values = context.scalarValues(for: key), !values.isEmpty,
                   context.currentIndex >= 0,
                   context.currentIndex < values.count,
@@ -127,7 +127,7 @@ final class RSIRenderer: ChartRenderer, LegendUpdatable {
                 string: "RSI\(period): \(priceFormatter.format(NSNumber(floatLiteral: value))) ",
                 attributes: [
                     .foregroundColor: style?.strokeColor ?? UIColor.label,
-                    .font: context.configuration.legendFont
+                    .font: context.appearance.legendFont
                 ]
             )
             partialResult.append(string)

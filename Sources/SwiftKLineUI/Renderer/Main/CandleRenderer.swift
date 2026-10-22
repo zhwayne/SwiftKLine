@@ -38,8 +38,8 @@ final class CandleRenderer: ChartRenderer {
         let layout = context.layout
         let viewPort = context.viewPort
         let visibleItems = context.visibleItems
-        let risingColor = Trend.rising.color(using: context.configuration)
-        let fallingColor = Trend.falling.color(using: context.configuration)
+        let risingColor = Trend.rising.color(using: context.appearance)
+        let fallingColor = Trend.falling.color(using: context.appearance)
         risingLayer.fillColor = risingColor.cgColor
         risingLayer.strokeColor = risingColor.cgColor
         fallingLayer.fillColor = fallingColor.cgColor
