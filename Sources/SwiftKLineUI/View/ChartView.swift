@@ -15,12 +15,9 @@ enum ChartSection: Sendable { case mainChart, timeline, subChart }
 @MainActor
 public final class ChartView: UIView {
     private let chartView = UIView()
-    private let indicatorTypeView = IndicatorTypeView()
-    private var lastSelectorSelection: IndicatorSelectionState?
     private var chartHeightConstraint: NSLayoutConstraint!
-    private var selectorHeightConstraint: NSLayoutConstraint!
     private var watermarkHeightConstraint: NSLayoutConstraint!
-    private let selectionController: IndicatorSelectionController
+    private let selectionController: ChartSelectionController
     private var declaredConfiguration: ChartConfiguration
     private let scrollView = ChartScrollView()
     private let legendLabel = UILabel()
@@ -51,10 +48,10 @@ public final class ChartView: UIView {
     /// Called on the main actor with the failed plugin ID; other features keep running.
     public var onPluginError: ((String, Error) -> Void)?
 
-    /// Reports selector commands after they are normalized and persisted.
-    public var indicatorSelectionChanged: ((IndicatorSelectionState) -> Void)?
-    /// The existing selector state, independent of custom data-plugin sessions.
-    public var indicatorSelection: IndicatorSelectionState { selectionController.selection }
+    /// Reports selection changes after they are normalized and stored when a state store is configured.
+    public var selectionChanged: ((ChartSelection) -> Void)?
+    /// The resolved period and indicator choices currently applied to the chart.
+    public var selection: ChartSelection { selectionController.selection }
 
     private struct ColorAppearanceSignature: Hashable {
         let userInterfaceStyle: UIUserInterfaceStyle
@@ -77,14 +74,30 @@ public final class ChartView: UIView {
     private var debugDrawReporter = DebugDrawReporter()
     #endif
 
-    /// Creates the UIKit host and starts its configured source and plugin sessions.
-    public init(frame: CGRect = .zero, configuration: ChartConfiguration,
-                indicatorSelectionStore: (any IndicatorSelectionStore)? = UserDefaultsIndicatorSelectionStore(),
+    /// Creates a chart with a manually supplied source. Use the factory initializer for automatic period changes.
+    public convenience init(frame: CGRect = .zero, configuration: ChartConfiguration,
+                selection: ChartSelection? = nil,
+                stateStore: (any ChartStateStore)? = nil,
                 onLoadError: ((Error) -> Void)? = nil, onPluginError: ((String, Error) -> Void)? = nil) {
-        let selector = IndicatorSelectionController(configuration: configuration, store: indicatorSelectionStore)
-        selectionController = selector
+        self.init(frame: frame,
+                  selection: selection ?? ChartSelection(period: .oneMinute,
+                    indicators: ChartSelectionController.defaults(for: configuration.appearance)),
+                  stateStore: stateStore, configuration: { _ in configuration },
+                  onLoadError: onLoadError, onPluginError: onPluginError)
+    }
+
+    /// Restores and normalizes selection before constructing configuration and starting provider sessions.
+    /// An empty availablePeriods list accepts valid custom periods. Keep the configuration factory free of side effects.
+    public init(frame: CGRect = .zero, selection: ChartSelection,
+                availablePeriods: [ChartPeriod] = [], stateStore: (any ChartStateStore)? = nil,
+                configuration makeConfiguration: @escaping (ChartSelection) -> ChartConfiguration,
+                onLoadError: ((Error) -> Void)? = nil, onPluginError: ((String, Error) -> Void)? = nil) {
+        let controller = ChartSelectionController(selection: selection, availablePeriods: availablePeriods,
+            stateStore: stateStore, configuration: makeConfiguration)
+        selectionController = controller
+        let configuration = controller.configuration
         declaredConfiguration = configuration
-        let effectiveConfiguration = selector.configuredChart()
+        let effectiveConfiguration = controller.configuredChart()
         coordinator = ChartCoordinator(configuration: effectiveConfiguration)
         candleDimensions = CandleDimensions(width: configuration.appearance.candleStyle.width,
                                             gap: configuration.appearance.candleStyle.gap)
@@ -92,7 +105,6 @@ public final class ChartView: UIView {
         self.onLoadError = onLoadError; self.onPluginError = onPluginError
         chartView.layer.masksToBounds = true
         addSubview(chartView)
-        addSubview(indicatorTypeView)
         watermarkLabel.textAlignment = .center
         watermarkLabel.textColor = .tertiarySystemFill
         watermarkLabel.font = .systemFont(ofSize: 32, weight: .bold)
@@ -101,22 +113,17 @@ public final class ChartView: UIView {
         chartView.addSubview(scrollView)
         legendLabel.numberOfLines = 0
         scrollView.contentView.addSubview(legendLabel)
-        for view in [chartView, indicatorTypeView, watermarkLabel, scrollView, legendLabel] {
+        for view in [chartView, watermarkLabel, scrollView, legendLabel] {
             view.translatesAutoresizingMaskIntoConstraints = false
         }
         chartHeightConstraint = chartView.heightAnchor.constraint(equalToConstant: descriptor.height)
-        selectorHeightConstraint = indicatorTypeView.heightAnchor.constraint(equalToConstant: configuration.appearance.layoutMetrics.indicatorSelectorHeight)
         watermarkHeightConstraint = watermarkLabel.heightAnchor.constraint(equalToConstant: configuration.appearance.layoutMetrics.mainChartHeight)
         NSLayoutConstraint.activate([
             chartView.leadingAnchor.constraint(equalTo: leadingAnchor),
             chartView.trailingAnchor.constraint(equalTo: trailingAnchor),
             chartView.topAnchor.constraint(equalTo: topAnchor),
-            chartView.bottomAnchor.constraint(equalTo: indicatorTypeView.topAnchor),
+            chartView.bottomAnchor.constraint(equalTo: bottomAnchor),
             chartHeightConstraint,
-            indicatorTypeView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            indicatorTypeView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            indicatorTypeView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            selectorHeightConstraint,
             watermarkLabel.leadingAnchor.constraint(equalTo: chartView.leadingAnchor),
             watermarkLabel.trailingAnchor.constraint(equalTo: chartView.trailingAnchor),
             watermarkLabel.topAnchor.constraint(equalTo: chartView.topAnchor),
@@ -126,9 +133,6 @@ public final class ChartView: UIView {
             legendLabel.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor, multiplier: 0.85)
         ])
         scrollView.pinEdges(to: chartView)
-        indicatorTypeView.onAddIndicator = { [weak self] section, id in self?.selectIndicator(id, in: section, selected: true) }
-        indicatorTypeView.onRemoveIndicator = { [weak self] section, id in self?.selectIndicator(id, in: section, selected: false) }
-        synchronizeSelector()
         coordinator.onSnapshot = { [weak self] position in
             guard let self else { return }
             self.layout.itemCount = self.items.count
@@ -198,9 +202,22 @@ public final class ChartView: UIView {
 
     /// Reconciles source and plugin identities, preserving unchanged coordinators and subscriptions.
     public func apply(_ configuration: ChartConfiguration) {
+        apply(configuration: { _ in configuration })
+    }
+
+    /// Updates declarations and optionally issues one complete selection command in the same transaction.
+    /// Omitting selection preserves the current choices, subject to the new availability constraints.
+    public func apply(selection: ChartSelection? = nil, availablePeriods: [ChartPeriod] = [],
+                      configuration: @escaping (ChartSelection) -> ChartConfiguration) {
         let old = declaredConfiguration
+        let oldSelection = selectionController.selection
+        selectionController.apply(selection, availablePeriods: availablePeriods, configuration: configuration)
+        reconcileConfiguration(previous: old, previousSelection: oldSelection)
+    }
+
+    private func reconcileConfiguration(previous old: ChartConfiguration, previousSelection oldSelection: ChartSelection) {
+        let configuration = selectionController.configuration
         declaredConfiguration = configuration
-        selectionController.apply(configuration)
         let sourceChanged = old.source.id != configuration.source.id
             || old.features.intersection(.candleLoading) != configuration.features.intersection(.candleLoading)
         let dimensionsChanged = old.appearance.candleStyle.width != configuration.appearance.candleStyle.width
@@ -215,18 +232,20 @@ public final class ChartView: UIView {
         }
         if geometryChanged { clearCrosshair() }
         coordinator.apply(selectionController.configuredChart())
-        synchronizeSelector()
         if watermarkLabel.text != configuration.appearance.watermarkText {
             watermarkLabel.text = configuration.appearance.watermarkText
         }
         if geometryChanged { rebuildDescriptor() }
+        if oldSelection != selectionController.selection {
+            selectionChanged?(selectionController.selection)
+        }
     }
 
     /// The configured panels determine height; the container determines width.
     public override var intrinsicContentSize: CGSize {
         var size = super.intrinsicContentSize
         size.width = max(size.width, bounds.width)
-        size.height = descriptor.height + configuration.layoutMetrics.indicatorSelectorHeight
+        size.height = descriptor.height
         return size
     }
     /// Preserves the original chart-height and logical scroll-size invalidation.
@@ -236,7 +255,7 @@ public final class ChartView: UIView {
         super.invalidateIntrinsicContentSize()
     }
     /// Returns the descriptor height while preserving the proposed width.
-    public override func sizeThatFits(_ size: CGSize) -> CGSize { CGSize(width: size.width, height: descriptor.height + configuration.layoutMetrics.indicatorSelectorHeight) }
+    public override func sizeThatFits(_ size: CGSize) -> CGSize { CGSize(width: size.width, height: descriptor.height) }
     public override func layoutSubviews() {
         super.layoutSubviews()
         coordinator.setVisibleRange(layout.visibleRange)
@@ -252,43 +271,20 @@ public final class ChartView: UIView {
     public func scrollToLatest() { scrollView.scroll(to: .right) }
     package func shutdown() { coordinator.shutdown() }
 
-    /// Uses the original selector interaction while the adapter updates plugin declarations.
-    public func setIndicators(_ selection: IndicatorSelectionState) {
+    /// Normalizes, applies and stores a complete period/indicator selection as one transaction.
+    public func setSelection(_ selection: ChartSelection) {
+        let old = declaredConfiguration
+        let oldSelection = self.selection
         selectionController.set(selection)
-        applySelection()
+        reconcileConfiguration(previous: old, previousSelection: oldSelection)
     }
 
-    /// Restores configured defaults and the original persistence behavior.
-    public func resetIndicatorsToDefault() {
+    /// Restores the initial period and the current appearance's default indicators.
+    public func resetSelectionToDefault() {
+        let old = declaredConfiguration
+        let oldSelection = selection
         selectionController.reset()
-        applySelection()
-    }
-
-    private func applySelection() {
-        coordinator.apply(selectionController.configuredChart())
-        synchronizeSelector()
-        indicatorSelectionChanged?(selectionController.selection)
-    }
-    private func selectIndicator(_ id: IndicatorID, in section: ChartSection, selected: Bool) {
-        var state = selectionController.selection
-        if section == .mainChart {
-            state.mainIndicatorIDs.removeAll { $0 == id }
-            if selected { state.mainIndicatorIDs.append(id) }
-        } else {
-            state.subIndicatorIDs.removeAll { $0 == id }
-            if selected { state.subIndicatorIDs.append(id) }
-        }
-        setIndicators(state)
-    }
-    private func synchronizeSelector() {
-        let main = configuration.indicators.filter { $0.isMain && !$0.defaultSeriesKeys.isEmpty }
-        let sub = configuration.indicators.filter { !$0.isMain && !$0.defaultSeriesKeys.isEmpty }
-        if indicatorTypeView.mainIndicators != main { indicatorTypeView.mainIndicators = main }
-        if indicatorTypeView.subIndicators != sub { indicatorTypeView.subIndicators = sub }
-        if lastSelectorSelection != selectionController.selection {
-            indicatorTypeView.setSelectedIndicators(selectionController.selection)
-            lastSelectorSelection = selectionController.selection
-        }
+        reconcileConfiguration(previous: old, previousSelection: oldSelection)
     }
 
     private func updateActivity() {
@@ -315,7 +311,6 @@ public final class ChartView: UIView {
         CATransaction.commit()
         descriptor = next
         chartHeightConstraint.constant = descriptor.height
-        selectorHeightConstraint.constant = configuration.layoutMetrics.indicatorSelectorHeight
         watermarkHeightConstraint.constant = configuration.layoutMetrics.mainChartHeight
         legendCache.clear()
         invalidateIntrinsicContentSize()
@@ -455,17 +450,11 @@ public final class ChartView: UIView {
 
 #if DEBUG
 extension ChartView {
-    var debugIndicatorTypeTitles: (main: [String], sub: [String]) { indicatorTypeView.debugTitles }
     var debugVisiblePluginIDs: Set<String> {
         Set(descriptor.renderers.compactMap { ($0.base as? PluginRenderer)?.id.plugin })
     }
     var debugSelectedCandleIndex: Int? { selectedIndex }
     func debugInspectCandle(at index: Int) { updateCrosshair(location: CGPoint(x: 20, y: 80), itemIndex: index) }
-    var debugSelectorFrame: CGRect { indicatorTypeView.frame }
-    func debugToggleIndicator(_ id: IndicatorID, in section: ChartSection) {
-        let selected = section == .mainChart ? indicatorSelection.mainIndicatorIDs.contains(id) : indicatorSelection.subIndicatorIDs.contains(id)
-        selectIndicator(id, in: section, selected: !selected)
-    }
     func debugWaitForRefresh() async { await coordinator.waitForRefresh() }
     var debugDataRevision: UInt64 { dataRevision }
     var debugRenderedCloses: [Double] { items.map(\.close) }

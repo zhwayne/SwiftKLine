@@ -141,6 +141,6 @@ func executionConfiguration(candles: [Candle], trades: [TradeMarker]) throws -> 
 
 `SnapshotTradeProvider` 演示有限分页。`DemoTradeProvider` 通过独立行情查询生成模拟事件；真实成交应由应用账户服务提供。
 
-此有限快照示例通过 `features: []` 关闭实时更新、恢复和内置持久化。仅替换 provider 闭包会保留范围会话；替换成交快照时更新示例插件的 `sourceID`，需要保留缓存重试时改变 `retryID`。修改 `maxCachedItems` 也会重建该插件的范围会话。
+此有限快照示例通过 `features: []` 关闭实时更新和恢复。仅替换 provider 闭包会保留范围会话；替换成交快照时更新示例插件的 `sourceID`，需要保留缓存重试时改变 `retryID`。修改 `maxCachedItems` 也会重建该插件的范围会话。
 
 渲染器默认使用 8 pt 的绿色向上买入三角形和红色向下卖出三角形。多条事件可以映射到同一根真实 K 线。默认样式不扩展价格轴；是否纳入成交价格由应用决定。默认示例页面未启用该插件。

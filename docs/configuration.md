@@ -14,8 +14,7 @@ UIKit's `ChartView` and SwiftUI's `KLineChart` share one `ChartConfiguration`. C
 | `appearance` | Theme, sizes, panels, legend, watermark, and indicator parameters | `ChartAppearance()` |
 | `content` | Main-chart presentation | `.candlestick` |
 | `plugins` | Ordered business features; IDs must be nonempty and unique | `[]` |
-| `indicators` | Initial built-in selector state | Persistence first, then appearance defaults |
-| `features` | Candle-loading and selector-persistence capabilities | `.all` |
+| `features` | Candle-loading capabilities | `.all` |
 
 ```swift
 import SwiftKLine
@@ -28,9 +27,6 @@ func snapshotConfiguration(candles: [Candle], sourceID: String) throws -> ChartC
         },
         appearance: .themed(.solaris),
         content: .candlestick,
-        indicators: IndicatorSelectionState(
-            mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]
-        ),
         features: []
     )
 }
@@ -81,11 +77,12 @@ Sharing one configuration value never shares runtime state: every chart instance
 |---|---|
 | `.liveUpdates` | Consumes complete live candle snapshots |
 | `.gapRecovery` | On foreground return or network availability, attempts interval recovery when a last timestamp is known |
-| `.indicatorPersistence` | Reads and writes built-in selector state |
-| `.all` | Enables all three |
+| `.all` | Enables live updates and gap recovery |
 | `[]` | Static charts and deterministic tests |
 
-When persistence is enabled, UIKit can inject an `IndicatorSelectionStore`; SwiftUI does not inject a store and apps can manage selection through the binding instead. Chart activity follows window, scene, and application state: entering the background or an inactive scene cancels live consumption and recovery requests, while in-flight historical pages continue. Frontend return or network availability triggers recovery only when `.gapRecovery` is enabled and a last-known timestamp exists; live consumption resumes after the recovery attempt finishes, even if it reports an error.
+Pass a `ChartStateStore` to persist the complete `ChartSelection` (period and indicators); `nil` disables storage. SwiftKLine defines the protocol and provides UserDefaults and memory implementations. Storage keys are internal; `UserDefaultsChartStateStore(namespace:)` isolates charts. Applications can reuse the store for other preferences with typed keys. See [shared state storage](indicators.md#shared-state-store).
+
+Chart activity follows window, scene, and application state: entering the background or an inactive scene cancels live consumption and recovery requests, while in-flight historical pages continue. Frontend return or network availability triggers recovery only when `.gapRecovery` is enabled and a last-known timestamp exists; live consumption resumes after the recovery attempt finishes, even if it reports an error.
 
 ## Errors
 
@@ -115,14 +112,16 @@ func attach(chart: ChartView, configuration: ChartConfiguration) {
 | Operation | UIKit | SwiftUI |
 |---|---|---|
 | Reconcile configuration | `apply(_:)` | Pass an updated `configuration` |
-| Read selection state | `indicatorSelection` | `indicators` binding |
-| Replace selection | `setIndicators(_:)` | Set the bound value |
-| Restore defaults | `resetIndicatorsToDefault()` | Not exposed on the adapter; manage via configuration or binding |
+| Read selection state | `selection` | `selection` binding |
+| Replace selection | `setSelection(_:)` | Set the bound value |
+| Restore defaults | `resetSelectionToDefault()` | Set the desired default selection through the binding |
 | Scroll to latest | `scrollToLatest()` | Not exposed on the adapter; the OS scroll-to-top gesture also targets the latest candle |
-| Selection persistence | `indicatorSelectionStore:` initializer argument | Not exposed on the adapter; pass a binding or rely on the default store |
 | Load errors | `onLoadError` | `onLoadError` initializer argument |
 | Plugin errors | `onPluginError` | `onPluginError` initializer argument |
-| Selection changed | `indicatorSelectionChanged` | The binding receives user changes |
+| Selection changed | `selectionChanged` | The binding receives user changes |
+| State storage | `stateStore:` initializer argument | `stateStore:` initializer argument |
+
+Applications own period and indicator controls, both backed by one `ChartSelection`. SwiftUI controls bind to `$selection.period` and `$selection.indicators`; UIKit uses `selection`, `setSelection(_:)`, and `selectionChanged`. With a selection-dependent configuration factory, the library restores and validates selection before constructing its source. Availability changes that adjust selection are also persisted and published. The static `configuration:` convenience is for manually managed sources without automatic period switching.
 
 SwiftUI notes:
 
@@ -134,8 +133,8 @@ SwiftUI notes:
 | Symptom | Check |
 |---|---|
 | New snapshots don't show | Change the data-source ID; replacing only the factory closure keeps the old session |
-| Indicator selection after launch is unexpected | Check persisted state, appearance defaults, and the SwiftUI binding |
-| Period or symbol switch leaves stale data | Swap the whole `CandleSource.id`; the factory is not re-invoked for the same ID |
+| Indicator selection after launch is unexpected | Check the stored complete selection, supplied initial value, and available options |
+| Period or symbol switch leaves stale data | Include period or symbol in the factory's `CandleSource.id`; the same ID retains its session |
 | Events map to the wrong candle | Use Unix seconds and actual candle boundaries; see [time rules](data-providers.md#time-and-boundaries) |
-| Chart height is unexpected | Check sub panels, the selector, and the parent's constraints |
+| Chart height is unexpected | Check sub panels and parent constraints; application controls are outside the chart |
 | Custom types fail to import | Trade-marker types are example code; implement them in your app or copy them |

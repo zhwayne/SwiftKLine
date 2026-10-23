@@ -56,10 +56,6 @@ func sampleConfiguration() throws -> ChartConfiguration {
             SnapshotProvider(items: candles)
         },
         appearance: .themed(.solaris),
-        indicators: IndicatorSelectionState(
-            mainIndicatorIDs: [.ma],
-            subIndicatorIDs: [.vol, .macd]
-        ),
         features: []
     )
 }
@@ -67,9 +63,9 @@ func sampleConfiguration() throws -> ChartConfiguration {
 
 Notes on this snippet:
 
-- `features: []` turns off live updates, gap recovery, and indicator persistence, which is right for a static chart. Real-time charts use the default `.all`.
+- `features: []` turns off live updates and gap recovery, which is right for a static chart. Real-time charts use the default `.all`.
 - Construction throws for an empty source ID or an empty/duplicate plugin ID. Handle this at your app's initialization boundary.
-- The `indicators` argument sets the initial selector state; see [built-in indicators](indicators.md) for every eligible value.
+- `ChartSelection` supplies the period and initial indicator choices when constructing the chart; see [built-in indicators](indicators.md) for dynamic selection and persistence.
 
 ## 3. Display it
 
@@ -82,15 +78,17 @@ import SwiftKLine
 @MainActor
 struct MarketChart: View {
     let configuration: ChartConfiguration
+    @State private var selection = ChartSelection(period: .oneMinute,
+        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
 
     var body: some View {
-        KLineChart(configuration: configuration)
+        KLineChart(selection: $selection) { _ in configuration }
             .fixedSize(horizontal: false, vertical: true)
     }
 }
 ```
 
-`.fixedSize(horizontal: false, vertical: true)` lets the chart use its intrinsic height from the configured panels and selector.
+`.fixedSize(horizontal: false, vertical: true)` lets the chart use its intrinsic height from the configured panels. Application controls are composed outside the chart.
 
 ### UIKit
 
@@ -100,7 +98,9 @@ import SwiftKLine
 
 @MainActor
 func installChart(in container: UIView, configuration: ChartConfiguration) -> ChartView {
-    let chart = ChartView(configuration: configuration)
+    let selection = ChartSelection(period: .oneMinute,
+        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
+    let chart = ChartView(configuration: configuration, selection: selection)
     container.addSubview(chart)
     chart.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
@@ -119,7 +119,7 @@ The chart supplies its own intrinsic height. Constrain the width only; the heigh
 With the configuration above the chart shows:
 
 - A candlestick main panel with scrolling, pinch zoom, and a tap or long-press crosshair with a legend.
-- The selected MA overlay, plus VOL and MACD sub panels, and a built-in indicator selector at the bottom.
+- The selected MA overlay plus VOL and MACD sub panels. The example app composes its own indicator selector below the chart.
 - An updated value legend while the crosshair selects candles; `scrollToLatest()` and tap-to-return remain available.
 
 To change looks, see [appearance](appearance.md). To change behavior, see [configuration](configuration.md).

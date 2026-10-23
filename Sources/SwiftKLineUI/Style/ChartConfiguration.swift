@@ -8,7 +8,7 @@
 import SwiftKLineCore
 import UIKit
 
-/// Candle-loading capabilities and the existing indicator-persistence option.
+/// Candle-loading capabilities controlled by the chart session.
 public struct ChartFeatures: OptionSet, Sendable {
     /// The underlying candle-capability bit mask.
     public let rawValue: Int
@@ -18,11 +18,9 @@ public struct ChartFeatures: OptionSet, Sendable {
     public static let liveUpdates = ChartFeatures(rawValue: 1 << 0)
     /// Recovers missing history before reconnecting live data.
     public static let gapRecovery = ChartFeatures(rawValue: 1 << 1)
-    /// Persists the existing indicator selector state.
-    public static let indicatorPersistence = ChartFeatures(rawValue: 1 << 2)
     static let candleLoading: ChartFeatures = [.liveUpdates, .gapRecovery]
-    /// Enables live snapshots, missing-history recovery, and indicator persistence.
-    public static let all: ChartFeatures = [.liveUpdates, .gapRecovery, .indicatorPersistence]
+    /// Enables live snapshots and missing-history recovery.
+    public static let all: ChartFeatures = [.liveUpdates, .gapRecovery]
 }
 
 /// A primary time axis with explicit semantic identity and real candle boundaries.
@@ -63,7 +61,7 @@ public enum ChartConfigurationError: Error, Equatable {
     case duplicatePluginID(String)
 }
 
-/// The complete declarative input shared by UIKit and SwiftUI.
+/// Source, rendering and loading declarations shared by UIKit and SwiftUI.
 @MainActor
 public struct ChartConfiguration {
     /// The primary candle session and time-axis boundary rules.
@@ -74,15 +72,13 @@ public struct ChartConfiguration {
     public var content: ChartType
     /// Enabled features in stable declaration and panel order.
     public private(set) var plugins: [any ChartPlugin]
-    /// Initial selection for the existing UI; persisted selection retains its original precedence.
-    public var indicators: IndicatorSelectionState?
-    /// Candle loading and selector persistence; external plugins own their loading policy.
+    /// Candle-loading capabilities; external plugins own their loading policy.
     public var features: ChartFeatures
 
     /// Validates all source and plugin identities before creating a complete configuration.
     public init(source: CandleSource, appearance: ChartAppearance = ChartAppearance(),
                 content: ChartType = .candlestick, plugins: [any ChartPlugin] = [],
-                indicators: IndicatorSelectionState? = nil, features: ChartFeatures = .all) throws {
+                features: ChartFeatures = .all) throws {
         guard !source.id.isEmpty else { throw ChartConfigurationError.emptySourceID }
         var ids = Set<String>()
         for plugin in plugins {
@@ -95,10 +91,9 @@ public struct ChartConfiguration {
         self.appearance = appearance
         self.content = content
         self.plugins = plugins
-        self.indicators = indicators
         self.features = features
     }
-    /// The selector is an adapter; all calculations and rendering still use one plugin pipeline.
+    /// Selected built-ins are adapters; all calculations and rendering still use one plugin pipeline.
     func includingSelectedIndicators(_ selected: [any ChartPlugin]) -> ChartConfiguration {
         var result = self
         let declared = Set(plugins.map(\.id))

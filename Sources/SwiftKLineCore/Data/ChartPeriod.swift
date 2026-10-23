@@ -15,7 +15,7 @@ public struct ChartPeriod: Hashable, Codable, Sendable {
     
     /// The nominal duration in seconds. Fixed-bucket matching only uses positive durations.
     public let seconds: Int
-    /// The data source’s period identifier, such as "1m"; it is not interpreted by the chart.
+    /// The provider's period identifier, such as "1m"; the chart matches available periods without imposing exchange semantics.
     public let identifier: String
     
     /// Creates a period without imposing an exchange-specific naming or calendar convention.

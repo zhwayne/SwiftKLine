@@ -24,15 +24,22 @@ enum ChartDisplayMode: String, CaseIterable, Identifiable {
 }
 
 /// Assembles the example’s presentation picker, period picker, and reusable chart view.
+@MainActor
 struct ContentView: View {
-    
-    @State private var period: ChartPeriod = .oneMinute
+    @State private var selection = ChartSelection(period: .oneMinute,
+        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
     @State private var chartMode: ChartDisplayMode = .candlestick
     private let usesOfflineData: Bool
+    private let stateStore: any ChartStateStore
 
     /// Keeps previews offline while normal app launches use Binance.
-    init(usesOfflineData: Bool = false) {
+    init(
+        usesOfflineData: Bool = false,
+        stateStore: any ChartStateStore = UserDefaultsChartStateStore()
+    ) {
         self.usesOfflineData = usesOfflineData
+        let effectiveStore: any ChartStateStore = usesOfflineData ? MemoryChartStateStore() : stateStore
+        self.stateStore = effectiveStore
     }
     
     var body: some View {
@@ -46,8 +53,13 @@ struct ContentView: View {
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 16)
                 
-                ChartPeriodPicker(period: $period)
-                KLineSwiftUIView(period: period, mode: chartMode, usesOfflineData: usesOfflineData)
+                ChartPeriodPicker(period: $selection.period)
+                KLineSwiftUIView(
+                    mode: chartMode,
+                    usesOfflineData: usesOfflineData,
+                    selection: $selection,
+                    stateStore: stateStore
+                )
             }
         }
         .contentMargins(.vertical, 16)

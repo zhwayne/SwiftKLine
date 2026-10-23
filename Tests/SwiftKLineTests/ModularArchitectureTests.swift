@@ -245,8 +245,8 @@ func offlineChartLaysOutAndDrawsFinitePaths(width: CGFloat) async throws {
                       high: price + 3, low: price - 3, close: price, volume: Double(100 + index % 10) * 10)
     }
     let chart = ChartView(configuration: try testConfiguration(items: candles,
-        appearance: .themed(.solaris),
-        indicators: IndicatorSelectionState(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])))
+        appearance: .themed(.solaris)),
+        selection: testSelection(IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])))
     chart.overrideUserInterfaceStyle = .light
     chart.backgroundColor = .white
     #expect(await eventually { chart.debugItemTimestamps.count == 100 })

@@ -10,11 +10,11 @@ Notable changes are grouped below. `Unreleased` describes the current developmen
 
 - Reorganized documentation around an integration path: new getting-started, built-in indicators, and appearance guides; configuration/data-provider guides restructured; a refreshed documentation index with reading paths.
 
-- Nine lower-panel indicators: KDJ, CCI, WR, DMI, ATR, OBV, ROC, MFI, and TRIX, with parameter-aware keys, public KDJ/DMI styles, international defaults, reference levels, and independent selection/persistence.
+- Nine lower-panel indicators: KDJ, CCI, WR, DMI, ATR, OBV, ROC, MFI, and TRIX, with parameter-aware keys, public KDJ/DMI styles, international defaults, reference levels, and serializable selection state.
 
 - Built-in BBI, VWMA, and Donchian main-chart indicators, with reusable channel rendering and parameter-aware series keys.
 - Built-in SuperTrend (SUPER) and Ichimoku (ICHI) main-chart indicators, with directional SuperTrend ribbons and flip breaks, and a five-line cloud overlay.
-- A shared `ChartConfiguration` API for UIKit and SwiftUI, with `CandleSource`, `ChartAppearance`, content mode, plugins, selection, and feature flags.
+- A shared `ChartConfiguration` API for UIKit and SwiftUI, with `CandleSource`, `ChartAppearance`, content mode, plugins, and feature flags; `ChartSelection` owns period and indicator choices.
 - A `ChartPlugin` lifecycle with per-chart coordinators, scoped resource registration, isolated series, error reporting, and redraw requests.
 - Independent time-range pagination through `RangeDataProvider`, `RangePage`, and `RangeLoader`, including coverage, retry, cancellation, and bounded caches.
 - An application-owned trade-marker example with provider, plugin, rendering, and regression coverage.
@@ -26,8 +26,10 @@ Notable changes are grouped below. `Unreleased` describes the current developmen
 - Time-series mode retains the latest-price label, guide line, and return-to-latest control while hiding candle high/low annotations.
 - The visible latest point on the time-series line has a solid line-colored dot, with the price guide ending at its center.
 
-- Built-in indicators use the plugin pipeline while retaining selection persistence, appearance, and layout behavior.
-- Indicator selector UI now belongs to the application: `ChartView` no longer embeds or reserves height for a selector, the example provides a SwiftUI implementation, and `KLineChart` can inject a selection store and hydrate its binding from persisted state.
+- Built-in indicators use the plugin pipeline while retaining selection, appearance, and layout behavior.
+- Period and indicator controls share one `ChartSelection` binding and one persistence record. `IndicatorSelectionState` is renamed to `IndicatorSelection`; UIKit exposes `selection`, `setSelection(_:)`, `selectionChanged`, and `resetSelectionToDefault()`.
+- Selection-dependent configuration factories restore and normalize the period before the first provider session. Application-owned selectors retain their styling; the example no longer reads or writes period keys itself.
+- SwiftKLine defines `ChartStateStore` and supplies UserDefaults/memory backends. Keys are internal and UserDefaults namespaces isolate charts; old indicator data migrates into the unified record.
 - Candles and their indicator outputs publish as a consistent batch; independent external data does not delay that publication.
 - History and configuration invalidation preempt the coalesced live timer.
 - Resource namespaces allow multiple instances of a feature in one chart.

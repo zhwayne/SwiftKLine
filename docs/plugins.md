@@ -141,6 +141,6 @@ func executionConfiguration(candles: [Candle], trades: [TradeMarker]) throws -> 
 
 `SnapshotTradeProvider` uses finite pagination. `DemoTradeProvider` generates simulated events from an independent market query; real executions should come from the app's account service.
 
-This finite snapshot example disables live updates, recovery, and built-in persistence with `features: []`. Changing only the provider closure retains the range session: update the example plugin's `sourceID` when replacing its trade snapshot, and change `retryID` to retry without clearing its cache. Changing `maxCachedItems` also rebuilds that plugin's range session.
+This finite snapshot example disables live updates and recovery with `features: []`. Changing only the provider closure retains the range session: update the example plugin's `sourceID` when replacing its trade snapshot, and change `retryID` to retry without clearing its cache. Changing `maxCachedItems` also rebuilds that plugin's range session.
 
 The renderer uses green upward buy triangles and red downward sell triangles, 8 pt by default. Multiple events can map to one real candle. Its default style does not expand the price axis; execution-price bounds are an application choice. The default example page does not enable this plugin.

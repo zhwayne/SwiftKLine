@@ -10,11 +10,11 @@
 
 - 文档按接入主线重组：新增快速开始、内置指标与外观定制指南；配置与数据源指南重新组织；文档索引更新并给出阅读路径。
 
-- 九项附图指标：KDJ、CCI、WR、DMI、ATR、OBV、ROC、MFI、TRIX，支持包含参数的序列标识、公开 KDJ/DMI 配色、国际默认参数、参考线，以及独立选择与持久化。
+- 九项附图指标：KDJ、CCI、WR、DMI、ATR、OBV、ROC、MFI、TRIX，支持包含参数的序列标识、公开 KDJ/DMI 配色、国际默认参数、参考线，以及可编码的选择状态。
 
 - 内置 BBI、VWMA、Donchian 主图指标，提供可复用的通道渲染和包含参数的序列标识。
 - 内置 SuperTrend（SUPER）、Ichimoku（ICHI）主图指标，提供趋势方向色带与翻转断线，以及五线云图叠加。
-- UIKit 与 SwiftUI 共用的 `ChartConfiguration` API，包含 `CandleSource`、`ChartAppearance`、展示模式、插件、指标选择和能力开关。
+- UIKit 与 SwiftUI 共用的 `ChartConfiguration` API，包含 `CandleSource`、`ChartAppearance`、展示模式、插件和能力开关；周期与指标选择由 `ChartSelection` 管理。
 - `ChartPlugin` 生命周期，提供每图表独立协调器、局部资源注册、序列隔离、错误报告和重绘请求。
 - 通过 `RangeDataProvider`、`RangePage` 和 `RangeLoader` 实现独立时间范围分页，支持覆盖、重试、取消与有界缓存。
 - 应用自有的成交标记示例，包含 provider、插件、渲染和回归覆盖。
@@ -26,8 +26,10 @@
 - 分时模式保留最新价格标签、价格指示线和返回最新位置控件，仅隐藏 K 线高低点标注。
 - 分时折线可见的最新点显示同色实心圆点，价格虚线的端点与圆心对齐。
 
-- 内置指标接入插件流水线，保留选择状态持久化、外观和布局行为。
-- 指标选择器 UI 改由应用实现：`ChartView` 不再内置选择器或为其预留高度，示例提供 SwiftUI 实现，`KLineChart` 支持注入选择存储并将持久化状态水合到绑定。
+- 内置指标接入插件流水线，保留选择、外观和布局行为。
+- 周期与指标控件共用一个 `ChartSelection` 绑定和一条持久化记录。`IndicatorSelectionState` 重命名为 `IndicatorSelection`；UIKit 统一提供 `selection`、`setSelection(_:)`、`selectionChanged` 和 `resetSelectionToDefault()`。
+- 选择相关的配置工厂在首次数据会话启动前恢复并校验周期。应用选择器保持现有样式；示例不再自行读写周期键。
+- SwiftKLine 定义 `ChartStateStore` 并内置 UserDefaults、内存实现。键由库内部管理，UserDefaults namespace 隔离图表；旧指标数据迁移为统一记录。
 - K 线与对应指标输出按一致批次发布；独立外部数据不延迟主数据发布。
 - 历史和配置失效请求抢占合并实时更新的定时器。
 - 通过资源命名空间支持同一图表中的多个功能实例。

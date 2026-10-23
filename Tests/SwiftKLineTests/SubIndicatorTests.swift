@@ -25,7 +25,7 @@ private let additionalIndicators: [BuiltInIndicator] = [.kdj, .cci, .wr, .dmi, .
             .wr: [.wr(period: 14), .wr(period: 7)]
         ]
     )
-    let selection = IndicatorSelectionState(subIndicatorIDs: [.kdj, .dmi, .wr])
+    let selection = IndicatorSelection(subIndicatorIDs: [.kdj, .dmi, .wr])
     #expect(appearance.indicatorKeys(for: .wr).count == 2)
     #expect(selection.subIndicatorIDs == [.kdj, .dmi, .wr])
 }
@@ -191,7 +191,7 @@ func nineAdditionalIndicatorsPublishAndDrawIndependentPanels(width: CGFloat) asy
     let items: [any ChartItem] = (0..<120).map {
         testCandle($0 * 60, 100 + sin(Double($0) * 0.3) * 12)
     }
-    let selected = IndicatorSelectionState(subIndicatorIDs: additionalIndicators.map(\.id))
+    let selected = IndicatorSelection(subIndicatorIDs: additionalIndicators.map(\.id))
     let customKDJ = SeriesKey.kdj(period: 5, kPeriod: 2, dPeriod: 4)
     let customDMI = SeriesKey.dmi(diPeriod: 5, adxPeriod: 3)
     let appearance = ChartAppearance(indicatorKeyOverrides: [
@@ -200,7 +200,7 @@ func nineAdditionalIndicatorsPublishAndDrawIndependentPanels(width: CGFloat) asy
         .wr: [.wr(period: 14), .wr(period: 7)]
     ])
     let chart = ChartView(configuration: try testConfiguration(items: items,
-        appearance: appearance, indicators: selected))
+        appearance: appearance), selection: testSelection(selected))
     defer { chart.shutdown() }
     #expect(await eventually { chart.debugItemTimestamps.count == 120 })
     await chart.debugWaitForRefresh()
@@ -239,11 +239,13 @@ func nineAdditionalIndicatorsPublishAndDrawIndependentPanels(width: CGFloat) asy
 
     chart.debugInspectCandle(at: 95)
     #expect(chart.debugSelectedCandleIndex == 95)
-    chart.debugToggleIndicator(.kdj, in: .subChart)
+    var withoutKDJ = chart.selection
+    withoutKDJ.indicators.subIndicatorIDs.removeAll { $0 == .kdj }
+    chart.setSelection(withoutKDJ)
     await chart.debugWaitForRefresh()
     #expect(!chart.debugVisiblePluginIDs.contains("builtin.kdj"))
     #expect(chart.debugStore(for: "builtin.kdj").values(for: customKDJ, as: KDJIndicatorValue.self) == nil)
-    chart.debugToggleIndicator(.kdj, in: .subChart)
+    chart.setSelection(testSelection(selected))
     await chart.debugWaitForRefresh()
     #expect(chart.debugStore(for: "builtin.kdj").values(for: customKDJ, as: KDJIndicatorValue.self)?[119] != nil)
 
@@ -252,38 +254,31 @@ func nineAdditionalIndicatorsPublishAndDrawIndependentPanels(width: CGFloat) asy
         .kdj: BuiltInIndicator.kdj.defaultSeriesKeys + [customKDJ],
         .dmi: BuiltInIndicator.dmi.defaultSeriesKeys + [customDMI],
         .wr: [.wr(period: 21)]
-    ]), indicators: selected))
+    ])))
     await chart.debugWaitForRefresh()
     #expect(chart.debugRenderer(for: "builtin.kdj", as: SubIndicatorRenderer.self) === retained)
     #expect(chart.debugStore(for: "builtin.wr").values(for: .wr(period: 14), as: Double.self) == nil)
     #expect(chart.debugStore(for: "builtin.wr").values(for: .wr(period: 21), as: Double.self)?[119] != nil)
 }
 
-private final class OscillatorSelectionStore: IndicatorSelectionStore {
-    var state: IndicatorSelectionState?
-    func load() -> IndicatorSelectionState? { state }
-    func save(state: IndicatorSelectionState) { self.state = state }
-    func reset() { state = nil }
-}
-
 @available(iOS 16.0, *)
-@Test(.timeLimit(.minutes(1))) @MainActor func newSubIndicatorSelectionRoundTripsAndRestores() async throws {
-    let selected = IndicatorSelectionState(subIndicatorIDs: additionalIndicators.map(\.id))
+@Test(.timeLimit(.minutes(1))) @MainActor func newSubIndicatorSelectionRoundTripsAndReapplies() async throws {
+    let selected = IndicatorSelection(subIndicatorIDs: additionalIndicators.map(\.id))
     let encoded = try JSONEncoder().encode(selected)
-    #expect(try JSONDecoder().decode(IndicatorSelectionState.self, from: encoded) == selected)
-    let store = OscillatorSelectionStore()
-    store.state = selected
-    var config = try testConfiguration(items: (0..<100).map { testCandle($0 * 60, Double($0 + 1)) })
-    config.features = [.indicatorPersistence]
-    let chart = ChartView(configuration: config, indicatorSelectionStore: store)
+    #expect(try JSONDecoder().decode(IndicatorSelection.self, from: encoded) == selected)
+    let items = (0..<100).map { testCandle($0 * 60, Double($0 + 1)) }
+    let config = try testConfiguration(items: items)
+    let chart = ChartView(configuration: config, selection: testSelection(selected))
     defer { chart.shutdown() }
     #expect(await eventually { chart.debugItemTimestamps.count == 100 })
-    #expect(chart.indicatorSelection == selected)
-    chart.debugToggleIndicator(.mfi, in: .subChart)
+    #expect(chart.selection.indicators == selected)
+    var withoutMFI = chart.selection
+    withoutMFI.indicators.subIndicatorIDs.removeAll { $0 == .mfi }
+    chart.setSelection(withoutMFI)
     await chart.debugWaitForRefresh()
-    #expect(store.state?.subIndicatorIDs.contains(.mfi) == false)
-    let restored = ChartView(configuration: config, indicatorSelectionStore: store)
+    #expect(chart.selection == withoutMFI)
+    let restored = ChartView(configuration: try testConfiguration(items: items), selection: withoutMFI)
     defer { restored.shutdown() }
-    #expect(restored.indicatorSelection == store.state)
+    #expect(restored.selection == withoutMFI)
 }
 #endif

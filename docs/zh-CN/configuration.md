@@ -14,8 +14,7 @@ UIKit 的 `ChartView` 与 SwiftUI 的 `KLineChart` 共用 `ChartConfiguration`�
 | `appearance` | 主题、尺寸、面板、图例、水印与指标参数 | `ChartAppearance()` |
 | `content` | 主图展示方式 | `.candlestick` |
 | `plugins` | 有序的业务功能列表，ID 必须非空且唯一 | `[]` |
-| `indicators` | 内置选择器的初始状态 | 先持久化，再外观默认值 |
-| `features` | 加载与选择状态持久化能力 | `.all` |
+| `features` | K 线加载能力 | `.all` |
 
 ```swift
 import SwiftKLine
@@ -28,9 +27,6 @@ func snapshotConfiguration(candles: [Candle], sourceID: String) throws -> ChartC
         },
         appearance: .themed(.solaris),
         content: .candlestick,
-        indicators: IndicatorSelectionState(
-            mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]
-        ),
         features: []
     )
 }
@@ -81,11 +77,12 @@ func snapshotConfiguration(candles: [Candle], sourceID: String) throws -> ChartC
 |---|---|
 | `.liveUpdates` | 消费完整的实时 K 线快照 |
 | `.gapRecovery` | 回到前台或网络恢复时，若已知最后时间戳则尝试恢复区间 |
-| `.indicatorPersistence` | 读取和写入内置选择器状态 |
-| `.all` | 启用以上三项 |
+| `.all` | 启用实时更新和缺口恢复 |
 | `[]` | 静态图表与确定性测试 |
 
-启用持久化后，UIKit 可注入 `IndicatorSelectionStore`;SwiftUI 不注入存储，应用自行存储时可使用选择状态绑定并关闭内置持久化。图表活跃状态跟随窗口、场景与应用状态：进入后台或非活跃场景会取消实时消费与恢复请求，而在途的历史页继续加载。回到前台或网络恢复仅在启用 `.gapRecovery` 且已知最后时间戳时触发恢复；即使本次恢复报错，恢复尝试结束后也会重新消费实时流。
+传入 `ChartStateStore` 即持久化完整的 `ChartSelection`（周期与指标），传 `nil` 则关闭。协议由 SwiftKLine 定义，库内置 UserDefaults 和内存实现。存储键由库内部管理，通过 `UserDefaultsChartStateStore(namespace:)` 隔离不同图表。应用可用类型安全 key 复用 store 保存其他偏好，详见[共享状态存储](indicators.md#共享状态存储)。
+
+图表活跃状态跟随窗口、场景与应用状态：进入后台或非活跃场景会取消实时消费与恢复请求，而在途的历史页继续加载。回到前台或网络恢复仅在启用 `.gapRecovery` 且已知最后时间戳时触发恢复；即使本次恢复报错，恢复尝试结束后也会重新消费实时流。
 
 ## 错误处理
 
@@ -115,14 +112,16 @@ func attach(chart: ChartView, configuration: ChartConfiguration) {
 | 操作 | UIKit | SwiftUI |
 |---|---|---|
 | 调和配置 | `apply(_:)` | 传入更新后的 `configuration` |
-| 读取选择状态 | `indicatorSelection` | `indicators` 绑定 |
-| 替换选择 | `setIndicators(_:)` | 给绑定赋新值 |
-| 恢复默认 | `resetIndicatorsToDefault()` | 适配器不暴露；通过配置或绑定管理 |
+| 读取选择状态 | `selection` | `selection` 绑定 |
+| 替换选择 | `setSelection(_:)` | 给绑定赋新值 |
+| 恢复默认 | `resetSelectionToDefault()` | 通过绑定设置所需的默认选择 |
 | 回到最新 | `scrollToLatest()` | 适配器不暴露；系统回到顶部手势同样指向最新 K 线 |
-| 选择状态持久化 | `indicatorSelectionStore:` 初始化参数 | 适配器不暴露；传入绑定或使用默认存储 |
 | 加载错误 | `onLoadError` | `onLoadError` 初始化参数 |
 | 插件错误 | `onPluginError` | `onPluginError` 初始化参数 |
-| 选择变化 | `indicatorSelectionChanged` | 绑定接收用户变化 |
+| 选择变化 | `selectionChanged` | 绑定接收用户变化 |
+| 状态存储 | `stateStore:` 初始化参数 | `stateStore:` 初始化参数 |
+
+周期与指标 UI 均由应用自行实现，共用一个 `ChartSelection`。SwiftUI 控件分别绑定 `$selection.period` 和 `$selection.indicators`；UIKit 使用 `selection`、`setSelection(_:)` 和 `selectionChanged`。传入选择相关的配置工厂后，库先恢复、校验选择，再构造数据源；更新可用周期或指标导致选择被调整时，也会保存并回写选择。静态 `configuration:` 便捷入口适合手动管理数据源、不需要自动切换周期的图表。
 
 SwiftUI 注意事项：
 
@@ -134,8 +133,8 @@ SwiftUI 注意事项：
 | 现象 | 检查项 |
 |---|---|
 | 新快照没有显示 | 更换数据源 ID；仅替换工厂闭包会保留旧会话 |
-| 启动后的指标选择不符预期 | 检查持久化状态、外观默认值和 SwiftUI 绑定 |
-| 切换周期或交易对后残留旧数据 | 整体更换 `CandleSource.id`；相同 ID 不会重新调用工厂 |
+| 启动后的指标选择不符预期 | 检查 store 中的完整选择、传入初值和可用选项 |
+| 切换周期或交易对后残留旧数据 | 在配置工厂中将周期或交易对纳入 `CandleSource.id`；相同 ID 不会重建会话 |
 | 事件映射到错误 K 线 | 使用 Unix 秒和真实 K 线边界，参见[时间规则](data-providers.md#时间与边界) |
-| 图表高度不符预期 | 检查副图面板、选择器与父容器约束 |
+| 图表高度不符预期 | 检查副图面板与父容器约束；应用控件位于图表之外 |
 | 无法导入自定义类型 | 成交标记类型属于示例代码；需在应用中实现或复制 |

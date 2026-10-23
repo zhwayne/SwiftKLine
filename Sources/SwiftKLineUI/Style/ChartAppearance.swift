@@ -10,7 +10,7 @@ import UIKit
 
 /// A value configuration for appearance, section layout, built-in periods, and initial selection defaults.
 ///
-/// Existing presentation and selector settings are preserved while plugins supply their data independently.
+/// Presentation and indicator-selection settings remain independent from plugin-owned data sessions.
 public struct ChartAppearance {
 
     /// The initial candle colors, width, and gap.
@@ -19,7 +19,7 @@ public struct ChartAppearance {
     public let legendFont: UIFont
     /// Optional watermark text displayed behind the main chart.
     public let watermarkText: String?
-    /// The fixed heights of the main chart, time axis, indicator panels, and selector.
+    /// The fixed heights of the main chart, time axis, and indicator panels.
     public let layoutMetrics: LayoutMetrics
     /// Built-in indicators eligible for selection; custom features are declared in ChartConfiguration.plugins.
     public let indicators: [BuiltInIndicator]
@@ -186,8 +186,7 @@ public extension ChartAppearance.ThemePreset {
         let layout = LayoutMetrics(
             mainChartHeight: 340,
             timelineHeight: 18,
-            indicatorHeight: 76,
-            indicatorSelectorHeight: 36
+            indicatorHeight: 76
         )
         let indicatorStyles: [SeriesKey: any IndicatorStyle] = [
             .ma(period: 5): LineStyle(strokeColor: UIColor(red: 1, green: 0.78, blue: 0.32, alpha: 1)),
@@ -250,8 +249,7 @@ public extension ChartAppearance.ThemePreset {
         let layout = LayoutMetrics(
             mainChartHeight: 320,
             timelineHeight: 16,
-            indicatorHeight: 70,
-            indicatorSelectorHeight: 34
+            indicatorHeight: 70
         )
         let indicatorStyles: [SeriesKey: any IndicatorStyle] = [
             .ma(period: 5): LineStyle(strokeColor: UIColor(red: 0.98, green: 0.72, blue: 0.18, alpha: 1)),

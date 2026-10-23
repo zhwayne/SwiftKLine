@@ -32,7 +32,7 @@
 ## 功能
 
 - 蜡烛图与分时折线图，支持滚动、双指缩放和十字光标。
-- 内置 MA、EMA、WMA、BOLL、SAR、BBI、VWMA、Donchian、SuperTrend（SUPER）、Ichimoku（ICHI）、VOL、RSI、MACD、KDJ、CCI、WR、DMI、ATR、OBV、ROC、MFI、TRIX，提供开放的选择状态与可选持久化，供应用实现自有控件。
+- 内置 MA、EMA、WMA、BOLL、SAR、BBI、VWMA、Donchian、SuperTrend（SUPER）、Ichimoku（ICHI）、VOL、RSI、MACD、KDJ、CCI、WR、DMI、ATR、OBV、ROC、MFI、TRIX，提供开放的选择状态与可插拔持久化。
 - 历史数据分页、完整实时 K 线快照与可选的缺口恢复。
 - UIKit 与 SwiftUI 共用 `ChartConfiguration`，提供明暗主题预设。
 - 通过 `ChartPlugin` 扩展指标、叠加层与副图。
@@ -95,16 +95,12 @@ func sampleConfiguration() throws -> ChartConfiguration {
             SnapshotProvider(items: candles)
         },
         appearance: .themed(.solaris),
-        indicators: IndicatorSelectionState(
-            mainIndicatorIDs: [.ma],
-            subIndicatorIDs: [.vol, .macd]
-        ),
         features: []
     )
 }
 ```
 
-运行后会得到上图所示的明亮主题离线图表。`features: []` 为此静态示例关闭实时更新、缺口恢复和指标持久化。请在应用初始化边界处理配置错误；空数据源 ID、空插件 ID 或重复插件 ID 会使构造失败。
+运行后会得到上图所示的明亮主题离线图表。`features: []` 为此静态示例关闭实时更新和缺口恢复。请在应用初始化边界处理配置错误；空数据源 ID、空插件 ID 或重复插件 ID 会使构造失败。
 
 ### SwiftUI
 
@@ -117,9 +113,11 @@ import SwiftKLine
 @MainActor
 struct MarketChart: View {
     let configuration: ChartConfiguration
+    @State private var selection = ChartSelection(period: .oneMinute,
+        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
 
     var body: some View {
-        KLineChart(configuration: configuration)
+        KLineChart(selection: $selection) { _ in configuration }
             .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -135,7 +133,9 @@ import SwiftKLine
 
 @MainActor
 func installChart(in container: UIView, configuration: ChartConfiguration) -> ChartView {
-    let chart = ChartView(configuration: configuration)
+    let selection = ChartSelection(period: .oneMinute,
+        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
+    let chart = ChartView(configuration: configuration, selection: selection)
     container.addSubview(chart)
     chart.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
@@ -155,7 +155,7 @@ func installChart(in container: UIView, configuration: ChartConfiguration) -> Ch
 
 在 Xcode 中打开 [SwiftKLineExample.xcodeproj](SwiftKLineExample.xcodeproj)，选择 `SwiftKLineExample` scheme，在 iOS 18+ 模拟器或设备上运行。
 
-应用演示周期切换、蜡烛图与分时图切换，以及应用自有的 SwiftUI 指标选择器。正常运行使用示例中的 Binance provider，需要能够访问该服务；SwiftUI 预览使用确定性的离线数据。
+应用演示周期切换、蜡烛图与分时图切换，以及应用自有的 SwiftUI 指标选择器。两个选择器绑定同一 `ChartSelection`，由库通过 `ChartStateStore` 恢复和保存。正常运行使用示例中的 Binance provider，需要能够访问该服务；独立图表预览使用确定性的离线数据。
 
 可选的[成交标记示例](SwiftKLineExample/TradeMarkers/TradeMarkerExample.swift) 演示应用自有的 provider、插件和渲染器，以及独立分页。默认页面未启用该插件。成交模型与账户或查询身份属于示例代码，不是库的公开 API。
 
@@ -168,7 +168,7 @@ func installChart(in container: UIView, configuration: ChartConfiguration) -> Ch
 | [快速开始](docs/zh-CN/getting-started.md) | 添加依赖、构建配置，并在 SwiftUI 与 UIKit 中渲染图表 |
 | [配置与集成](docs/zh-CN/configuration.md) | 配置字段、更新语义、功能开关、错误处理与图表 API |
 | [数据源接入](docs/zh-CN/data-providers.md) | 行情数据、历史分页、实时快照、缺口恢复、时间边界与独立分页 |
-| [内置指标](docs/zh-CN/indicators.md) | 指标目录、选择与持久化、参数以及 Core 计算器 |
+| [内置指标](docs/zh-CN/indicators.md) | 指标目录、共享状态存储、选择、参数以及 Core 计算器 |
 | [外观定制](docs/zh-CN/appearance.md) | 主题、蜡烛样式、布局、图例与指标样式 |
 | [插件与自定义图表](docs/zh-CN/plugins.md) | 自定义指标、叠加层、副图和生命周期清理 |
 | [架构与所有权](docs/zh-CN/architecture.md) | 模块、状态归属、并发和渲染 |

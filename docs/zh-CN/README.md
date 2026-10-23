@@ -11,7 +11,7 @@
 | [快速开始](getting-started.md) | 添加依赖、构建配置，并在 SwiftUI 与 UIKit 中渲染图表 |
 | [配置与集成](configuration.md) | 配置字段、更新语义、功能开关、错误上报与图表 API |
 | [数据源接入](data-providers.md) | K 线净值契约、历史分页、实时快照、缺口恢复与独立业务数据 |
-| [内置指标](indicators.md) | 指标目录、选择与持久化、参数以及 Core 计算器 |
+| [内置指标](indicators.md) | 指标目录、共享状态存储、选择、参数以及 Core 计算器 |
 | [外观定制](appearance.md) | 主题、蜡烛样式、布局、图例水印与按 key 的指标样式 |
 | [插件与自定义图表](plugins.md) | 自定义计算、叠加层与副图，以及每图表独立状态 |
 | [架构与所有权](architecture.md) | 模块边界、数据发布、并发与渲染（深入） |

@@ -56,10 +56,6 @@ func sampleConfiguration() throws -> ChartConfiguration {
             SnapshotProvider(items: candles)
         },
         appearance: .themed(.solaris),
-        indicators: IndicatorSelectionState(
-            mainIndicatorIDs: [.ma],
-            subIndicatorIDs: [.vol, .macd]
-        ),
         features: []
     )
 }
@@ -67,9 +63,9 @@ func sampleConfiguration() throws -> ChartConfiguration {
 
 关于这段代码：
 
-- `features: []` 关闭实时更新、缺口恢复和指标持久化，适合静态图表。实时行情图表使用默认的 `.all`。
+- `features: []` 关闭实时更新和缺口恢复，适合静态图表。实时行情图表使用默认的 `.all`。
 - 空数据源 ID 或空/重复插件 ID 会使构造失败。请在应用初始化边界处理该错误。
-- `indicators` 参数设置选择器初始状态；所有可选值见[内置指标](indicators.md)。
+- 构造图表时通过 `ChartSelection` 提供周期与指标初值；动态选择与持久化见[内置指标](indicators.md)。
 
 ## 3. 显示图表
 
@@ -82,15 +78,17 @@ import SwiftKLine
 @MainActor
 struct MarketChart: View {
     let configuration: ChartConfiguration
+    @State private var selection = ChartSelection(period: .oneMinute,
+        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
 
     var body: some View {
-        KLineChart(configuration: configuration)
+        KLineChart(selection: $selection) { _ in configuration }
             .fixedSize(horizontal: false, vertical: true)
     }
 }
 ```
 
-`.fixedSize(horizontal: false, vertical: true)` 让图表使用由配置面板与选择器决定的固有高度。
+`.fixedSize(horizontal: false, vertical: true)` 让图表使用配置面板决定的固有高度；应用控件组合在图表之外。
 
 ### UIKit
 
@@ -100,7 +98,9 @@ import SwiftKLine
 
 @MainActor
 func installChart(in container: UIView, configuration: ChartConfiguration) -> ChartView {
-    let chart = ChartView(configuration: configuration)
+    let selection = ChartSelection(period: .oneMinute,
+        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
+    let chart = ChartView(configuration: configuration, selection: selection)
     container.addSubview(chart)
     chart.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
@@ -119,7 +119,7 @@ func installChart(in container: UIView, configuration: ChartConfiguration) -> Ch
 按上述配置，图表会显示：
 
 - 支持滚动、双指缩放，以及点按/长按十字光标与图例的蜡烛图主图。
-- 已选的 MA 叠加线、VOL 与 MACD 副图面板，以及底部的内置指标选择器。
+- 已选的 MA 叠加线、VOL 与 MACD 副图面板。示例应用在图表下方组合自有指标选择器。
 - 十字光标选中 K 线时更新的数值图例；`scrollToLatest()` 与点击返回最新始终可用。
 
 改变外观见[外观定制](appearance.md)；改变行为见[配置与集成](configuration.md)。

@@ -9,18 +9,29 @@ import SwiftUI
 import SwiftKLine
 
 /// Displays Binance candles while retaining deterministic offline preview fixtures.
+@MainActor
 struct KLineSwiftUIView: View {
-    let period: ChartPeriod
     let mode: ChartDisplayMode
     let usesOfflineData: Bool
+    @Binding var selection: ChartSelection
+    let stateStore: any ChartStateStore
+    private let appearance = ChartAppearance.themed(.midnight)
 
     var body: some View {
-        KLineChart(configuration: configuration)
-            .fixedSize(horizontal: false, vertical: true)
+        VStack(spacing: 0) {
+            KLineChart(
+                selection: $selection,
+                availablePeriods: DemoChartPeriod.all.map(\.period),
+                stateStore: stateStore,
+                configuration: configuration
+            )
+                .fixedSize(horizontal: false, vertical: true)
+            IndicatorSelectorView(indicators: appearance.indicators, selection: $selection.indicators)
+        }
     }
 
-    @MainActor private var configuration: ChartConfiguration {
-        let period = period, offline = usesOfflineData
+    private func configuration(for selection: ChartSelection) -> ChartConfiguration {
+        let period = selection.period, offline = usesOfflineData
         let source = CandleSource(id: "BTCUSDT:\(period.identifier):\(period.seconds):\(offline)", candleInterval: { timestamp in
             let start = Date(timeIntervalSince1970: Double(timestamp))
             if period == .oneMonth {
@@ -34,9 +45,9 @@ struct KLineSwiftUIView: View {
             return BinanceDataProvider(symbol: "BTCUSDT", period: period)
         })
         // These fixed declarations are unique; construction cannot fail for user-supplied identities.
-        return try! ChartConfiguration(source: source, appearance: .themed(.midnight),
+        return try! ChartConfiguration(source: source, appearance: appearance,
             content: mode == .candlestick ? .candlestick : .timeSeries,
-            indicators: IndicatorSelectionState(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
+            features: usesOfflineData ? [] : [.liveUpdates, .gapRecovery])
     }
 }
 
@@ -63,5 +74,11 @@ final class DemoProvider: ChartItemProvider, Sendable {
 }
 
 #Preview("Chart") {
-    KLineSwiftUIView(period: .oneMinute, mode: .candlestick, usesOfflineData: true)
+    KLineSwiftUIView(
+        mode: .candlestick,
+        usesOfflineData: true,
+        selection: .constant(.init(period: .oneMinute,
+            indicators: .init(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))),
+        stateStore: MemoryChartStateStore()
+    )
 }

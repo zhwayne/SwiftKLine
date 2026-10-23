@@ -265,8 +265,8 @@ private struct ProbeCalculator: IndicatorCalculator {
         let start = Date(timeIntervalSince1970: Double(timestamp))
         return start..<start.addingTimeInterval(60)
     }, provider: { TestSnapshotProvider((0..<100).map { testCandle($0 * 60, Double($0)) }) })
-    let selection = IndicatorSelectionState(mainIndicatorIDs: [.ma])
-    let chart = ChartView(configuration: try ChartConfiguration(source: source, indicators: selection, features: []))
+    let selection = IndicatorSelection(mainIndicatorIDs: [.ma])
+    let chart = ChartView(configuration: try ChartConfiguration(source: source, features: []), selection: testSelection(selection))
     #expect(await eventually { chart.debugItemTimestamps.count == 100 })
     chart.frame = CGRect(x: 0, y: 0, width: 390, height: chart.intrinsicContentSize.height)
     _ = chart.debugRenderForInspection()
@@ -283,7 +283,7 @@ private struct ProbeCalculator: IndicatorCalculator {
 
     let recorder = Recorder()
     chart.apply(try ChartConfiguration(source: source,
-        plugins: [ProbePlugin(id: "custom", recorder: recorder)], indicators: selection, features: []))
+        plugins: [ProbePlugin(id: "custom", recorder: recorder)], features: []))
     let before = boundaries.count
     scroll.contentOffset.x = 400
     scroll.setNeedsLayout(); scroll.layoutIfNeeded()

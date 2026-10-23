@@ -53,9 +53,8 @@ let appearance = ChartAppearance.themed(preset)
 | `mainChartHeight` | `320` | 主价格面板 |
 | `timelineHeight` | `16` | 主图下方的时间轴 |
 | `indicatorHeight` | `64` | 每个已选副图指标面板的高度 |
-| `indicatorSelectorHeight` | `32` | 底部内置选择器 |
 
-图表固有高度 = 主图 + 时间轴 + 每个已选副图面板 + 选择器。只约束宽度，让高度跟随固有尺寸。UIKit 中按固有高度布局；SwiftUI 使用 `.fixedSize(horizontal: false, vertical: true)`。
+图表固有高度 = 主图 + 时间轴 + 每个已选副图面板；应用自有控件位于该高度之外。只约束宽度，让高度跟随固有尺寸。UIKit 中按固有高度布局；SwiftUI 使用 `.fixedSize(horizontal: false, vertical: true)`。
 
 ## 图例与水印
 
@@ -89,8 +88,7 @@ let appearance = ChartAppearance(
     layoutMetrics: LayoutMetrics(
         mainChartHeight: 280,
         timelineHeight: 16,
-        indicatorHeight: 60,
-        indicatorSelectorHeight: 32
+        indicatorHeight: 60
     ),
     indicatorStyleRegistry: [
         .ma(period: 5): LineStyle(strokeColor: .systemOrange),

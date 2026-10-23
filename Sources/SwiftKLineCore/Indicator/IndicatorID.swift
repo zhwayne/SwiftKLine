@@ -45,9 +45,9 @@ public struct IndicatorID: Hashable, Sendable, Codable, ExpressibleByStringLiter
     public static let vwma = IndicatorID("builtin.vwma")
     /// The built-in Donchian channel identity.
     public static let donchian = IndicatorID("builtin.donchian")
-    /// The built-in SuperTrend identity; the selector uses the short “SUPER” title.
+    /// The built-in SuperTrend identity; its default display title is the short “SUPER” form.
     public static let superTrend = IndicatorID("builtin.super")
-    /// The built-in Ichimoku Kinko Hyo identity; the selector uses the short “ICHI” title.
+    /// The built-in Ichimoku Kinko Hyo identity; its default display title is the short “ICHI” form.
     public static let ichimoku = IndicatorID("builtin.ichi")
     /// The built-in volume identity.
     public static let vol = IndicatorID("builtin.vol")

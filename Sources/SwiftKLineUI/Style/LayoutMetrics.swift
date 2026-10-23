@@ -16,19 +16,15 @@ public struct LayoutMetrics: Equatable {
     public let timelineHeight: CGFloat
     /// The height of each selected lower indicator panel.
     public let indicatorHeight: CGFloat
-    /// The height of the indicator selection control.
-    public let indicatorSelectorHeight: CGFloat
 
     /// Creates chart-section metrics; callers should supply nonnegative heights.
     public init(
         mainChartHeight: CGFloat = 320,
         timelineHeight: CGFloat = 16,
-        indicatorHeight: CGFloat = 64,
-        indicatorSelectorHeight: CGFloat = 32
+        indicatorHeight: CGFloat = 64
     ) {
         self.mainChartHeight = mainChartHeight
         self.timelineHeight = timelineHeight
         self.indicatorHeight = indicatorHeight
-        self.indicatorSelectorHeight = indicatorSelectorHeight
     }
 }

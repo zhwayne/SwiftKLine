@@ -53,9 +53,8 @@ These values also use direction colors for volume bars and the latest-price labe
 | `mainChartHeight` | `320` | The main price panel |
 | `timelineHeight` | `16` | The time axis below the main panel |
 | `indicatorHeight` | `64` | Height of each selected sub-panel indicator |
-| `indicatorSelectorHeight` | `32` | The built-in selector bar |
 
-The chart's intrinsic height equals the sum of the main panel, the time axis, every selected sub panel, and the selector. Constrain the chart's width only and let the height follow the intrinsic content size. In UIKit check the frame in layout; in SwiftUI use `.fixedSize(horizontal: false, vertical: true)`.
+The chart's intrinsic height equals the sum of the main panel, the time axis, and every selected sub panel. Application-owned controls are outside that height. Constrain the chart's width only and let the height follow the intrinsic content size. In UIKit check the frame in layout; in SwiftUI use `.fixedSize(horizontal: false, vertical: true)`.
 
 ## Legend and watermark
 
@@ -89,8 +88,7 @@ let appearance = ChartAppearance(
     layoutMetrics: LayoutMetrics(
         mainChartHeight: 280,
         timelineHeight: 16,
-        indicatorHeight: 60,
-        indicatorSelectorHeight: 32
+        indicatorHeight: 60
     ),
     indicatorStyleRegistry: [
         .ma(period: 5): LineStyle(strokeColor: .systemOrange),

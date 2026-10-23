@@ -34,9 +34,13 @@ func testCandle(_ timestamp: Int, _ close: Double) -> Candle {
 @MainActor
 func testConfiguration(id: String = "test", items: [any ChartItem] = [testCandle(60, 1), testCandle(120, 2)],
                        plugins: [any ChartPlugin] = [], appearance: ChartAppearance = ChartAppearance(),
-                       content: ChartType = .candlestick, indicators: IndicatorSelectionState? = nil) throws -> ChartConfiguration {
+                       content: ChartType = .candlestick) throws -> ChartConfiguration {
     try ChartConfiguration(source: CandleSource(id: id, duration: 60, provider: { TestSnapshotProvider(items) }),
-                           appearance: appearance, content: content, plugins: plugins, indicators: indicators, features: [])
+                           appearance: appearance, content: content, plugins: plugins, features: [])
+}
+
+func testSelection(_ indicators: IndicatorSelection, period: ChartPeriod = .oneMinute) -> ChartSelection {
+    ChartSelection(period: period, indicators: indicators)
 }
 
 /// Polls a semantic condition with a deadline, not a fixed timing assumption.

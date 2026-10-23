@@ -92,7 +92,6 @@ func tradeMarkerConfiguration(candles: [Candle], trades: [TradeMarker]) throws -
                 provider: { SnapshotTradeProvider(trades: trades) }
             )
         ],
-        indicators: IndicatorSelectionState(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]),
         features: []
     )
 }

@@ -11,7 +11,7 @@ Start with the [project README](../README.md) or the [getting-started guide](get
 | [Getting started](getting-started.md) | Add the package, build a configuration, and render a chart in SwiftUI and UIKit |
 | [Configuration and integration](configuration.md) | Configuration fields, update semantics, feature switches, error reporting, and the chart API |
 | [Data providers](data-providers.md) | Candle values, the provider contract, history paging, live snapshots, gap recovery, and independent range data |
-| [Built-in indicators](indicators.md) | The built-in catalog, selection and persistence, parameters, and Core calculators |
+| [Built-in indicators](indicators.md) | The built-in catalog, shared state stores, selection, parameters, and Core calculators |
 | [Appearance](appearance.md) | Themes, candle style, layout metrics, legend and watermark, and series-keyed styles |
 | [Plugins and custom charts](plugins.md) | Custom calculations, overlays, and sub panels with per-chart state |
 | [Architecture and ownership](architecture.md) | Module boundaries, data publication, concurrency, and rendering (deep dive) |
