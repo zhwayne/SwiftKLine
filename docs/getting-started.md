@@ -65,11 +65,13 @@ Notes on this snippet:
 
 - `features: []` turns off live updates and gap recovery, which is right for a static chart. Real-time charts use the default `.all`.
 - Construction throws for an empty source ID or an empty/duplicate plugin ID. Handle this at your app's initialization boundary.
-- `ChartSelection` supplies the period and initial indicator choices when constructing the chart; see [built-in indicators](indicators.md) for dynamic selection and persistence.
+- `IndicatorSelection` supplies built-in indicator choices. Applications own the period and optional application-defined persistence; see [built-in indicators](indicators.md).
 
 ## 3. Display it
 
 ### SwiftUI
+
+SwiftUI integration belongs to the application. First add the example [KLineChart.swift](../SwiftKLineExample/KLineChart.swift) to your app target; the `KLineChart` below is application code and is not exported by the library.
 
 ```swift
 import SwiftUI
@@ -78,11 +80,11 @@ import SwiftKLine
 @MainActor
 struct MarketChart: View {
     let configuration: ChartConfiguration
-    @State private var selection = ChartSelection(period: .oneMinute,
-        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
+    @State private var indicators = IndicatorSelection(
+        mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])
 
     var body: some View {
-        KLineChart(selection: $selection) { _ in configuration }
+        KLineChart(configuration: configuration, indicators: indicators)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -98,9 +100,8 @@ import SwiftKLine
 
 @MainActor
 func installChart(in container: UIView, configuration: ChartConfiguration) -> ChartView {
-    let selection = ChartSelection(period: .oneMinute,
-        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
-    let chart = ChartView(configuration: configuration, selection: selection)
+    let indicators = IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])
+    let chart = ChartView(configuration: configuration, indicators: indicators)
     container.addSubview(chart)
     chart.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([

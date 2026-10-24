@@ -40,7 +40,7 @@ open SwiftKLineExample.xcodeproj
 
 ## 代码与 API 约定
 
-- Core 仅依赖 Foundation。UIKit 协调和绘制放在 `SwiftKLineUI`，SwiftUI 适配层保持轻量。
+- Core 仅依赖 Foundation。UIKit 协调和绘制放在 `SwiftKLineUI`，SwiftUI 集成放在应用或示例代码中。
 - 分离计算、网络传输和绘制。交易所认证、账户模型和成交语义属于应用。
 - 遵守 `MainActor`、`Sendable` 和结构化取消约束，不用 unchecked 标注掩盖所有权问题。
 - 更新时保留语义身份。数据源 ID 描述数据和日历含义，插件 ID 描述稳定功能。

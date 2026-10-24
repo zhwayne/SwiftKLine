@@ -9,7 +9,7 @@ import SwiftKLineCore
 import UIKit
 
 /// Maps taps and long presses into a clamped viewport location and absolute candle selection.
-class CrosshairInteraction: NSObject, UIInteraction, UIGestureRecognizerDelegate {
+final class CrosshairInteraction: NSObject, UIInteraction, UIGestureRecognizerDelegate {
     
     weak var view: UIView?
     private let layout: ChartLayout
@@ -21,29 +21,32 @@ class CrosshairInteraction: NSObject, UIInteraction, UIGestureRecognizerDelegate
         self.onCrosshairUpdate = onCrosshairUpdate
     }
     
-    func willMove(to view: UIView?) { }
-    
+    private lazy var tap: UITapGestureRecognizer = {
+        let recognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        recognizer.cancelsTouchesInView = false
+        recognizer.delegate = self
+        return recognizer
+    }()
+    private lazy var longPress: UILongPressGestureRecognizer = {
+        let recognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
+        recognizer.minimumPressDuration = 0.25
+        recognizer.allowableMovement = 2
+        recognizer.cancelsTouchesInView = false
+        recognizer.delegate = self
+        return recognizer
+    }()
+
+    func willMove(to view: UIView?) {
+        self.view?.removeGestureRecognizer(tap)
+        self.view?.removeGestureRecognizer(longPress)
+    }
+
     func didMove(to view: UIView?) {
         self.view = view
-        let tap = UITapGestureRecognizer(
-            target: self,
-            action: #selector(Self.handleTap(_:))
-        )
-        tap.cancelsTouchesInView = false
-        tap.delegate = self
         view?.addGestureRecognizer(tap)
-        
-        let longPress = UILongPressGestureRecognizer(
-            target: self,
-            action: #selector(Self.handleLongPress(_:))
-        )
-        longPress.minimumPressDuration = 0.25
-        longPress.allowableMovement = 2
-        longPress.cancelsTouchesInView = false
-        longPress.delegate = self
         view?.addGestureRecognizer(longPress)
     }
-    
+
     @objc private func handleTap(_ tap: UITapGestureRecognizer) {
         location = tap.location(in: tap.view)
         drawCrosshair()
@@ -66,7 +69,8 @@ class CrosshairInteraction: NSObject, UIInteraction, UIGestureRecognizerDelegate
     
     /// Snaps x to the selected candle center, clamps y to the chart, and forwards the selection to ChartView.
     private func drawCrosshair() {
-        guard let view else {
+        guard let view, layout.itemCount > 0, view.bounds.height > 0,
+              location.x.isFinite, location.y.isFinite else {
             return
         }
         

@@ -29,12 +29,11 @@ Start with the [project README](../README.md) or the [getting-started guide](get
 
 | Name | Kind | Responsibility |
 |---|---|---|
-| `SwiftKLine` | Library product and umbrella target | App-facing imports for Core, UIKit, and SwiftUI on iOS |
-| `SwiftKLineCore` | Library product and target | Foundation models, merging, calculators, typed outputs, and range pagination |
+| `SwiftKLine` | Library product and umbrella target | App-facing imports for Core and UIKit on iOS |
+| `SwiftKLineCore` | Library product and target | Foundation models, merging, calculators, typed outputs, range pagination, and the primary candle-loading session |
 | `SwiftKLineUI` | Internal package target | Configuration, lifecycle coordination, UIKit, and Core Animation rendering |
-| `SwiftKLineSwiftUI` | Internal package target | `UIViewRepresentable` adapter |
 
-The two products available to package consumers are `SwiftKLine` and `SwiftKLineCore`. The UI targets contain public APIs re-exported by `SwiftKLine`; they are not separate package products.
+The two products available to package consumers are `SwiftKLine` and `SwiftKLineCore`. The UIKit target contains public APIs re-exported by `SwiftKLine`; it is not a separate package product. SwiftUI bridging belongs to application code; the example supplies a small `UIViewRepresentable` wrapper.
 
 ## Languages and examples
 

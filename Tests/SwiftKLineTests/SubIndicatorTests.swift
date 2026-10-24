@@ -18,15 +18,16 @@ private let additionalIndicators: [BuiltInIndicator] = [.kdj, .cci, .wr, .dmi, .
             dmiKey: DMIStyle(plusDIColor: .systemGreen, minusDIColor: .systemRed, adxColor: .systemOrange),
             .wr(period: 14): LineStyle(strokeColor: .systemBlue),
             .wr(period: 7): LineStyle(strokeColor: .systemPurple)
-        ],
-        indicatorKeyOverrides: [
-            .kdj: [kdjKey],
-            .dmi: [dmiKey],
-            .wr: [.wr(period: 14), .wr(period: 7)]
         ]
     )
+    let parameters = IndicatorConfiguration(seriesKeys: [
+        .kdj: [kdjKey],
+        .dmi: [dmiKey],
+        .wr: [.wr(period: 14), .wr(period: 7)]
+    ])
     let selection = IndicatorSelection(subIndicatorIDs: [.kdj, .dmi, .wr])
-    #expect(appearance.indicatorKeys(for: .wr).count == 2)
+    #expect(parameters.indicatorKeys(for: .wr).count == 2)
+    #expect(appearance.indicatorStyle(for: kdjKey, type: KDJStyle.self) != nil)
     #expect(selection.subIndicatorIDs == [.kdj, .dmi, .wr])
 }
 
@@ -47,7 +48,7 @@ private func allLayers(_ layer: CALayer) -> [CALayer] {
     let scroll = ChartScrollView(frame: view.bounds)
     let dimensions = CandleDimensions(width: 8, gap: 2)
     let layout = ChartLayout(scrollView: scroll, candleDimensions: dimensions)
-    let context = ChartContext(indicatorSeriesStore: IndicatorSeriesStore(), items: [],
+    let context = ChartContext(seriesStore: IndicatorSeriesStore(), items: [],
         appearance: ChartAppearance(), candleDimensions: dimensions, visibleRange: 0..<0,
         layout: layout, location: nil, selectedIndex: nil)
     context.legendText = NSAttributedString(string: "KDJ(9,3,3) K:87.59")
@@ -89,7 +90,7 @@ private func allLayers(_ layer: CALayer) -> [CALayer] {
         .init(k: 90, d: 60, j: 150), .init(k: 80, d: 65, j: 110)
     ]), for: key)
     func context(_ store: IndicatorSeriesStore, selected: Int? = nil, range: Range<Int> = 0..<5) -> ChartContext {
-        let ctx = ChartContext(indicatorSeriesStore: store, items: items,
+        let ctx = ChartContext(seriesStore: store, items: items,
             appearance: ChartAppearance(indicatorStyleRegistry: [key: KDJStyle(kColor: .cyan, dColor: .orange, jColor: .purple)]),
             candleDimensions: dimensions, visibleRange: range, layout: layout, location: nil, selectedIndex: selected)
         ctx.viewPort = layer.bounds
@@ -142,7 +143,7 @@ private func allLayers(_ layer: CALayer) -> [CALayer] {
     let layout = ChartLayout(scrollView: scroll, candleDimensions: dimensions)
     layout.itemCount = 2
     layout.dataBounds = ValueBounds(min: 0, max: 100)
-    let ctx = ChartContext(indicatorSeriesStore: store, items: [testCandle(0, 1), testCandle(60, 2)],
+    let ctx = ChartContext(seriesStore: store, items: [testCandle(0, 1), testCandle(60, 2)],
         appearance: ChartAppearance(), candleDimensions: dimensions, visibleRange: 0..<2,
         layout: layout, location: nil, selectedIndex: nil)
     ctx.viewPort = scroll.bounds
@@ -167,12 +168,12 @@ private func allLayers(_ layer: CALayer) -> [CALayer] {
 @Test @MainActor func additionalIndicatorPluginsRespectCompleteKeysAndThemeStyles() {
     let k1 = SeriesKey.kdj(period: 9, kPeriod: 3, dPeriod: 3)
     let k2 = SeriesKey.kdj(period: 5, kPeriod: 2, dPeriod: 4)
-    let appearance = ChartAppearance(indicatorKeyOverrides: [.kdj: [k1, k2]])
-    let plugin = BuiltInIndicatorPlugin(indicator: .kdj, appearance: appearance)
-    #expect(plugin.makeCalculators(configuration: appearance).map(\.id) == [k1, k2])
-    #expect(plugin.makeRenderers(configuration: appearance).count == 2)
+    let parameters = IndicatorConfiguration(seriesKeys: [.kdj: [k1, k2]])
+    let plugin = BuiltInIndicatorPlugin(indicator: .kdj, configuration: parameters)
+    #expect(plugin.makeCalculators(configuration: parameters).map(\.id) == [k1, k2])
+    #expect(plugin.makeRenderers(configuration: parameters).count == 2)
     let bad = SeriesKey(indicatorID: .kdj, name: "KDJ", parameters: ["period": "9", "kPeriod": "invalid", "dPeriod": "3"])
-    let malformed = ChartAppearance(indicatorKeyOverrides: [.kdj: [bad]])
+    let malformed = IndicatorConfiguration(seriesKeys: [.kdj: [bad]])
     #expect(plugin.makeCalculators(configuration: malformed).isEmpty)
     #expect(plugin.makeRenderers(configuration: malformed).isEmpty)
     #expect(BuiltInIndicator.allCases.map(\.id) == IndicatorID.allBuiltIn)
@@ -194,13 +195,13 @@ func nineAdditionalIndicatorsPublishAndDrawIndependentPanels(width: CGFloat) asy
     let selected = IndicatorSelection(subIndicatorIDs: additionalIndicators.map(\.id))
     let customKDJ = SeriesKey.kdj(period: 5, kPeriod: 2, dPeriod: 4)
     let customDMI = SeriesKey.dmi(diPeriod: 5, adxPeriod: 3)
-    let appearance = ChartAppearance(indicatorKeyOverrides: [
+    let parameters = IndicatorConfiguration(seriesKeys: [
         .kdj: BuiltInIndicator.kdj.defaultSeriesKeys + [customKDJ],
         .dmi: BuiltInIndicator.dmi.defaultSeriesKeys + [customDMI],
         .wr: [.wr(period: 14), .wr(period: 7)]
     ])
     let chart = ChartView(configuration: try testConfiguration(items: items,
-        appearance: appearance), selection: testSelection(selected))
+        indicatorConfiguration: parameters), indicators: selected)
     defer { chart.shutdown() }
     #expect(await eventually { chart.debugItemTimestamps.count == 120 })
     await chart.debugWaitForRefresh()
@@ -231,7 +232,7 @@ func nineAdditionalIndicatorsPublishAndDrawIndependentPanels(width: CGFloat) asy
     let texts = legends.compactMap { ($0.string as? NSAttributedString)?.string }
     for indicator in additionalIndicators { #expect(texts.contains { $0.contains(indicator.rawValue) }) }
     #expect(legends.filter { ($0.string as? NSAttributedString)?.string.contains("KDJ(") == true }.count == 1)
-    #expect(chart.intrinsicContentSize.height >= CGFloat(9) * appearance.layoutMetrics.indicatorHeight)
+    #expect(chart.intrinsicContentSize.height >= CGFloat(9) * ChartAppearance().layoutMetrics.indicatorHeight)
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let folder = root.appendingPathComponent(".build/validation")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -239,18 +240,18 @@ func nineAdditionalIndicatorsPublishAndDrawIndependentPanels(width: CGFloat) asy
 
     chart.debugInspectCandle(at: 95)
     #expect(chart.debugSelectedCandleIndex == 95)
-    var withoutKDJ = chart.selection
-    withoutKDJ.indicators.subIndicatorIDs.removeAll { $0 == .kdj }
-    chart.setSelection(withoutKDJ)
+    var withoutKDJ = chart.indicators
+    withoutKDJ.subIndicatorIDs.removeAll { $0 == .kdj }
+    chart.setIndicators(withoutKDJ)
     await chart.debugWaitForRefresh()
     #expect(!chart.debugVisiblePluginIDs.contains("builtin.kdj"))
     #expect(chart.debugStore(for: "builtin.kdj").values(for: customKDJ, as: KDJIndicatorValue.self) == nil)
-    chart.setSelection(testSelection(selected))
+    chart.setIndicators(selected)
     await chart.debugWaitForRefresh()
     #expect(chart.debugStore(for: "builtin.kdj").values(for: customKDJ, as: KDJIndicatorValue.self)?[119] != nil)
 
     let retained = try #require(chart.debugRenderer(for: "builtin.kdj", as: SubIndicatorRenderer.self))
-    chart.apply(try testConfiguration(items: items, appearance: ChartAppearance(indicatorKeyOverrides: [
+    chart.apply(try testConfiguration(items: items, indicatorConfiguration: IndicatorConfiguration(seriesKeys: [
         .kdj: BuiltInIndicator.kdj.defaultSeriesKeys + [customKDJ],
         .dmi: BuiltInIndicator.dmi.defaultSeriesKeys + [customDMI],
         .wr: [.wr(period: 21)]
@@ -268,17 +269,17 @@ func nineAdditionalIndicatorsPublishAndDrawIndependentPanels(width: CGFloat) asy
     #expect(try JSONDecoder().decode(IndicatorSelection.self, from: encoded) == selected)
     let items = (0..<100).map { testCandle($0 * 60, Double($0 + 1)) }
     let config = try testConfiguration(items: items)
-    let chart = ChartView(configuration: config, selection: testSelection(selected))
+    let chart = ChartView(configuration: config, indicators: selected)
     defer { chart.shutdown() }
     #expect(await eventually { chart.debugItemTimestamps.count == 100 })
-    #expect(chart.selection.indicators == selected)
-    var withoutMFI = chart.selection
-    withoutMFI.indicators.subIndicatorIDs.removeAll { $0 == .mfi }
-    chart.setSelection(withoutMFI)
+    #expect(chart.indicators == selected)
+    var withoutMFI = chart.indicators
+    withoutMFI.subIndicatorIDs.removeAll { $0 == .mfi }
+    chart.setIndicators(withoutMFI)
     await chart.debugWaitForRefresh()
-    #expect(chart.selection == withoutMFI)
-    let restored = ChartView(configuration: try testConfiguration(items: items), selection: withoutMFI)
+    #expect(chart.indicators == withoutMFI)
+    let restored = ChartView(configuration: try testConfiguration(items: items), indicators: withoutMFI)
     defer { restored.shutdown() }
-    #expect(restored.selection == withoutMFI)
+    #expect(restored.indicators == withoutMFI)
 }
 #endif

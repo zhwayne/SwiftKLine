@@ -24,7 +24,7 @@ A plugin value describes configuration. A nested `Coordinator` holds per-chart m
 
 The host creates a coordinator and calls `update`. Later calls reflect configuration, published candles, viewport demand, or chart activity. Compare relevant inputs before replacing resources; `update` runs on the main actor and must not block it.
 
-The same ID and concrete type retain a coordinator, including when plugins are reordered. Removal, replacement by a different type, or a primary session rebuild ends the old lifecycle. The host revokes context access before dismantling. Cancel tasks and subscriptions in `dismantleCoordinator(_:)`. Each chart needs independent coordinators, renderers, and layers.
+The same ID and concrete type retain a coordinator, including when plugins are reordered. Removal, replacement by a different type, or a primary session rebuild ends the old lifecycle. The host relinquishes entry ownership and revokes context access before dismantling. Cleanup may close the chart reentrantly without dismantling the same coordinator twice; an interrupted reconciliation disposes unpublished entries instead of installing them. Cancel tasks and subscriptions in `dismantleCoordinator(_:)`. Each chart needs independent coordinators, renderers, and layers.
 
 ## Add a calculated line
 

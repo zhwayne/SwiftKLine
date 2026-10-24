@@ -13,7 +13,11 @@ import UIKit
 /// The drawing coordinator updates group-specific geometry while iterating renderers. Read these values
 /// during the current draw or legend call; do not retain the mutable context as a cache across passes.
 @MainActor public final class ChartContext {
-    let indicatorSeriesStore: IndicatorSeriesStore
+    /// Plugin-scoped outputs, or nil for the unscoped context the drawing host creates.
+    ///
+    /// A nil store models "this context owns no series" instead of an empty store that silently returns
+    /// nil to every lookup, so an unscoped read cannot be mistaken for a missing series.
+    private let seriesStore: IndicatorSeriesStore?
     let pluginStores: [String: IndicatorSeriesStore]
     private var scopedContexts: [String: ChartContext] = [:]
     let candleInterval: (@Sendable (Int) -> Range<Date>)?
@@ -46,7 +50,7 @@ import UIKit
     public var candleGap: CGFloat { candleDimensions.gap }
 
     init(
-        indicatorSeriesStore: IndicatorSeriesStore,
+        seriesStore: IndicatorSeriesStore?,
         items: [any ChartItem],
         appearance: ChartAppearance,
         candleDimensions: CandleDimensions,
@@ -58,7 +62,7 @@ import UIKit
         pluginStores: [String: IndicatorSeriesStore] = [:],
         candleInterval: (@Sendable (Int) -> Range<Date>)? = nil
     ) {
-        self.indicatorSeriesStore = indicatorSeriesStore
+        self.seriesStore = seriesStore
         self.pluginStores = pluginStores
         self.candleInterval = candleInterval
         self.items = items
@@ -103,21 +107,25 @@ extension ChartContext {
     ///   - type: Exact output element type.
     /// - Returns: An absolute-indexed slice, or nil for a missing/type-mismatched series or invalid range.
     public func visibleValues<Value>(for key: SeriesKey, as type: Value.Type) -> ArraySlice<Value?>? {
-        visibleValues(from: indicatorSeriesStore.values(for: key, as: type))
+        visibleValues(from: seriesStore?.values(for: key, as: type))
     }
 
     /// Returns the full output array for an exact series key and type, or nil when either does not match.
+    ///
+    /// Series live in a plugin's own namespace. The context passed into ``ChartRenderer`` methods is already
+    /// scoped to the owning plugin, so this always reads that plugin's outputs. The unscoped context created
+    /// by the drawing host owns no series and returns nil for every key.
     public func values<Value>(
         for key: SeriesKey,
         as type: Value.Type
     ) -> ContiguousArray<Value?>? {
-        indicatorSeriesStore.values(for: key, as: type)
+        seriesStore?.values(for: key, as: type)
     }
 }
 
 extension ChartContext {
     func scalarValues(for key: SeriesKey) -> ContiguousArray<Double?>? {
-        indicatorSeriesStore.values(for: key, as: Double.self)
+        seriesStore?.values(for: key, as: Double.self)
     }
 
     func visibleScalarValues(for key: SeriesKey) -> ArraySlice<Double?>? {
@@ -125,7 +133,7 @@ extension ChartContext {
     }
 
     func bollValues(for key: SeriesKey = .boll(period: 20, k: 2.0)) -> ContiguousArray<BOLLIndicatorValue?>? {
-        indicatorSeriesStore.values(for: key, as: BOLLIndicatorValue.self)
+        seriesStore?.values(for: key, as: BOLLIndicatorValue.self)
     }
 
     func visibleBollValues(for key: SeriesKey = .boll(period: 20, k: 2.0)) -> ArraySlice<BOLLIndicatorValue?>? {
@@ -133,7 +141,7 @@ extension ChartContext {
     }
 
     func macdValues(for key: SeriesKey = .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)) -> ContiguousArray<MACDIndicatorValue?>? {
-        indicatorSeriesStore.values(for: key, as: MACDIndicatorValue.self)
+        seriesStore?.values(for: key, as: MACDIndicatorValue.self)
     }
 
     func visibleMacdValues(for key: SeriesKey = .macd(shortPeriod: 12, longPeriod: 26, signalPeriod: 9)) -> ArraySlice<MACDIndicatorValue?>? {
@@ -171,7 +179,7 @@ extension ChartContext {
         let result: ChartContext
         if let cached = scopedContexts[plugin] { result = cached }
         else {
-            result = ChartContext(indicatorSeriesStore: pluginStores[plugin] ?? IndicatorSeriesStore(),
+            result = ChartContext(seriesStore: pluginStores[plugin],
                 items: items, appearance: appearance, candleDimensions: candleDimensions,
                 visibleRange: visibleRange, layout: layout, location: location, selectedIndex: currentIndex,
                 dataRevision: dataRevision, candleInterval: candleInterval)

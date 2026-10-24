@@ -16,7 +16,7 @@ import SwiftKLineCore
     let scroll = ChartScrollView(frame: CGRect(x: 0, y: 0, width: 200, height: 100))
     let dims = CandleDimensions(width: 8, gap: 2)
     let layout = ChartLayout(scrollView: scroll, candleDimensions: dims)
-    let context = ChartContext(indicatorSeriesStore: IndicatorSeriesStore(), items: [testCandle(60, 1), testCandle(180, 2)],
+    let context = ChartContext(seriesStore: IndicatorSeriesStore(), items: [testCandle(60, 1), testCandle(180, 2)],
         appearance: ChartAppearance(), candleDimensions: dims, visibleRange: 0..<2, layout: layout,
         location: nil, selectedIndex: nil, candleInterval: { timestamp in
             let start = Date(timeIntervalSince1970: Double(timestamp)); return start..<start.addingTimeInterval(60)
@@ -32,7 +32,7 @@ import SwiftKLineCore
     let scroll = ChartScrollView(frame: CGRect(x: 0, y: 0, width: 200, height: 100))
     let dims = CandleDimensions(width: 8, gap: 2)
     let layout = ChartLayout(scrollView: scroll, candleDimensions: dims)
-    let context = ChartContext(indicatorSeriesStore: IndicatorSeriesStore(),
+    let context = ChartContext(seriesStore: IndicatorSeriesStore(),
         items: [testCandle(1_704_067_200, 1), testCandle(1_706_745_600, 2)],
         appearance: ChartAppearance(), candleDimensions: dims, visibleRange: 0..<2, layout: layout,
         location: nil, selectedIndex: nil, candleInterval: { timestamp in

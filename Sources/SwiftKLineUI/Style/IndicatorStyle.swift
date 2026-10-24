@@ -12,7 +12,7 @@ import UIKit
 public protocol IndicatorStyle { }
 
 /// The visual style shared by scalar line indicators and bands that consume a line color.
-public struct LineStyle: IndicatorStyle {
+public struct LineStyle: IndicatorStyle, Equatable {
     /// The stroke color, resolved when the renderer draws.
     public let strokeColor: UIColor
     
@@ -23,7 +23,7 @@ public struct LineStyle: IndicatorStyle {
 }
 
 /// Independent line colors for one complete KDJ output, keyed by all calculation parameters.
-public struct KDJStyle: IndicatorStyle {
+public struct KDJStyle: IndicatorStyle, Equatable {
     public let kColor: UIColor
     public let dColor: UIColor
     public let jColor: UIColor
@@ -36,7 +36,7 @@ public struct KDJStyle: IndicatorStyle {
 }
 
 /// Independent +DI, -DI and ADX colors for one complete DMI output.
-public struct DMIStyle: IndicatorStyle {
+public struct DMIStyle: IndicatorStyle, Equatable {
     public let plusDIColor: UIColor
     public let minusDIColor: UIColor
     public let adxColor: UIColor
@@ -49,13 +49,13 @@ public struct DMIStyle: IndicatorStyle {
 }
 
 /// Internal text appearance for latest-price and visible-extreme annotations.
-struct PriceIndicatorStyle: IndicatorStyle {
+struct PriceIndicatorStyle: IndicatorStyle, Equatable {
     let textColor: UIColor = UIColor.label.withAlphaComponent(0.7)
     let font: UIFont = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
 }
 
 /// Internal font and text color for time-axis labels.
-struct TimeAxisStyle: IndicatorStyle {
+struct TimeAxisStyle: IndicatorStyle, Equatable {
     let textColor: UIColor
     let font: UIFont
 
@@ -69,7 +69,7 @@ struct TimeAxisStyle: IndicatorStyle {
 }
 
 /// Internal line, gradient-fill, and border colors for time-series presentation.
-struct TimeSeriesStyle: IndicatorStyle {
+struct TimeSeriesStyle: IndicatorStyle, Equatable {
     let lineColor: UIColor
     /// Color at the top of the price viewport, fading to the same RGB with zero alpha at the bottom.
     let fillColor: UIColor
@@ -87,7 +87,7 @@ struct TimeSeriesStyle: IndicatorStyle {
 }
 
 /// Internal colors for the MACD histogram and its DIF and DEA lines.
-struct MACDStyle: IndicatorStyle {
+struct MACDStyle: IndicatorStyle, Equatable {
     let macdColor: UIColor
     let difColor: UIColor
     let deaColor: UIColor
@@ -103,7 +103,7 @@ struct MACDStyle: IndicatorStyle {
 ///
 /// Segments drawn while the trend is up use ``upColor``; segments drawn while it is down use ``downColor``.
 /// The translucent ``upFillColor`` and ``downFillColor`` shade the area between the active line and price.
-struct SuperTrendStyle: IndicatorStyle {
+struct SuperTrendStyle: IndicatorStyle, Equatable {
     let upColor: UIColor
     let downColor: UIColor
     let upFillColor: UIColor
@@ -135,7 +135,7 @@ struct SuperTrendStyle: IndicatorStyle {
 ///
 /// Each line has its own color, while the Senkou cloud selects a bullish or bearish fill from the relative
 /// order of Senkou Span A and Senkou Span B.
-struct IchimokuStyle: IndicatorStyle {
+struct IchimokuStyle: IndicatorStyle, Equatable {
     let tenkanColor: UIColor
     let kijunColor: UIColor
     let spanAColor: UIColor
@@ -170,5 +170,21 @@ struct IchimokuStyle: IndicatorStyle {
         self.chikouColor = chikouColor
         self.bullishCloudColor = bullishCloudColor
         self.bearishCloudColor = bearishCloudColor
+    }
+}
+
+/// Only known immutable styles can prove no change. A custom Equatable value can still alias mutable state.
+func equalIndicatorStyles(_ lhs: any IndicatorStyle, _ rhs: any IndicatorStyle) -> Bool {
+    switch (lhs, rhs) {
+    case let (a as LineStyle, b as LineStyle): return a == b
+    case let (a as KDJStyle, b as KDJStyle): return a == b
+    case let (a as DMIStyle, b as DMIStyle): return a == b
+    case let (a as PriceIndicatorStyle, b as PriceIndicatorStyle): return a == b
+    case let (a as TimeAxisStyle, b as TimeAxisStyle): return a == b
+    case let (a as TimeSeriesStyle, b as TimeSeriesStyle): return a == b
+    case let (a as MACDStyle, b as MACDStyle): return a == b
+    case let (a as SuperTrendStyle, b as SuperTrendStyle): return a == b
+    case let (a as IchimokuStyle, b as IchimokuStyle): return a == b
+    default: return false
     }
 }

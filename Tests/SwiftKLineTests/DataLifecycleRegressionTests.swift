@@ -327,4 +327,27 @@ private final class TwoPageProvider: ChartItemProvider, Sendable {
     await provider.releasePage.signal()
     #expect(await eventually { coordinator.snapshot.items.map(\.timestamp) == [60, 120, 180] })
 }
+@available(iOS 16.0, *)
+@Test(.timeLimit(.minutes(1))) @MainActor func shutdownRejectsDelayedHistoryAndLifecycleUpdates() async {
+    let provider = ControlledProvider()
+    let config = configuration(provider)
+    let coordinator = ChartCoordinator(configuration: config)
+    coordinator.apply(config, initial: true)
+    await provider.pageRequested.wait()
+    await provider.streamRequested.wait()
+    coordinator.shutdown()
+    let revision = coordinator.snapshot.revision
+    coordinator.apply(config, initial: true)
+    coordinator.setActive(true)
+    coordinator.setVisibleRange(0..<1)
+    coordinator.loadMore(contentOffsetX: 0, viewportWidth: 390)
+    await provider.releasePage.signal()
+    await provider.terminated.wait()
+    await coordinator.waitForRefresh()
+    #expect(coordinator.isShutdown)
+    #expect(coordinator.snapshot.items.isEmpty)
+    #expect(coordinator.snapshot.revision == revision)
+    #expect(coordinator.plugins.contexts.isEmpty)
+}
+
 #endif

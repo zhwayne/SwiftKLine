@@ -254,6 +254,10 @@ private struct ProbeCalculator: IndicatorCalculator {
     context.requestRedraw()
     #expect(notifications == [false])
     coordinator.apply(configuration)
+    #expect(notifications == [false])
+    var themed = configuration
+    themed.appearance = .themed(.midnight)
+    coordinator.apply(themed)
     #expect(notifications == [false, false])
     coordinator.shutdown()
 }
@@ -266,7 +270,7 @@ private struct ProbeCalculator: IndicatorCalculator {
         return start..<start.addingTimeInterval(60)
     }, provider: { TestSnapshotProvider((0..<100).map { testCandle($0 * 60, Double($0)) }) })
     let selection = IndicatorSelection(mainIndicatorIDs: [.ma])
-    let chart = ChartView(configuration: try ChartConfiguration(source: source, features: []), selection: testSelection(selection))
+    let chart = ChartView(configuration: try ChartConfiguration(source: source, features: []), indicators: selection)
     #expect(await eventually { chart.debugItemTimestamps.count == 100 })
     chart.frame = CGRect(x: 0, y: 0, width: 390, height: chart.intrinsicContentSize.height)
     _ = chart.debugRenderForInspection()

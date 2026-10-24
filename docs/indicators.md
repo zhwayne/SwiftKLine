@@ -39,30 +39,23 @@ The `BuiltInIndicator` enum lists these cases (`.superTrend` and `.ichimoku` use
 
 ## Selection
 
-Period and indicators share one `ChartSelection`, containing `period: ChartPeriod` and `indicators: IndicatorSelection`. Applications supply controls; the library owns restoration, normalization, application and persistence. `ChartConfiguration` contains source and rendering declarations, with no separate selection field.
+The application owns period and indicator controls. `ChartConfiguration` describes the source, appearance and plugins; `IndicatorSelection` is a separate input containing built-in choices. The chart consumes values without restoring storage or writing back into application state.
 
 ### Initial state
 
-| Priority | Source | Condition |
-|---|---|---|
-| 1 | Stored `ChartSelection` | Decodes successfully; empty indicator choices are valid |
-| 2 | Legacy indicator record + initial period | No complete stored selection exists |
-| 3 | Initial selection / SwiftUI binding | No usable stored record exists |
+Omitting `indicators:` selects no built-ins. `ChartView.indicators` retains the requested value; `resolvedIndicators` derives recognized, correctly placed, unique built-ins in display order. Applications own default choices and available options. Preserve the original preference and pass `indicators.resolved(availableIndicators: available)` into the chart so temporarily unavailable choices can return later.
 
-The static `configuration:` convenience derives a one-minute initial period and appearance-default indicators when no explicit selection is supplied. Use the factory initializer below for period controls.
+Custom plugins are declared in `ChartConfiguration.plugins`. Indicator selection does not toggle custom plugins or explicitly declared built-ins; explicit declarations take precedence when IDs overlap.
 
-`availablePeriods` canonicalizes a matching identifier to the supplied period, including its nominal seconds. An unsupported period falls back to the first valid available entry. An empty list accepts custom periods with a nonempty identifier and positive seconds; invalid input uses the initial valid period, or one minute. Indicator IDs are filtered for availability, panel placement and duplicates, retaining order.
+### Period configuration
 
-### One configuration factory
-
-The library resolves the stored period before constructing configuration and starting a provider. Keep the factory free of side effects and include the period in `CandleSource.id`; changing only indicators then preserves the primary session. This fixed-duration example supports minute and hour periods; calendar periods still need exchange-aware `candleInterval:` rules.
+The application validates its period before constructing a source. Include the period and calendar semantics in `CandleSource.id` so changing only indicators preserves the provider. This fixed-duration example supports minute and hour periods; calendar periods need exchange-aware `candleInterval:` rules.
 
 ```swift
 import SwiftKLine
 
 @MainActor
-func configuration(for selection: ChartSelection) -> ChartConfiguration {
-    let period = selection.period
+func configuration(for period: ChartPeriod) -> ChartConfiguration {
     let source = CandleSource(
         id: "demo:\(period.identifier):\(period.seconds)",
         duration: Double(period.seconds)
@@ -73,12 +66,13 @@ func configuration(for selection: ChartSelection) -> ChartConfiguration {
         }
         return SnapshotProvider(items: candles)
     }
-    // Validated periods, a nonempty source ID and no plugins make these declarations valid.
     return try! ChartConfiguration(source: source, appearance: .themed(.solaris), features: [])
 }
 ```
 
 ### SwiftUI
+
+SwiftUI integration belongs to the application. First add the example [KLineChart.swift](../SwiftKLineExample/KLineChart.swift) to your app target; the `KLineChart` below is application code and is not exported by the library.
 
 ```swift
 import SwiftUI
@@ -86,27 +80,24 @@ import SwiftKLine
 
 @MainActor
 struct SelectableChart: View {
-    @State private var selection = ChartSelection(period: .oneMinute,
-        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
-    @State private var store = UserDefaultsChartStateStore(namespace: "com.myapp.BTCUSDT")
+    @State private var period: ChartPeriod = .oneMinute
+    @State private var indicators = IndicatorSelection(
+        mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])
 
     var body: some View {
         VStack {
-            Picker("Period", selection: $selection.period) {
+            Picker("Period", selection: $period) {
                 Text("1m").tag(ChartPeriod.oneMinute)
                 Text("1h").tag(ChartPeriod.oneHour)
             }
-            KLineChart(selection: $selection, availablePeriods: [.oneMinute, .oneHour],
-                       stateStore: store, configuration: configuration(for:))
+            KLineChart(configuration: configuration(for: period), indicators: indicators)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
 ```
 
-An application-owned indicator selector binds to `$selection.indicators`, just as the period picker binds to `$selection.period`. Both use the same chart pipeline; no manual store reads, writes or `.onChange` persistence are needed.
-
-The chart writes restored/normalized selection back asynchronously, outside SwiftUI's update cycle. Later binding edits are commands. A newer user edit takes precedence over an outstanding asynchronous write; unchanged view updates neither save selection again nor restart providers. Availability changes are normalized, persisted and written back too.
+An application-owned indicator selector binds to `$indicators`; the chart receives the current value. Period changes rebuild the configuration. The adapter forwards these inputs and performs sizing and teardown, without binding synchronization or persistence tasks.
 
 ### UIKit
 
@@ -114,28 +105,40 @@ The chart writes restored/normalized selection back asynchronously, outside Swif
 import SwiftKLine
 
 @MainActor
-func makePersistentChart(onSelectionChanged: @escaping (ChartSelection) -> Void) -> ChartView {
-    let initial = ChartSelection(period: .oneMinute,
-        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
-    let chart = ChartView(selection: initial, availablePeriods: [.oneMinute, .oneHour],
-        stateStore: UserDefaultsChartStateStore(namespace: "com.myapp.BTCUSDT"),
-        configuration: configuration(for:))
-    chart.selectionChanged = onSelectionChanged
-    return chart
+func makeChart(period: ChartPeriod, indicators: IndicatorSelection) -> ChartView {
+    ChartView(configuration: configuration(for: period), indicators: indicators)
 }
 ```
 
-Read `chart.selection` immediately after construction to populate controls with restored values. Send a whole value through `setSelection(_:)`; `selectionChanged` reports actual changes after normalization and persistence. `resetSelectionToDefault()` restores the initial period and the current appearance's default indicators. To update availability or the factory, use `apply(selection:availablePeriods:configuration:)`; omit selection to preserve current choices.
+Use `setIndicators(_:)` to update built-ins, `apply(_:)` to update configuration while retaining requested indicators, or `apply(_:indicators:)` to update both together. To reset, supply application-defined defaults explicitly. Theme changes never select indicators or change their calculation parameters.
 
 ### Shared state store
 
-`ChartStateStore` is defined and used by the library. It stores the complete `ChartSelection` as one record under an internal key. Pass `nil` to disable persistence, `MemoryChartStateStore()` for an instance-isolated session, or `UserDefaultsChartStateStore(namespace:)` for persistent chart-specific state. The store is fixed for the chart's lifetime; keep its instance/namespace stable.
+`ChartPreferences`, `ChartStateStore` and migration code belong to the example application and are not exported by the library. Copy the example [Preferences directory](../SwiftKLineExample/Preferences) to reuse them. The application-owned `ChartScreenState` restores and validates once before source construction, retains preferences across view updates, and saves only changed period/indicator values. The App owns this observable instance; ContentView receives it through `@Bindable`. Previews use isolated offline state.
 
-The default namespace is `com.swiftkline`. Legacy library indicator records are migrated with the supplied initial period. Application-specific legacy keys require application migration. Applications may reuse the same Data-backed protocol and typed `ChartStateKey<Value>` for unrelated preferences; period and indicator selection need no application-defined keys.
+```swift
+import SwiftKLine
+
+@MainActor
+func restorePreferences(from store: any ChartStateStore) -> ChartPreferences {
+    let defaults = ChartPreferences(period: .oneMinute,
+        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol]))
+    var restored = ChartPreferences.restore(from: store, defaults: defaults)
+    let availablePeriods: [ChartPeriod] = [.oneMinute, .oneHour]
+    restored.period = availablePeriods.first { $0.identifier == restored.period.identifier } ?? defaults.period
+    restored.indicators = restored.indicators.resolved(availableIndicators: BuiltInIndicator.allCases)
+    restored.save(to: store)
+    return restored
+}
+```
+
+`ChartPreferences.restore(from:defaults:)` reads the first decodable record in this order: `chart.preferences`, legacy `chart.selection`, legacy `indicator.selection` combined with the default period, then the supplied defaults. Empty indicators are valid. Restoration does not write or normalize; `save(to:)` writes the current format. JSON and historical property lists are supported.
+
+`UserDefaultsChartStateStore(namespace:)` isolates charts; its default namespace is `com.swiftkline`. `MemoryChartStateStore()` is instance-isolated. Applications may also reuse the Data-backed protocol with typed `ChartStateKey<Value>` values. The application’s `.chartPreferences` key supports explicit removal. Retired legacy records should also be removed if resetting storage must prevent fallback to old preferences.
 
 ## Parameters
 
-Default parameters live in the default series keys above. To run custom periods through the same selection and rendering, override the key list per indicator:
+Default parameters live in the default series keys above. Pass independent calculation settings through `ChartConfiguration.indicatorConfiguration`; `ChartAppearance` holds only visual styles:
 
 ```swift
 import UIKit
@@ -149,14 +152,20 @@ let appearance = ChartAppearance(
         dmiKey: DMIStyle(plusDIColor: .systemGreen, minusDIColor: .systemRed, adxColor: .systemOrange),
         .wr(period: 14): LineStyle(strokeColor: .systemBlue),
         .wr(period: 7): LineStyle(strokeColor: .systemPurple)
-    ],
-    indicatorKeyOverrides: [
-        .kdj: [kdjKey],
-        .dmi: [dmiKey],
-        .wr: [.wr(period: 14), .wr(period: 7)]
     ]
 )
+let parameters = IndicatorConfiguration(seriesKeys: [
+    .kdj: [kdjKey],
+    .dmi: [dmiKey],
+    .wr: [.wr(period: 14), .wr(period: 7)]
+])
 let selection = IndicatorSelection(subIndicatorIDs: [.kdj, .dmi, .wr])
+let config = try ChartConfiguration(
+    source: CandleSource(id: "parameters-demo", duration: 60) { SnapshotProvider(items: []) },
+    appearance: appearance,
+    indicatorConfiguration: parameters,
+    features: []
+)
 ```
 
 Rules the chart applies to overrides:

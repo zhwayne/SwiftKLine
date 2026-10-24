@@ -29,17 +29,34 @@ enum RedrawMode {
 final class RedrawScheduler {
     private var isScheduled = false
     private var pendingMode: RedrawMode = .full
+    private var task: Task<Void, Never>?
+    private var isStopped = false
 
     /// Queues a drawing pass if none is scheduled, merging any requests that arrive before it executes.
     func schedule(_ mode: RedrawMode, draw: @escaping @MainActor (RedrawMode) -> Void) {
+        guard !isStopped else { return }
         pendingMode = pendingMode.merged(with: mode)
         guard !isScheduled else { return }
         isScheduled = true
-        Task { @MainActor in
-            isScheduled = false
-            let redrawMode = pendingMode
-            pendingMode = .crosshairOnly
-            draw(redrawMode)
+        task = Task { @MainActor [weak self] in
+            guard !Task.isCancelled, let self, !self.isStopped else { return }
+            self.perform(draw)
         }
+    }
+
+    /// Cancels the queued pass and rejects subsequent requests from a removed chart.
+    func stop() {
+        isStopped = true
+        task?.cancel()
+        task = nil
+        isScheduled = false
+    }
+
+    private func perform(_ draw: @MainActor (RedrawMode) -> Void) {
+        task = nil
+        isScheduled = false
+        let redrawMode = pendingMode
+        pendingMode = .crosshairOnly
+        draw(redrawMode)
     }
 }

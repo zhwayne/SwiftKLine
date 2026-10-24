@@ -221,7 +221,7 @@ func marketBackedDemoPagesPreserveBoundariesAndStableExecutions(period: ChartPer
     let layout = ChartLayout(scrollView: scroll, candleDimensions: dimensions)
     layout.itemCount = 1
     layout.dataBounds = ValueBounds(min: 8, max: 14)
-    let context = ChartContext(indicatorSeriesStore: IndicatorSeriesStore(), items: [testCandle(60, 10)],
+    let context = ChartContext(seriesStore: IndicatorSeriesStore(), items: [testCandle(60, 10)],
         appearance: ChartAppearance(), candleDimensions: dimensions, visibleRange: 0..<1,
         layout: layout, location: nil, selectedIndex: nil, candleInterval: { timestamp in
             let start = Date(timeIntervalSince1970: Double(timestamp)); return start..<start.addingTimeInterval(60)

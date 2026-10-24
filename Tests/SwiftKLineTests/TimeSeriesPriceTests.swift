@@ -24,7 +24,7 @@ private func namedShape(_ name: String, in layer: CALayer) -> CAShapeLayer? {
     let renderer = PriceIndicatorRenderer(style: PriceIndicatorStyle(), showsExtremes: false, latestPointColor: .blue)
     renderer.install(to: view.canvas)
     let items: [any ChartItem] = (0..<40).map { testCandle($0 * 60, Double($0 + 1)) }
-    let context = ChartContext(indicatorSeriesStore: IndicatorSeriesStore(), items: items,
+    let context = ChartContext(seriesStore: IndicatorSeriesStore(), items: items,
         appearance: ChartAppearance(), candleDimensions: dimensions, visibleRange: 0..<20,
         layout: layout, location: nil, selectedIndex: 3)
     context.groupFrame = view.bounds
@@ -42,7 +42,7 @@ private func namedShape(_ name: String, in layer: CALayer) -> CAShapeLayer? {
     #expect(guide.path?.boundingBoxOfPath.minY == 80)
 
     scroll.contentOffset.x = 200
-    let latest = ChartContext(indicatorSeriesStore: IndicatorSeriesStore(), items: items,
+    let latest = ChartContext(seriesStore: IndicatorSeriesStore(), items: items,
         appearance: ChartAppearance(), candleDimensions: dimensions, visibleRange: 20..<40,
         layout: layout, location: nil, selectedIndex: nil)
     latest.groupFrame = context.groupFrame

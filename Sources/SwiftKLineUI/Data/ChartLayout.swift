@@ -37,7 +37,9 @@ import UIKit
     @inline(__always)
     var contentSize: CGSize {
         let dims = candleDimensions
-        let width = max(CGFloat(itemCount) * dims.itemWidth - dims.gap, scrollView.bounds.width)
+        let viewportWidth = scrollView.bounds.width.isFinite ? max(0, scrollView.bounds.width) : 0
+        let logicalWidth = CGFloat(itemCount) * dims.itemWidth - dims.gap
+        let width = logicalWidth.isFinite ? max(logicalWidth, viewportWidth) : viewportWidth
         return CGSize(width: width, height: 0)
     }
     
@@ -46,13 +48,16 @@ import UIKit
         let dims = candleDimensions
         let contentOffset = scrollView.contentOffset
         let itemWidth = dims.itemWidth
-        guard itemWidth > 0 else { return 0..<0 }
-        let startIndex = Int(floor(contentOffset.x / itemWidth))
+        guard itemCount > 0, itemWidth.isFinite, itemWidth > 0, contentOffset.x.isFinite,
+              scrollView.bounds.width.isFinite, scrollView.bounds.width >= 0,
+              let startIndex = Int(exactly: floor(contentOffset.x / itemWidth)) else { return 0..<0 }
         let offset = CGFloat(startIndex) * itemWidth - contentOffset.x
-        let width = scrollView.frame.width + abs(min(0, offset))
-        let itemCountToBeDrawn = Int(ceil(width / itemWidth))
-        guard startIndex < itemCount else { return 0..<0 }
-        return startIndex..<(startIndex + itemCountToBeDrawn)
+        let width = scrollView.bounds.width + abs(min(0, offset))
+        guard let count = Int(exactly: ceil(width / itemWidth)), count >= 0,
+              startIndex < itemCount else { return 0..<0 }
+        let (endIndex, overflow) = startIndex.addingReportingOverflow(count)
+        guard !overflow else { return 0..<0 }
+        return startIndex..<endIndex
     }
     
     /// The visible absolute candle range clamped to zero through itemCount.
@@ -95,18 +100,20 @@ extension ChartLayout {
     func unsafeIndexInViewport(on x: CGFloat) -> Int {
         let dims = candleDimensions
         let itemWidth = dims.itemWidth
-        guard itemWidth > 0 else { return 0 }
+        guard itemWidth.isFinite, itemWidth > 0, x.isFinite else { return Int.min }
         let viewPort = frameOfVisibleRange
-        var index = Int(floor((x - viewPort.minX) / itemWidth))
+        guard let relative = Int(exactly: floor((x - viewPort.minX) / itemWidth)) else { return Int.min }
         if viewPort.minX <= 0 {
-            index += indices.lowerBound
+            let (absolute, overflow) = relative.addingReportingOverflow(indices.lowerBound)
+            return overflow ? Int.min : absolute
         }
-        return index
+        return relative
     }
     
     /// Maps x to an absolute candle index only when it belongs to the current visible range.
     @inline(__always)
     func indexInViewport(on x: CGFloat) -> Int? {
+        guard x.isFinite, !visibleRange.isEmpty else { return nil }
         let index = unsafeIndexInViewport(on: x)
         if visibleRange.contains(index) {
             return index

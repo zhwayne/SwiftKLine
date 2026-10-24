@@ -18,7 +18,7 @@ import SwiftKLineCore
     renderer.install(to: canvas)
     let viewport = CGRect(x: 0, y: 20, width: 140, height: 80)
     func context(items: [any ChartItem], revision: UInt64) -> ChartContext {
-        let ctx = ChartContext(indicatorSeriesStore: IndicatorSeriesStore(), items: items,
+        let ctx = ChartContext(seriesStore: IndicatorSeriesStore(), items: items,
             appearance: ChartAppearance(), candleDimensions: dimensions, visibleRange: 0..<items.count,
             layout: layout, location: nil, selectedIndex: nil, dataRevision: revision)
         ctx.groupFrame = canvas.bounds

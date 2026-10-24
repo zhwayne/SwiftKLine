@@ -8,9 +8,7 @@
 import SwiftKLineCore
 import UIKit
 
-/// A value configuration for appearance, section layout, built-in periods, and initial selection defaults.
-///
-/// Presentation and indicator-selection settings remain independent from plugin-owned data sessions.
+/// Visual settings and section layout, independent of calculation parameters and application choices.
 public struct ChartAppearance {
 
     /// The initial candle colors, width, and gap.
@@ -21,48 +19,28 @@ public struct ChartAppearance {
     public let watermarkText: String?
     /// The fixed heights of the main chart, time axis, and indicator panels.
     public let layoutMetrics: LayoutMetrics
-    /// Built-in indicators eligible for selection; custom features are declared in ChartConfiguration.plugins.
-    public let indicators: [BuiltInIndicator]
-    /// Built-in main indicators used for fallback selection and when resetting indicators.
-    public let defaultMainIndicators: [BuiltInIndicator]
-    /// Built-in lower indicators used for fallback selection and when resetting indicators.
-    public let defaultSubIndicators: [BuiltInIndicator]
-
     private var indicatorStyleRegistry: [SeriesKey: any IndicatorStyle]
-    private var indicatorKeyOverrides: [BuiltInIndicator: [SeriesKey]]
 
-    /// Creates a visual and built-in indicator configuration.
+    /// Creates visual settings for the chart and its output series.
     ///
     /// - Parameters:
     ///   - candleStyle: Initial candle appearance and horizontal dimensions.
     ///   - legendFont: Font for legend labels.
     ///   - watermarkText: Optional main-chart watermark.
     ///   - layoutMetrics: Section heights in points.
-    ///   - indicators: Built-in indicators available to the selection control.
-    ///   - defaultMainIndicators: Main-chart fallback and reset selection.
-    ///   - defaultSubIndicators: Lower-panel fallback and reset selection.
     ///   - indicatorStyleRegistry: Complete style map; nil uses defaults. A supplied map replaces those defaults.
-    ///   - indicatorKeyOverrides: Per-indicator output keys and parameters; omitted entries use built-in defaults.
     public init(
         candleStyle: CandleStyle = CandleStyle(),
         legendFont: UIFont = UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
         watermarkText: String? = "Created by iyabb",
         layoutMetrics: LayoutMetrics = LayoutMetrics(),
-        indicators: [BuiltInIndicator] = BuiltInIndicator.allCases,
-        defaultMainIndicators: [BuiltInIndicator] = [],
-        defaultSubIndicators: [BuiltInIndicator] = [],
-        indicatorStyleRegistry: [SeriesKey: any IndicatorStyle]? = nil,
-        indicatorKeyOverrides: [BuiltInIndicator: [SeriesKey]] = [:]
+        indicatorStyleRegistry: [SeriesKey: any IndicatorStyle]? = nil
     ) {
         self.candleStyle = candleStyle
         self.legendFont = legendFont
         self.watermarkText = watermarkText
         self.layoutMetrics = layoutMetrics
-        self.indicators = indicators
-        self.defaultMainIndicators = defaultMainIndicators
-        self.defaultSubIndicators = defaultSubIndicators
         self.indicatorStyleRegistry = indicatorStyleRegistry ?? Self.makeDefaultIndicatorStyles()
-        self.indicatorKeyOverrides = indicatorKeyOverrides
     }
 
     /// Returns the exact style type for a series key, or nil when the key or requested type does not match.
@@ -70,9 +48,15 @@ public struct ChartAppearance {
         indicatorStyleRegistry[key] as? S
     }
 
-    /// Returns overridden series keys for an indicator, or its standard series when no override exists.
-    public func indicatorKeys(for indicator: BuiltInIndicator) -> [SeriesKey] {
-        indicatorKeyOverrides[indicator] ?? indicator.defaultSeriesKeys
+    /// Proves equal built-in visual inputs; custom styles always use conservative invalidation.
+    func hasSameVisuals(as other: ChartAppearance) -> Bool {
+        candleStyle == other.candleStyle && legendFont == other.legendFont
+            && watermarkText == other.watermarkText && layoutMetrics == other.layoutMetrics
+            && indicatorStyleRegistry.count == other.indicatorStyleRegistry.count
+            && indicatorStyleRegistry.allSatisfy { key, style in
+                guard let otherStyle = other.indicatorStyleRegistry[key] else { return false }
+                return equalIndicatorStyles(style, otherStyle)
+            }
     }
 
     /// Builds styles for standard built-in periods; custom period keys need their own styles.
@@ -161,7 +145,7 @@ public extension ChartAppearance {
         }
     }
 
-    /// Creates a configuration from a preset with standard indicator availability and empty selection defaults.
+    /// Creates visual settings from a preset without choosing or parameterizing indicators.
     static func themed(_ preset: ThemePreset) -> ChartAppearance {
         ChartAppearance(
             candleStyle: preset.candleStyle,

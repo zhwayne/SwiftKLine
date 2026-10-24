@@ -65,11 +65,13 @@ func sampleConfiguration() throws -> ChartConfiguration {
 
 - `features: []` 关闭实时更新和缺口恢复，适合静态图表。实时行情图表使用默认的 `.all`。
 - 空数据源 ID 或空/重复插件 ID 会使构造失败。请在应用初始化边界处理该错误。
-- 构造图表时通过 `ChartSelection` 提供周期与指标初值；动态选择与持久化见[内置指标](indicators.md)。
+- 通过 `IndicatorSelection` 提供内置指标选择；应用管理周期与自有的可选持久化，详见[内置指标](indicators.md)。
 
 ## 3. 显示图表
 
 ### SwiftUI
+
+SwiftUI 桥接属于应用层。先将示例中的 [KLineChart.swift](../../SwiftKLineExample/KLineChart.swift) 加入你的应用 target；下面的 `KLineChart` 是这段应用代码，不由库导出。
 
 ```swift
 import SwiftUI
@@ -78,11 +80,11 @@ import SwiftKLine
 @MainActor
 struct MarketChart: View {
     let configuration: ChartConfiguration
-    @State private var selection = ChartSelection(period: .oneMinute,
-        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
+    @State private var indicators = IndicatorSelection(
+        mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])
 
     var body: some View {
-        KLineChart(selection: $selection) { _ in configuration }
+        KLineChart(configuration: configuration, indicators: indicators)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -98,9 +100,8 @@ import SwiftKLine
 
 @MainActor
 func installChart(in container: UIView, configuration: ChartConfiguration) -> ChartView {
-    let selection = ChartSelection(period: .oneMinute,
-        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
-    let chart = ChartView(configuration: configuration, selection: selection)
+    let indicators = IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])
+    let chart = ChartView(configuration: configuration, indicators: indicators)
     container.addSubview(chart)
     chart.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([

@@ -17,12 +17,13 @@ public struct LayoutMetrics: Equatable {
     /// The height of each selected lower indicator panel.
     public let indicatorHeight: CGFloat
 
-    /// Creates chart-section metrics; callers should supply nonnegative heights.
+    /// Creates chart-section metrics; all heights must be finite and nonnegative.
     public init(
         mainChartHeight: CGFloat = 320,
         timelineHeight: CGFloat = 16,
         indicatorHeight: CGFloat = 64
     ) {
+        precondition([mainChartHeight, timelineHeight, indicatorHeight].allSatisfy { $0.isFinite && $0 >= 0 })
         self.mainChartHeight = mainChartHeight
         self.timelineHeight = timelineHeight
         self.indicatorHeight = indicatorHeight

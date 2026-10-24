@@ -14,7 +14,7 @@ Notable changes are grouped below. `Unreleased` describes the current developmen
 
 - Built-in BBI, VWMA, and Donchian main-chart indicators, with reusable channel rendering and parameter-aware series keys.
 - Built-in SuperTrend (SUPER) and Ichimoku (ICHI) main-chart indicators, with directional SuperTrend ribbons and flip breaks, and a five-line cloud overlay.
-- A shared `ChartConfiguration` API for UIKit and SwiftUI, with `CandleSource`, `ChartAppearance`, content mode, plugins, and feature flags; `ChartSelection` owns period and indicator choices.
+- A shared `ChartConfiguration` API for UIKit and SwiftUI, with `CandleSource`, `ChartAppearance`, content mode, plugins, and feature flags; applications own period and indicator choices.
 - A `ChartPlugin` lifecycle with per-chart coordinators, scoped resource registration, isolated series, error reporting, and redraw requests.
 - Independent time-range pagination through `RangeDataProvider`, `RangePage`, and `RangeLoader`, including coverage, retry, cancellation, and bounded caches.
 - An application-owned trade-marker example with provider, plugin, rendering, and regression coverage.
@@ -22,14 +22,19 @@ Notable changes are grouped below. `Unreleased` describes the current developmen
 
 ### Changed
 
+- Moved the primary candle loading session into `SwiftKLineCore` behind package access, so history pagination, live consumption, and gap recovery run and are tested without UIKit; the UIKit target now only consumes its events.
+- Consolidated configuration invalidation into shared comparison logic used by the view and the coordinator for source restarts, geometry rebuilds, and redraws.
+- Moved preference storage/migration into the application and added stable ChartScreenState ownership with one restoration, change-only saving and offline previews. ChartAppearance is visual-only; IndicatorConfiguration owns calculation keys and applications choose availability/defaults.
+- Made shutdown terminal and idempotent, including observer/draw cancellation. Unchanged built-ins and comparable visuals skip reconciliation/redraw while custom plugins retain update and explicit invalidation behavior.
+- Moved SwiftUI bridging into the example application and removed the `SwiftKLineSwiftUI` target/export. The application-owned `KLineChart` and its tests are separate from the UIKit library; `ChartView.shutdown()` is public for host teardown.
 - Time-series area fills now fade vertically from the configured fill color to transparent, clipped beneath the price line.
 - Time-series mode retains the latest-price label, guide line, and return-to-latest control while hiding candle high/low annotations.
 - The visible latest point on the time-series line has a solid line-colored dot, with the price guide ending at its center.
 
 - Built-in indicators use the plugin pipeline while retaining selection, appearance, and layout behavior.
-- Period and indicator controls share one `ChartSelection` binding and one persistence record. `IndicatorSelectionState` is renamed to `IndicatorSelection`; UIKit exposes `selection`, `setSelection(_:)`, `selectionChanged`, and `resetSelectionToDefault()`.
-- Selection-dependent configuration factories restore and normalize the period before the first provider session. Application-owned selectors retain their styling; the example no longer reads or writes period keys itself.
-- SwiftKLine defines `ChartStateStore` and supplies UserDefaults/memory backends. Keys are internal and UserDefaults namespaces isolate charts; old indicator data migrates into the unified record.
+- Replaced `ChartSelection` and its controller with independent configuration and `IndicatorSelection` inputs. UIKit exposes `indicators`, `resolvedIndicators`, `setIndicators(_:)`, and `apply(_:indicators:)`; SwiftUI consumes values without a binding feedback loop.
+- Applications own period validation, source construction and preference lifecycle. Optional `ChartPreferences` restores legacy records before the first provider session and saves explicitly. Requested indicators survive temporary availability changes.
+- The example supplies application-owned `ChartStateStore` with UserDefaults/memory backends and a typed `.chartPreferences` key. Stores are no longer passed to chart views; namespaces isolate application preferences.
 - Candles and their indicator outputs publish as a consistent batch; independent external data does not delay that publication.
 - History and configuration invalidation preempt the coalesced live timer.
 - Resource namespaces allow multiple instances of a feature in one chart.
@@ -37,6 +42,9 @@ Notable changes are grouped below. `Unreleased` describes the current developmen
 
 ### Fixed
 
+- New inactive source sessions no longer subscribe to live data; activity revisions reject stale commands and connectivity recovery cannot resume a suspended session. History loading remains available.
+- Custom mutable Equatable styles no longer bypass drawing invalidation, and plugin cleanup relinquishes ownership before external callbacks to prevent duplicate teardown on reentry.
+- Legend measurements track available size. Pinch uses cumulative scale and logical anchors with cancellation/detach cleanup, crosshair prices retain small values, and geometry/index conversion rejects unsafe numeric inputs.
 - Corrected documentation for merge precedence, recovery and retry limits, selector persistence, plugin IDs, range-loader notifications, and benchmark scope.
 - Viewport and scene input no longer invalidate the legend cache on every dispatch.
 - Time-series caches detect revisions to interior candles.

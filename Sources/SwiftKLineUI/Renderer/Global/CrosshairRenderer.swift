@@ -15,7 +15,7 @@ final class CrosshairRenderer: ChartRenderer {
     
     private let feedback = UISelectionFeedbackGenerator()
     private let dateFormatter: DateFormatter
-    private let yValueFormatter: NumberFormatter
+    private let yValueFormatter = PriceFormatter()
     private var lastLocation: CGPoint = .zero
     private let dashLineLayer = CAShapeLayer()
     private let pointLayer = CAShapeLayer()
@@ -54,10 +54,6 @@ final class CrosshairRenderer: ChartRenderer {
         dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy/MM/dd HH:mm"
         
-        yValueFormatter = NumberFormatter()
-        yValueFormatter.minimumFractionDigits = 2
-        yValueFormatter.maximumFractionDigits = 2
-        yValueFormatter.numberStyle = .decimal
     }
     
     func install(to layer: CALayer) {
@@ -138,7 +134,7 @@ final class CrosshairRenderer: ChartRenderer {
         // MARK: - Selected group value
         if selectedGroup.chartSection != .timeline {
             let yValue = context.layout.value(on: location.y, viewPort: selectedGroup.viewPort)
-            yAxisValueLabel.text = yValueFormatter.string(from: NSDecimalNumber(floatLiteral: yValue))
+            yAxisValueLabel.text = yValueFormatter.format(NSNumber(value: yValue))
             let yAxisValueSize = yAxisValueLabel.systemLayoutSizeFitting(selectedGroup.groupFrame.size)
             yAxisValueLabel.frame = CGRect(
                 x: selectedGroup.groupFrame.width - yAxisValueSize.width - 12,

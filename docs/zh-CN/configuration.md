@@ -4,14 +4,15 @@
 
 [文档索引](README.md) · [快速开始](getting-started.md) · [数据源](data-providers.md)
 
-UIKit 的 `ChartView` 与 SwiftUI 的 `KLineChart` 共用 `ChartConfiguration`。请在主 actor 上创建并应用配置。本页是配置内容与图表更新行为的参考；外观值本身见[外观定制](appearance.md)。
+库中的 UIKit `ChartView` 消费 `ChartConfiguration`。SwiftUI 应用自行提供桥接，参考示例的 [KLineChart](../../SwiftKLineExample/KLineChart.swift)。请在主 actor 上创建并应用配置。本页是配置内容与图表更新行为的参考；外观值本身见[外观定制](appearance.md)。
 
 ## 配置字段
 
 | 字段 | 用途 | 默认值 |
 |---|---|---|
 | `source` | Provider 工厂、会话语义 ID 和 K 线边界 | 必填 |
-| `appearance` | 主题、尺寸、面板、图例、水印与指标参数 | `ChartAppearance()` |
+| `appearance` | 主题、尺寸、图例、水印与序列样式 | `ChartAppearance()` |
+| `indicatorConfiguration` | 内置指标的计算 key 与参数 | `IndicatorConfiguration()` |
 | `content` | 主图展示方式 | `.candlestick` |
 | `plugins` | 有序的业务功能列表，ID 必须非空且唯一 | `[]` |
 | `features` | K 线加载能力 | `.all` |
@@ -37,6 +38,7 @@ func snapshotConfiguration(candles: [Candle], sourceID: String) throws -> ChartC
 - `ChartConfigurationError.emptySourceID` — 数据源必须有非空语义 ID。
 - `ChartConfigurationError.emptyPluginID` 与 `.duplicatePluginID(_:)` 覆盖插件列表。
 - 固定周期时长必须为有限正数，这是前置条件，不属于可抛出的配置错误。
+- 蜡烛宽度必须为有限正数，间距必须为有限非负数，合计步长必须有限；面板高度必须有限且非负。这些构造前置条件不引入 UI 错误处理链，布局转换也会拒绝非有限或整数无法表示的索引。
 
 修改插件列表需要创建新配置，让校验在图表更新之前完成。
 
@@ -64,7 +66,9 @@ func snapshotConfiguration(candles: [Candle], sourceID: String) throws -> ChartC
 | 插件 ID 与具体类型不变 | 更新现有协调器 |
 | 插件重排 | 保留协调器状态，调整面板与绘制顺序 |
 | 插件移除或具体类型改变 | 撤销上下文，然后清理旧资源 |
-| 外观改变 | 重新绘制；仅使参数变化的计算失效 |
+| 外观改变 | 重新绘制，保留计算结果 |
+| 指标计算 key 改变 | 重算受影响的序列并协调 renderer |
+| 输入未变化 | 跳过内置指标协调和重绘；自定义插件仍接收更新 |
 | 仅 `content` 改变 | 切换展示，不重启 provider |
 
 参数变化时保持插件 ID 稳定；拥有协调器的是 ID，而不是参数值。插件的账户或查询身份由插件自身管理，与主数据源身份分开。
@@ -80,9 +84,9 @@ func snapshotConfiguration(candles: [Candle], sourceID: String) throws -> ChartC
 | `.all` | 启用实时更新和缺口恢复 |
 | `[]` | 静态图表与确定性测试 |
 
-传入 `ChartStateStore` 即持久化完整的 `ChartSelection`（周期与指标），传 `nil` 则关闭。协议由 SwiftKLine 定义，库内置 UserDefaults 和内存实现。存储键由库内部管理，通过 `UserDefaultsChartStateStore(namespace:)` 隔离不同图表。应用可用类型安全 key 复用 store 保存其他偏好，详见[共享状态存储](indicators.md#共享状态存储)。
+示例应用通过自有的 `ChartStateStore` 恢复和保存 `ChartPreferences`；这些类型属于示例源码，不是库导出。存储独立于图表生命周期；`UserDefaultsChartStateStore(namespace:)` 隔离不同图表的偏好。详见[共享状态存储](indicators.md#共享状态存储)。
 
-图表活跃状态跟随窗口、场景与应用状态：进入后台或非活跃场景会取消实时消费与恢复请求，而在途的历史页继续加载。回到前台或网络恢复仅在启用 `.gapRecovery` 且已知最后时间戳时触发恢复；即使本次恢复报错，恢复尝试结束后也会重新消费实时流。
+图表活跃状态跟随窗口、场景与应用状态：进入后台或非活跃场景会取消实时消费与恢复请求，而在途的历史页继续加载。新数据源继承当前活跃状态，非活跃会话可以加载历史，但不订阅实时流。活跃状态命令用修订号拒绝迟到的 actor 消息；网络恢复不会重新激活已暂停的会话。回到前台或网络恢复仅在启用 `.gapRecovery` 且已知最后时间戳时触发恢复；即使本次恢复报错，恢复尝试结束后也会重新消费实时流。
 
 ## 错误处理
 
@@ -107,21 +111,27 @@ func attach(chart: ChartView, configuration: ChartConfiguration) {
 
 ## 图表 API
 
-`ChartView`（UIKit）与 `KLineChart`（SwiftUI）通过各自的平台方式暴露相同操作：
+`ChartView` 接收配置与独立的指标选择值。下表 SwiftUI 列描述应用自有的示例包装：
 
 | 操作 | UIKit | SwiftUI |
 |---|---|---|
-| 调和配置 | `apply(_:)` | 传入更新后的 `configuration` |
-| 读取选择状态 | `selection` | `selection` 绑定 |
-| 替换选择 | `setSelection(_:)` | 给绑定赋新值 |
-| 恢复默认 | `resetSelectionToDefault()` | 通过绑定设置所需的默认选择 |
-| 回到最新 | `scrollToLatest()` | 适配器不暴露；系统回到顶部手势同样指向最新 K 线 |
+| 协调配置 | `apply(_:)` | 传入更新后的 `configuration` |
+| 读取请求的指标 | `indicators` | 应用自有状态 |
+| 读取支持的指标 | `resolvedIndicators` | `indicators.resolved(availableIndicators:)` |
+| 替换指标 | `setIndicators(_:)` | 传入更新后的 `indicators` |
+| 同时更新两项输入 | `apply(_:indicators:)` | 传入两项更新后的值 |
+| 恢复默认 | 显式提供应用默认值 | 修改应用状态 |
+| 滚动到最新 | `scrollToLatest()` | 适配器未暴露；系统滚动到顶部手势也会定位最新 K 线 |
+| 结束图表会话 | `shutdown()` | 应用包装在 `dismantleUIView` 中调用 |
 | 加载错误 | `onLoadError` | `onLoadError` 初始化参数 |
 | 插件错误 | `onPluginError` | `onPluginError` 初始化参数 |
-| 选择变化 | `selectionChanged` | 绑定接收用户变化 |
-| 状态存储 | `stateStore:` 初始化参数 | `stateStore:` 初始化参数 |
+| 状态存储 | 应用示例偏好 | 应用示例偏好 |
 
-周期与指标 UI 均由应用自行实现，共用一个 `ChartSelection`。SwiftUI 控件分别绑定 `$selection.period` 和 `$selection.indicators`；UIKit 使用 `selection`、`setSelection(_:)` 和 `selectionChanged`。传入选择相关的配置工厂后，库先恢复、校验选择，再构造数据源；更新可用周期或指标导致选择被调整时，也会保存并回写选择。静态 `configuration:` 便捷入口适合手动管理数据源、不需要自动切换周期的图表。
+应用管理周期、可用选项、控件、恢复和保存。在构造第一份配置之前恢复并校验偏好；周期变化生成新的数据源声明，指标变化只调整所选内置指标。图表派生支持的指标，不修改请求状态，也不回写绑定。显式声明的插件独立于指标选择。
+
+`shutdown()` 是永久终止操作，重复调用无副作用；之后的配置、指标和活跃状态更新都被忽略，通知观察者和待执行绘制会清理。重新加载须创建新的 ChartView。
+
+只有已知不可变的内置样式与完整内置声明相同时才跳过工作。自定义插件每次仍收到 update，应通过 context 请求资源变化或重绘。所有自定义样式均保守地触发绘制，包括符合 Equatable 的引用类型以及可能共享可变状态的值。
 
 SwiftUI 注意事项：
 
@@ -133,7 +143,7 @@ SwiftUI 注意事项：
 | 现象 | 检查项 |
 |---|---|
 | 新快照没有显示 | 更换数据源 ID；仅替换工厂闭包会保留旧会话 |
-| 启动后的指标选择不符预期 | 检查 store 中的完整选择、传入初值和可用选项 |
+| 启动后的指标选择不符预期 | 检查应用偏好、请求的指标和外观中的可用指标 |
 | 切换周期或交易对后残留旧数据 | 在配置工厂中将周期或交易对纳入 `CandleSource.id`；相同 ID 不会重建会话 |
 | 事件映射到错误 K 线 | 使用 Unix 秒和真实 K 线边界，参见[时间规则](data-providers.md#时间与边界) |
 | 图表高度不符预期 | 检查副图面板与父容器约束；应用控件位于图表之外 |

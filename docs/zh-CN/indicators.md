@@ -39,30 +39,23 @@ SwiftKLine 内置 22 个指标。每个指标与应用自定义插件走同一�
 
 ## 指标选择
 
-周期和指标共用一个 `ChartSelection`，包含 `period: ChartPeriod` 与 `indicators: IndicatorSelection`。应用提供选择器 UI；库统一负责恢复、规范化、应用和持久化。`ChartConfiguration` 保存数据源与渲染声明，不再单独包含选择字段。
+应用管理周期和指标控件。`ChartConfiguration` 描述数据源、外观和插件，`IndicatorSelection` 单独传入内置指标选择。图表消费这些值，不读取存储，也不回写应用状态。
 
 ### 初始状态
 
-| 优先级 | 来源 | 生效条件 |
-|---|---|---|
-| 1 | 已存储的 `ChartSelection` | 可以成功解码；空指标选择也是有效值 |
-| 2 | 旧指标记录 + 初始周期 | 不存在完整的存储选择 |
-| 3 | 传入初值 / SwiftUI 绑定初值 | 没有可用存储记录 |
+省略 `indicators:` 表示不选择内置指标。`ChartView.indicators` 保留传入请求，`resolvedIndicators` 按顺序派生库支持、位置正确且不重复的指标。默认选择和可用选项由应用管理；保留原始偏好，将 `indicators.resolved(availableIndicators: available)` 传给图表，暂不可用的指标就能在恢复支持后重新显示。
 
-静态 `configuration:` 便捷入口未传显式选择时，使用一分钟初始周期和外观默认指标。需要周期控件时使用下方配置工厂入口。
+自定义插件在 `ChartConfiguration.plugins` 中声明。指标选择不会开关自定义插件或显式声明的内置插件；ID 重叠时显式声明优先。
 
-`availablePeriods` 按标识匹配并使用传入的规范周期，包括其名义秒数。不支持的周期回退到第一个有效可用项。空列表允许标识非空、秒数为正的自定义周期；无效输入使用有效初始周期，否则回退到一分钟。指标 ID 按可用性、面板归属和重复情况过滤，并保留原有顺序。
+### 周期配置
 
-### 统一配置工厂
-
-库先恢复存储周期，再构造配置并启动 provider。工厂应无副作用，且 `CandleSource.id` 应包含周期；只修改指标时可保留主数据会话。以下固定时长示例支持分钟、小时；日历周期仍需通过 `candleInterval:` 提供符合交易所规则的边界。
+应用在构造数据源前校验周期。将周期及日历语义纳入 `CandleSource.id`，仅修改指标就能保留 provider。本例使用固定时长的分钟与小时周期；日历周期仍需提供交易所相关的 `candleInterval:` 规则。
 
 ```swift
 import SwiftKLine
 
 @MainActor
-func configuration(for selection: ChartSelection) -> ChartConfiguration {
-    let period = selection.period
+func configuration(for period: ChartPeriod) -> ChartConfiguration {
     let source = CandleSource(
         id: "demo:\(period.identifier):\(period.seconds)",
         duration: Double(period.seconds)
@@ -73,12 +66,13 @@ func configuration(for selection: ChartSelection) -> ChartConfiguration {
         }
         return SnapshotProvider(items: candles)
     }
-    // Validated periods, a nonempty source ID and no plugins make these declarations valid.
     return try! ChartConfiguration(source: source, appearance: .themed(.solaris), features: [])
 }
 ```
 
 ### SwiftUI
+
+SwiftUI 桥接属于应用层。先将示例中的 [KLineChart.swift](../../SwiftKLineExample/KLineChart.swift) 加入你的应用 target；下面的 `KLineChart` 是这段应用代码，不由库导出。
 
 ```swift
 import SwiftUI
@@ -86,27 +80,24 @@ import SwiftKLine
 
 @MainActor
 struct SelectableChart: View {
-    @State private var selection = ChartSelection(period: .oneMinute,
-        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
-    @State private var store = UserDefaultsChartStateStore(namespace: "com.myapp.BTCUSDT")
+    @State private var period: ChartPeriod = .oneMinute
+    @State private var indicators = IndicatorSelection(
+        mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])
 
     var body: some View {
         VStack {
-            Picker("Period", selection: $selection.period) {
+            Picker("Period", selection: $period) {
                 Text("1m").tag(ChartPeriod.oneMinute)
                 Text("1h").tag(ChartPeriod.oneHour)
             }
-            KLineChart(selection: $selection, availablePeriods: [.oneMinute, .oneHour],
-                       stateStore: store, configuration: configuration(for:))
+            KLineChart(configuration: configuration(for: period), indicators: indicators)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
 ```
 
-应用自定义的指标选择器绑定 `$selection.indicators`，周期选择器绑定 `$selection.period`。两者经过同一条图表状态流程，应用无需手动读写 store，也无需通过 `.onChange` 另行保存。
-
-图表在 SwiftUI 更新周期之外异步回写恢复、规范化后的选择。后续绑定修改视为命令；新的用户修改优先于尚未执行的异步回写。值未变化的视图更新不会重复保存或重启 provider。可用选项变化导致的选择调整同样会规范化、保存并回写。
+应用自有的指标控件绑定 `$indicators`，图表只接收当前值；周期变化重新生成配置。适配器负责输入转发、尺寸协商和清理，不再进行绑定同步或持久化。
 
 ### UIKit
 
@@ -114,28 +105,40 @@ struct SelectableChart: View {
 import SwiftKLine
 
 @MainActor
-func makePersistentChart(onSelectionChanged: @escaping (ChartSelection) -> Void) -> ChartView {
-    let initial = ChartSelection(period: .oneMinute,
-        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
-    let chart = ChartView(selection: initial, availablePeriods: [.oneMinute, .oneHour],
-        stateStore: UserDefaultsChartStateStore(namespace: "com.myapp.BTCUSDT"),
-        configuration: configuration(for:))
-    chart.selectionChanged = onSelectionChanged
-    return chart
+func makeChart(period: ChartPeriod, indicators: IndicatorSelection) -> ChartView {
+    ChartView(configuration: configuration(for: period), indicators: indicators)
 }
 ```
 
-构造后立即读取 `chart.selection`，即可用恢复值初始化控件。通过 `setSelection(_:)` 提交完整选择；`selectionChanged` 在规范化并保存后报告实际变化。`resetSelectionToDefault()` 恢复初始周期及当前外观的默认指标。更新可用选项或工厂使用 `apply(selection:availablePeriods:configuration:)`；省略 selection 则保留当前选择。
+使用 `setIndicators(_:)` 更新内置指标，`apply(_:)` 更新配置并保留请求的指标，或通过 `apply(_:indicators:)` 同时更新两者。重置时显式传入应用定义的默认值。主题切换不选择指标，也不修改计算参数。
 
 ### 共享状态存储
 
-`ChartStateStore` 由库定义和使用，以一个内部键将完整 `ChartSelection` 保存为一条记录。传 `nil` 关闭持久化，使用 `MemoryChartStateStore()` 获得按实例隔离的临时状态，或用 `UserDefaultsChartStateStore(namespace:)` 保存不同图表的长期状态。store 在图表生命周期内固定，请保持实例和 namespace 稳定。
+`ChartPreferences`、`ChartStateStore` 及迁移代码属于示例应用，不由库导出。需要复用时复制示例的 [Preferences 目录](../../SwiftKLineExample/Preferences)。应用自有的 `ChartScreenState` 在构造数据源前恢复并校验一次，跨视图更新保留偏好，仅在周期或指标实际变化时保存。App 持有该可观察实例，ContentView 通过 `@Bindable` 接收。预览使用隔离的离线状态。
 
-默认 namespace 为 `com.swiftkline`。库的旧指标记录会与传入的初始周期合并迁移；应用自有旧键的迁移由应用处理。应用也可复用基于 Data 的协议与类型安全 `ChartStateKey<Value>` 保存其他偏好；周期和指标选择均无需应用自定义键。
+```swift
+import SwiftKLine
+
+@MainActor
+func restorePreferences(from store: any ChartStateStore) -> ChartPreferences {
+    let defaults = ChartPreferences(period: .oneMinute,
+        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol]))
+    var restored = ChartPreferences.restore(from: store, defaults: defaults)
+    let availablePeriods: [ChartPeriod] = [.oneMinute, .oneHour]
+    restored.period = availablePeriods.first { $0.identifier == restored.period.identifier } ?? defaults.period
+    restored.indicators = restored.indicators.resolved(availableIndicators: BuiltInIndicator.allCases)
+    restored.save(to: store)
+    return restored
+}
+```
+
+`ChartPreferences.restore(from:defaults:)` 按顺序读取首个可解码的记录：`chart.preferences`、旧 `chart.selection`、旧 `indicator.selection` 搭配默认周期，最后使用传入默认值。空指标选择是有效值。恢复不写入、不校验；`save(to:)` 保存新格式。兼容 JSON 和历史 property list。
+
+`UserDefaultsChartStateStore(namespace:)` 用 namespace 隔离图表，默认是 `com.swiftkline`；`MemoryChartStateStore()` 按实例隔离。应用也可用类型安全的 `ChartStateKey<Value>` 复用 Data 存储协议。应用中的 `.chartPreferences` key 支持显式删除；若重置存储时不希望回退到旧偏好，还应删除历史记录。
 
 ## 参数
 
-默认参数写在上方默认序列 key 中。要使用自定义参数并保留选择状态与渲染能力，可按指标覆盖 key 列表：
+默认参数写在上方默认序列 key 中。通过 `ChartConfiguration.indicatorConfiguration` 传入独立的计算参数；`ChartAppearance` 仅保存视觉样式：
 
 ```swift
 import UIKit
@@ -149,14 +152,20 @@ let appearance = ChartAppearance(
         dmiKey: DMIStyle(plusDIColor: .systemGreen, minusDIColor: .systemRed, adxColor: .systemOrange),
         .wr(period: 14): LineStyle(strokeColor: .systemBlue),
         .wr(period: 7): LineStyle(strokeColor: .systemPurple)
-    ],
-    indicatorKeyOverrides: [
-        .kdj: [kdjKey],
-        .dmi: [dmiKey],
-        .wr: [.wr(period: 14), .wr(period: 7)]
     ]
 )
+let parameters = IndicatorConfiguration(seriesKeys: [
+    .kdj: [kdjKey],
+    .dmi: [dmiKey],
+    .wr: [.wr(period: 14), .wr(period: 7)]
+])
 let selection = IndicatorSelection(subIndicatorIDs: [.kdj, .dmi, .wr])
+let config = try ChartConfiguration(
+    source: CandleSource(id: "parameters-demo", duration: 60) { SnapshotProvider(items: []) },
+    appearance: appearance,
+    indicatorConfiguration: parameters,
+    features: []
+)
 ```
 
 图表对覆盖列表的处理规则：

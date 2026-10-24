@@ -4,7 +4,7 @@
 
 [文档索引](README.md) · [内置指标](indicators.md) · [配置](configuration.md)
 
-所有视觉设置都来自 `ChartAppearance`，它是 `ChartConfiguration` 的一部分。外观更新会立即应用并重新绘制，不会重启数据源或计算，除非计算参数本身发生变化。
+所有视觉设置都来自 `ChartAppearance`，它是 `ChartConfiguration` 的一部分。视觉值变化会重新绘制，不会重启数据源或计算。计算 key 独立保存在 `IndicatorConfiguration`，可选指标与默认选择由应用管理。
 
 ## 主题预设
 
@@ -42,7 +42,7 @@ let appearance = ChartAppearance.themed(preset)
 | `width` | `10` | 初始蜡烛主体宽度（pt） |
 | `gap` | `2` | 初始主体间距（pt） |
 
-涨跌色同样用于成交量条与最新价标签。双指捏合会在运行时改变蜡烛宽度；配置值是初始宽度。后续配置修改 `width` 或 `gap` 会重新排布逻辑内容宽度。
+涨跌色同样用于成交量条与最新价标签。双指捏合会在运行时改变蜡烛宽度；配置值是初始宽度。后续配置修改 `width` 或 `gap` 会重新排布逻辑内容宽度。捏合按手势初始尺寸与累计比例计算，将主体宽度限制在 2…24 pt，在滚动边界内保留逻辑锚点，并在结束、取消或移除时恢复原滚动状态。
 
 ## 布局
 
@@ -63,7 +63,7 @@ let appearance = ChartAppearance.themed(preset)
 | `legendFont` | 10 pt 等宽数字 | 所有指标图例字体 |
 | `watermarkText` | `"Created by iyabb"` | 主图背后的水印文字；置 `nil` 移除 |
 
-图例按面板缓存，由数据、配置或显式重绘请求失效；仅滚动不会重建图例文本。
+图例按面板缓存，由数据、配置或显式重绘请求失效；仅滚动不会重建图例文本。测量缓存还要求可用宽高一致，调整尺寸时会重新测量，无需每次滚动都清空缓存。十字光标与数值轴共用按数值量级调整精度的价格格式器，保留小价格。
 
 ## 指标样式
 

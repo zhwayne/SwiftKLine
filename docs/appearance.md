@@ -4,7 +4,7 @@
 
 [Documentation](README.md) · [Indicators](indicators.md) · [Configuration](configuration.md)
 
-All visuals come from `ChartAppearance`, which is part of `ChartConfiguration`. Appearance updates draw immediately and never restart providers or calculations, unless a calculation parameter itself changes.
+All visuals come from `ChartAppearance`, which is part of `ChartConfiguration`. Changed visual settings redraw without restarting providers or calculations. Calculation keys belong to the independent `IndicatorConfiguration`; selectable options and defaults belong to the application.
 
 ## Theme presets
 
@@ -42,7 +42,7 @@ let appearance = ChartAppearance.themed(preset)
 | `width` | `10` | Initial candle body width in points |
 | `gap` | `2` | Initial spacing between bodies in points |
 
-These values also use direction colors for volume bars and the latest-price label. A pinch gesture changes candle width at runtime; the configuration value is the initial width. Changing `width` or `gap` in a later configuration re-lays out the logical content width.
+These values also use direction colors for volume bars and the latest-price label. A pinch gesture changes candle width at runtime; the configuration value is the initial width. Changing `width` or `gap` in a later configuration re-lays out the logical content width. Pinch uses initial dimensions and cumulative scale, clamps body width to 2…24 points, preserves the logical anchor within scroll bounds, and restores the previous scroll-enabled state on completion, cancellation or removal.
 
 ## Layout
 
@@ -63,7 +63,7 @@ The chart's intrinsic height equals the sum of the main panel, the time axis, an
 | `legendFont` | 10 pt monospaced-digit | Font for all indicator legends |
 | `watermarkText` | `"Created by iyabb"` | Text drawn behind the main chart; `nil` removes it |
 
-The legend is cached per panel and invalidated by data, configuration, or explicit redraw requests; scrolling alone never rebuilds legend text.
+The legend is cached per panel and invalidated by data, configuration, or explicit redraw requests; scrolling alone never rebuilds legend text. Cached measurements also require the same available width and height, so resizing remeasures without clearing the cache on every scroll. Crosshair values use the same magnitude-aware price formatter as the value axis to retain small prices.
 
 ## Indicator styles
 

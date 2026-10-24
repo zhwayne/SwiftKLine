@@ -44,11 +44,13 @@ final class ChartCoordinator {
     private var pendingTicks: [Int: any ChartItem] = [:]
     private var visibleRange: Range<Int> = 0..<0
     private var active = true
+    private var activityRevision: UInt64 = 0
     private var applying = false
     private var calculationsChanged = false
     private var structureChanged = false
     private var redrawRequested = false
     private var network = NetworkObserver()
+    private(set) var isShutdown = false
 
     init(configuration: ChartConfiguration, liveUpdateDelay: UInt64 = 200_000_000) {
         self.configuration = configuration
@@ -68,14 +70,16 @@ final class ChartCoordinator {
     }
 
     func apply(_ configuration: ChartConfiguration, initial: Bool = false) {
-        let replace = initial || self.configuration.source.id != configuration.source.id
-            || self.configuration.features.intersection(.candleLoading) != configuration.features.intersection(.candleLoading)
+        guard !isShutdown else { return }
+        let invalidation = ChartInvalidation(from: self.configuration, to: configuration)
+        let replace = initial || invalidation.restartsCandleSession
         applying = true
-        // Appearance changes can require drawing even when plugin resources remain unchanged.
-        redrawRequested = true
+        // Style/content changes redraw; unchanged input forwarding does not invalidate legends or drawing.
+        redrawRequested = redrawRequested || replace || invalidation.requiresRedraw
         if replace {
             stopLoader()
             plugins.removeAll()
+            guard !isShutdown else { applying = false; return }
             sourceGeneration &+= 1
             rawItems = []; pendingTicks = [:]; initialLoaded = false
             snapshot = ChartSnapshot(revision: snapshot.revision &+ 1)
@@ -84,16 +88,19 @@ final class ChartCoordinator {
         self.configuration = configuration
         let order = plugins.contexts.map(\.id)
         plugins.apply(configuration.plugins, input: input())
+        guard !isShutdown else { plugins.removeAll(); applying = false; return }
         structureChanged = structureChanged || order != plugins.contexts.map(\.id)
         applying = false
         flushResources()
+        guard !isShutdown else { return }
         if replace {
             let provider = configuration.source.provider()
             merger.reset(period: provider.candlePeriod)
             let generation = sourceGeneration
             let session = ChartItemLoader(provider: provider,
                 enablesLiveUpdates: configuration.features.contains(.liveUpdates),
-                enablesGapRecovery: configuration.features.contains(.gapRecovery)) { [weak self] event in
+                enablesGapRecovery: configuration.features.contains(.gapRecovery),
+                initiallyActive: active, activityRevision: activityRevision) { [weak self] event in
                     guard let self, self.sourceGeneration == generation else { return }
                     self.receive(event)
                 }
@@ -107,7 +114,7 @@ final class ChartCoordinator {
                     guard let self, self.active else { return }
                     let loader = self.loader
                     let timestamp = self.rawItems.last?.timestamp
-                    if status == .available { Task { await loader?.willEnterForeground(latestTimestamp: timestamp) } }
+                    if status == .available { Task { await loader?.recoverIfActive(latestTimestamp: timestamp) } }
                 }
                 network.start()
             }
@@ -115,30 +122,34 @@ final class ChartCoordinator {
     }
 
     func setVisibleRange(_ range: Range<Int>) {
-        guard visibleRange != range else { return }
+        guard !isShutdown, visibleRange != range else { return }
         visibleRange = range
         updatePlugins()
     }
 
     func setActive(_ value: Bool) {
-        guard active != value else { return }
+        guard !isShutdown, active != value else { return }
         active = value
+        activityRevision &+= 1
+        let revision = activityRevision
         updatePlugins()
         let loader = loader
         let timestamp = rawItems.last?.timestamp
         Task {
-            if value { await loader?.willEnterForeground(latestTimestamp: timestamp) }
-            else { await loader?.didEnterBackground(latestTimestamp: timestamp) }
+            await loader?.setActive(value, latestTimestamp: timestamp, revision: revision)
         }
     }
 
     func loadMore(contentOffsetX: Double, viewportWidth: Double) {
-        guard active else { return }
+        guard !isShutdown, active else { return }
         let loader = loader
         Task { await loader?.loadMoreIfNeeded(contentOffsetX: contentOffsetX, viewportWidth: viewportWidth) }
     }
 
     func shutdown() {
+        guard !isShutdown else { return }
+        isShutdown = true
+        active = false
         plugins.onChange = nil
         plugins.onError = nil
         stopLoader()
@@ -146,6 +157,8 @@ final class ChartCoordinator {
         plugins.removeAll()
         onSnapshot = nil; onResources = nil
         onLoadError = nil; onPluginError = nil
+        followsLatest = nil
+        pendingTicks.removeAll()
     }
 
     private func stopLoader() {
@@ -192,7 +205,8 @@ final class ChartCoordinator {
         onResources?(structure)
     }
 
-    private func receive(_ event: DataLoaderEvent) {
+    private func receive(_ event: ChartItemLoader.Event) {
+        guard !isShutdown else { return }
         switch event {
         case let .page(index, items):
             if index > 0 && items.isEmpty { return }
@@ -228,7 +242,7 @@ final class ChartCoordinator {
     }
 
     private func schedule(delay: UInt64 = 0) {
-        guard dirtyIndex != nil else { return }
+        guard !isShutdown, dirtyIndex != nil else { return }
         if delay == 0 { needsImmediateRefresh = true }
         // History and configuration work must not wait behind a timer intended for live ticks.
         if needsImmediateRefresh, let scheduledDelay, scheduledDelay > 0 {
@@ -246,7 +260,7 @@ final class ChartCoordinator {
 
     /// One finite batch publishes even while newer ticks wait for the next batch.
     private func refresh() async {
-        guard !Task.isCancelled else { return }
+        guard !isShutdown, !Task.isCancelled else { return }
         scheduledDelay = nil; needsImmediateRefresh = false
         let generation = calculationGeneration
         let items = rawItems

@@ -14,83 +14,81 @@ struct CandleScaleChange {
     let gap: CGFloat
 }
 
-/// Converts pinch gestures into candle dimensions while preserving the gesture’s horizontal anchor.
-class PinchInteraction: NSObject, UIInteraction {
-    
+/// Applies cumulative gesture scale to the initial dimensions, preserving one logical candle anchor.
+final class PinchInteraction: NSObject, UIInteraction {
     weak var view: UIView?
-    
-    private var pinchCenterX: CGFloat = 0
-    private var oldScale: CGFloat = 1
-    private var scrollView: ChartScrollView { layout.scrollView }
     private let layout: ChartLayout
     private let onScaleChange: (CandleScaleChange) -> Void
-    
+    private var initialDimensions: CandleDimensions?
+    private var pinchCenterX: CGFloat = 0
+    private var anchor: CGFloat = 0
+    private var scrollingWasEnabled: Bool?
+    private var scrollView: ChartScrollView { layout.scrollView }
+    private lazy var recognizer = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
+
     init(layout: ChartLayout, onScaleChange: @escaping (CandleScaleChange) -> Void) {
         self.layout = layout
         self.onScaleChange = onScaleChange
     }
 
     func willMove(to view: UIView?) {
-
+        finishPinch()
+        self.view?.removeGestureRecognizer(recognizer)
     }
 
     func didMove(to view: UIView?) {
-        let pinch = UIPinchGestureRecognizer(
-            target: self,
-            action: #selector(Self.handlePinch(_:))
-        )
-        view?.addGestureRecognizer(pinch)
+        self.view = view
+        view?.addGestureRecognizer(recognizer)
     }
-    
+
     @objc private func handlePinch(_ pinch: UIPinchGestureRecognizer) {
         switch pinch.state {
         case .began:
-            scrollView.isScrollEnabled = false
+            finishPinch()
             guard pinch.numberOfTouches >= 2 else { return }
+            let dimensions = layout.candleDimensions
+            guard dimensions.width.isFinite, dimensions.width > 0, dimensions.gap.isFinite,
+                  dimensions.gap >= 0, dimensions.itemWidth.isFinite else { return }
             let p1 = pinch.location(ofTouch: 0, in: scrollView.contentView)
             let p2 = pinch.location(ofTouch: 1, in: scrollView.contentView)
-            pinchCenterX = (p1.x + p2.x) / 2
-            oldScale = 1.0
+            let center = p1.x / 2 + p2.x / 2
+            let logicalAnchor = (scrollView.contentOffset.x + center) / dimensions.itemWidth
+            guard center.isFinite, logicalAnchor.isFinite else { return }
+            initialDimensions = dimensions
+            pinchCenterX = center
+            anchor = logicalAnchor
+            scrollingWasEnabled = scrollView.isScrollEnabled
+            scrollView.isScrollEnabled = false
         case .changed:
             break
-            
         default:
-            scrollView.isScrollEnabled = true
+            finishPinch()
             return
         }
-        
-        let difValue = pinch.scale - oldScale
-        let dims = layout.candleDimensions
-        let newLineWidth = dims.width * (difValue + 1)
-        let newGap = dims.gap * (difValue + 1)
-        guard (2...24).contains(newLineWidth) else { return }
-        
-        oldScale = pinch.scale
-        let contentOffsetAtPinch = scrollView.contentOffset.x + pinchCenterX
-        let oldContentSize = scrollView.contentSize
-        
-        onScaleChange(CandleScaleChange(width: newLineWidth, gap: newGap))
-        
-        let newContentSize = layout.contentSize
-        guard oldContentSize.width > 0 else {
+        guard let initialDimensions, pinch.scale.isFinite, pinch.scale > 0 else { return }
+        let width = min(max(initialDimensions.width * pinch.scale, 2), 24)
+        let ratio = width / initialDimensions.width
+        guard ratio.isFinite else { return }
+        let gap = initialDimensions.gap * ratio
+        let stride = width + gap
+        let desiredOffset = anchor * stride - pinchCenterX
+        guard gap.isFinite, stride.isFinite, desiredOffset.isFinite else { return }
+        onScaleChange(CandleScaleChange(width: width, gap: gap))
+        // A host may remove the interaction while processing the dimension change.
+        guard self.initialDimensions != nil else { return }
+        scrollView.contentSize = layout.contentSize
+        let minOffset = -scrollView.contentInset.left
+        let maxOffset = max(minOffset, scrollView.contentSize.width - scrollView.bounds.width + scrollView.contentInset.right)
+        let offset = min(max(desiredOffset, minOffset), maxOffset)
+        if scrollView.contentOffset.x == offset {
             scrollView.delegate?.scrollViewDidScroll?(scrollView)
-            return
-        }
-        
-        scrollView.contentSize = newContentSize
-        
-        let scale = newContentSize.width / oldContentSize.width
-        let newContentOffsetAtPinch = contentOffsetAtPinch * scale
-        var newContentOffsetX = newContentOffsetAtPinch - pinchCenterX
-        
-        newContentOffsetX = max(-scrollView.contentInset.left, newContentOffsetX)
-        let maxContentOffsetX = scrollView.contentSize.width - scrollView.bounds.width + scrollView.contentInset.right
-        newContentOffsetX = min(maxContentOffsetX, newContentOffsetX)
+        } else { scrollView.contentOffset.x = offset }
+        scrollView.setNeedsLayout()
+    }
 
-        if scrollView.contentOffset.x == newContentOffsetX {
-            scrollView.delegate?.scrollViewDidScroll?(scrollView)
-        } else {
-            scrollView.contentOffset.x = newContentOffsetX
-        }
+    private func finishPinch() {
+        if let scrollingWasEnabled { scrollView.isScrollEnabled = scrollingWasEnabled }
+        scrollingWasEnabled = nil
+        initialDimensions = nil
     }
 }

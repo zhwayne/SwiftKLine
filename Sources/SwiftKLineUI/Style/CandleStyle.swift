@@ -19,13 +19,14 @@ public struct CandleStyle: Equatable {
     /// The initial spacing between bodies in points; provide a nonnegative value.
     public let gap: CGFloat
 
-    /// Creates initial candle appearance and spacing without clamping caller-supplied dimensions.
+    /// Requires a finite positive width, finite nonnegative gap, and finite combined stride.
     public init(
         risingColor: UIColor = .systemTeal,
         fallingColor: UIColor = .systemPink,
         width: CGFloat = 10,
         gap: CGFloat = 2
     ) {
+        precondition(width.isFinite && width > 0 && gap.isFinite && gap >= 0 && (width + gap).isFinite)
         self.risingColor = risingColor
         self.fallingColor = fallingColor
         self.width = width

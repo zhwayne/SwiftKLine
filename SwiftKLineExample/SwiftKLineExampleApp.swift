@@ -12,12 +12,11 @@ import SwiftKLine
 @main
 struct SwiftKLineExampleApp: App {
     
-    init() {
-    }
+    @State private var chartState = ChartScreenState()
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(state: chartState)
         }
     }
 }

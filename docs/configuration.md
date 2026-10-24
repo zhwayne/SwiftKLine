@@ -4,14 +4,15 @@
 
 [Documentation](README.md) · [Getting started](getting-started.md) · [Data providers](data-providers.md)
 
-UIKit's `ChartView` and SwiftUI's `KLineChart` share one `ChartConfiguration`. Create and apply configurations on the main actor. This page is the reference for what a configuration contains and how the chart reacts to changes; the visual values themselves are covered in [appearance](appearance.md).
+The library's UIKit `ChartView` consumes `ChartConfiguration`. SwiftUI applications can supply their own bridge, as shown in the example's [KLineChart](../SwiftKLineExample/KLineChart.swift). Create and apply configurations on the main actor. This page is the reference for what a configuration contains and how the chart reacts to changes; the visual values themselves are covered in [appearance](appearance.md).
 
 ## Configuration fields
 
 | Field | Purpose | Default |
 |---|---|---|
 | `source` | Provider factory, session semantic ID, and candle boundaries | Required |
-| `appearance` | Theme, sizes, panels, legend, watermark, and indicator parameters | `ChartAppearance()` |
+| `appearance` | Theme, dimensions, legend, watermark, and series styles | `ChartAppearance()` |
+| `indicatorConfiguration` | Built-in calculation keys and parameters | `IndicatorConfiguration()` |
 | `content` | Main-chart presentation | `.candlestick` |
 | `plugins` | Ordered business features; IDs must be nonempty and unique | `[]` |
 | `features` | Candle-loading capabilities | `.all` |
@@ -37,6 +38,7 @@ Validation happens at construction, before a running chart can be affected:
 - `ChartConfigurationError.emptySourceID` — the source needs a nonempty semantic ID.
 - `ChartConfigurationError.emptyPluginID` and `.duplicatePluginID(_:)` cover the plugin list.
 - A fixed `duration` must be a finite positive number; this is a precondition, not a thrown error.
+- Candle width must be finite and positive; gap must be finite and nonnegative, with a finite combined stride. Panel heights must be finite and nonnegative. These construction preconditions do not add a UI error-handling pipeline; layout conversion also rejects non-finite or unrepresentable indices.
 
 Changing the plugin list requires creating a new configuration so validation completes before the chart updates.
 
@@ -64,7 +66,9 @@ A stable configuration passing through `chart.apply(_:)` (UIKit) or a props upda
 | Plugin ID and concrete type unchanged | Updates the existing coordinator |
 | Plugins reordered | Keeps coordinator state; adjusts panel and draw order |
 | Plugin removed or replaced by another type | Revokes context, then dismantles old resources |
-| Appearance changed | Redraws; recalculates only series whose parameters changed |
+| Appearance changed | Redraws; retains calculations |
+| Indicator calculation keys changed | Recalculates affected series and reconciles their renderers |
+| Inputs unchanged | Skips built-in reconciliation and redraw; custom plugins still receive updates |
 | Only `content` changed | Switches presentation without restarting the provider |
 
 Keep plugin IDs stable while their parameters change; the ID, not the parameter values, owns the coordinator. A plugin's account or query identity is its own responsibility, separate from the primary source identity.
@@ -80,9 +84,9 @@ Sharing one configuration value never shares runtime state: every chart instance
 | `.all` | Enables live updates and gap recovery |
 | `[]` | Static charts and deterministic tests |
 
-Pass a `ChartStateStore` to persist the complete `ChartSelection` (period and indicators); `nil` disables storage. SwiftKLine defines the protocol and provides UserDefaults and memory implementations. Storage keys are internal; `UserDefaultsChartStateStore(namespace:)` isolates charts. Applications can reuse the store for other preferences with typed keys. See [shared state storage](indicators.md#shared-state-store).
+The example application optionally restores and saves its own `ChartPreferences` through its own `ChartStateStore`. These types are example source, not library exports. Storage is independent of the chart lifecycle; `UserDefaultsChartStateStore(namespace:)` isolates preferences for different charts. See [shared state storage](indicators.md#shared-state-store).
 
-Chart activity follows window, scene, and application state: entering the background or an inactive scene cancels live consumption and recovery requests, while in-flight historical pages continue. Frontend return or network availability triggers recovery only when `.gapRecovery` is enabled and a last-known timestamp exists; live consumption resumes after the recovery attempt finishes, even if it reports an error.
+Chart activity follows window, scene, and application state: entering the background or an inactive scene cancels live consumption and recovery requests, while in-flight historical pages continue. New source sessions inherit this activity state: an inactive session can fetch history without subscribing to live data. Revisioned activity commands reject stale actor hops, and connectivity recovery cannot reactivate a suspended session. Frontend return or network availability triggers recovery only when `.gapRecovery` is enabled and a last-known timestamp exists; live consumption resumes after the recovery attempt finishes, even if it reports an error.
 
 ## Errors
 
@@ -107,21 +111,27 @@ func attach(chart: ChartView, configuration: ChartConfiguration) {
 
 ## Chart API
 
-`ChartView` (UIKit) and `KLineChart` (SwiftUI) expose the same operations through their platform idioms:
+`ChartView` consumes configuration and independent indicator values. The SwiftUI column describes the application-owned example wrapper:
 
 | Operation | UIKit | SwiftUI |
 |---|---|---|
 | Reconcile configuration | `apply(_:)` | Pass an updated `configuration` |
-| Read selection state | `selection` | `selection` binding |
-| Replace selection | `setSelection(_:)` | Set the bound value |
-| Restore defaults | `resetSelectionToDefault()` | Set the desired default selection through the binding |
+| Read requested indicators | `indicators` | Application-owned state |
+| Read supported indicators | `resolvedIndicators` | `indicators.resolved(availableIndicators:)` |
+| Replace indicators | `setIndicators(_:)` | Pass an updated `indicators` value |
+| Update both inputs | `apply(_:indicators:)` | Pass both updated values |
+| Restore defaults | Supply application defaults explicitly | Update application state |
 | Scroll to latest | `scrollToLatest()` | Not exposed on the adapter; the OS scroll-to-top gesture also targets the latest candle |
+| End chart sessions | `shutdown()` | Application wrapper calls it from `dismantleUIView` |
 | Load errors | `onLoadError` | `onLoadError` initializer argument |
 | Plugin errors | `onPluginError` | `onPluginError` initializer argument |
-| Selection changed | `selectionChanged` | The binding receives user changes |
-| State storage | `stateStore:` initializer argument | `stateStore:` initializer argument |
+| State storage | Application example preferences | Application example preferences |
 
-Applications own period and indicator controls, both backed by one `ChartSelection`. SwiftUI controls bind to `$selection.period` and `$selection.indicators`; UIKit uses `selection`, `setSelection(_:)`, and `selectionChanged`. With a selection-dependent configuration factory, the library restores and validates selection before constructing its source. Availability changes that adjust selection are also persisted and published. The static `configuration:` convenience is for manually managed sources without automatic period switching.
+The application owns the period, available options, controls, restoration and saving. Restore and validate preferences before constructing the first configuration. A period change creates a new source declaration; indicator changes only adjust selected built-ins. The chart derives supported indicators without changing the requested state or writing to a binding. Explicitly declared plugins remain independent of selection.
+
+`shutdown()` is terminal and idempotent: subsequent configuration, indicator and activity updates are ignored, observers are removed, and pending drawing is cancelled. Create a new ChartView to start another session.
+
+Only known immutable built-in styles and complete built-in declarations can prove an update unchanged. Custom plugins still receive every update and must request resource changes or drawing through their context. All custom styles conservatively invalidate drawing, including Equatable references and values that may share mutable state.
 
 SwiftUI notes:
 
@@ -133,7 +143,7 @@ SwiftUI notes:
 | Symptom | Check |
 |---|---|
 | New snapshots don't show | Change the data-source ID; replacing only the factory closure keeps the old session |
-| Indicator selection after launch is unexpected | Check the stored complete selection, supplied initial value, and available options |
+| Indicator selection after launch is unexpected | Check application preferences, requested indicators, and appearance availability |
 | Period or symbol switch leaves stale data | Include period or symbol in the factory's `CandleSource.id`; the same ID retains its session |
 | Events map to the wrong candle | Use Unix seconds and actual candle boundaries; see [time rules](data-providers.md#time-and-boundaries) |
 | Chart height is unexpected | Check sub panels and parent constraints; application controls are outside the chart |

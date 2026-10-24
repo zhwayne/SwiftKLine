@@ -18,6 +18,9 @@
 		8A511D352EA78A8000CD7251 /* Exceptions for "SwiftKLineExample" folder in "SwiftKLineExample" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Tests/ChartPreferencesTests.swift,
+				Tests/ChartScreenStateTests.swift,
+				Tests/KLineChartTests.swift,
 				TradeMarkers/Tests/TradeMarkerTests.swift,
 			);
 			target = 9636C3BC2DABED4C00420970 /* SwiftKLineExample */;
@@ -371,9 +374,6 @@
 			relativePath = ../SwiftKLine;
 		};
 /* End XCLocalSwiftPackageReference section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		292FF91A2E3DE92700E2ABF0 /* SwiftKLine */ = {

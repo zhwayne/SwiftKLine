@@ -15,6 +15,7 @@ struct LegendCache<Key: Hashable> {
     struct Value {
         let text: NSAttributedString
         let size: CGSize
+        let measurementSize: CGSize
     }
 
     private let capacity: Int
@@ -27,6 +28,17 @@ struct LegendCache<Key: Hashable> {
 
     subscript(key: Key) -> Value? {
         storage[key]
+    }
+
+    /// A cached measurement is valid only for the same layout constraint, even when text is unchanged.
+    mutating func value(for key: Key, measurementSize: CGSize) -> Value? {
+        guard let value = storage[key] else { return nil }
+        guard value.measurementSize == measurementSize else {
+            storage.removeValue(forKey: key)
+            if lastMainKey == key { lastMainKey = nil }
+            return nil
+        }
+        return value
     }
 
     mutating func clear() {

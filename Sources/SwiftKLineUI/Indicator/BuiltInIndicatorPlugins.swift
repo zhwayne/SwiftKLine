@@ -8,7 +8,7 @@
 import SwiftKLineCore
 import Foundation
 
-extension ChartAppearance {
+extension IndicatorConfiguration {
     func periods(for indicator: BuiltInIndicator, matching extractor: (SeriesKey) -> Int?) -> [Int] {
         indicatorKeys(for: indicator).compactMap(extractor)
     }
@@ -17,7 +17,7 @@ extension ChartAppearance {
 @MainActor
 struct BuiltInIndicatorPlugin: ChartPlugin {
     let indicator: BuiltInIndicator
-    let appearance: ChartAppearance
+    let configuration: IndicatorConfiguration
 
     var id: String {
         indicator.id.rawValue
@@ -39,24 +39,24 @@ struct BuiltInIndicatorPlugin: ChartPlugin {
     }
     func makeCoordinator() -> Coordinator { Coordinator() }
     func update(coordinator: Coordinator, context: ChartPluginContext) {
-        let keys = appearance.indicatorKeys(for: indicator)
+        let keys = configuration.indicatorKeys(for: indicator)
         guard coordinator.keys != keys else { return }
         coordinator.keys = keys
         for index in 0..<coordinator.calculatorCount { context.removeCalculator(for: "series.\(index)") }
-        let calculators = makeCalculators(configuration: appearance)
+        let calculators = makeCalculators(configuration: configuration)
         coordinator.calculatorCount = calculators.count
         for (index, calculator) in calculators.enumerated() {
             context.setCalculator(calculator, for: "series.\(index)")
         }
         for index in 0..<coordinator.rendererCount { context.removeRenderer(for: "drawing.\(index)") }
-        let renderers = makeRenderers(configuration: appearance)
+        let renderers = makeRenderers(configuration: configuration, calculatorKeys: Set(calculators.map(\.id)))
         coordinator.rendererCount = renderers.count
         for (index, renderer) in renderers.enumerated() {
             context.setRenderer(renderer, for: "drawing.\(index)", panel: indicator.isMain ? .main : .sub)
         }
     }
 
-    func makeCalculators(configuration: ChartAppearance) -> [any IndicatorCalculator] {
+    func makeCalculators(configuration: IndicatorConfiguration) -> [any IndicatorCalculator] {
         switch indicator {
         case .kdj, .cci, .wr, .dmi, .atr, .obv, .roc, .mfi, .trix:
             return configuration.indicatorKeys(for: indicator).compactMap { key in
@@ -188,11 +188,23 @@ struct BuiltInIndicatorPlugin: ChartPlugin {
         }
     }
 
-    func makeRenderers(configuration: ChartAppearance) -> [any ChartRenderer] {
+    /// Convenience for callers that hold only a configuration and not yet-resolved keys.
+    ///
+    /// The plugin lifecycle uses the keyed overload to avoid rebuilding every calculator twice.
+    func makeRenderers(configuration: IndicatorConfiguration) -> [any ChartRenderer] {
+        makeRenderers(configuration: configuration,
+                      calculatorKeys: Set(makeCalculators(configuration: configuration).map(\.id)))
+    }
+
+    /// Builds renderers for the keys the calculators actually resolved.
+    ///
+    /// The nine generic lower-panel indicators draw from whatever their calculator accepted, so the
+    /// resolved keys are passed in instead of rebuilding the calculators a second time. One parse
+    /// therefore decides both what is calculated and what is drawn.
+    func makeRenderers(configuration: IndicatorConfiguration, calculatorKeys: Set<SeriesKey>) -> [any ChartRenderer] {
         switch indicator {
         case .kdj, .cci, .wr, .dmi, .atr, .obv, .roc, .mfi, .trix:
-            let keys = Set(makeCalculators(configuration: configuration).map(\.id))
-            return configuration.indicatorKeys(for: indicator).filter { keys.contains($0) }
+            return configuration.indicatorKeys(for: indicator).filter { calculatorKeys.contains($0) }
                 .enumerated().map { SubIndicatorRenderer.make(key: $0.element, showsLegend: $0.offset == 0) }
         case .ma, .ema, .wma:
             let keys = configuration.indicatorKeys(for: indicator).filter { $0.indicatorID == indicator.id }

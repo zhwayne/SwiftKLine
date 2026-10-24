@@ -40,7 +40,7 @@ Run the suites relevant to your change. Use Core tests for formula or merge chan
 
 ## Code and API conventions
 
-- Keep Core Foundation-only. Put UIKit coordination and rendering in `SwiftKLineUI`, and keep the SwiftUI adapter thin.
+- Keep Core Foundation-only. Put UIKit coordination and rendering in `SwiftKLineUI`, and keep SwiftUI integration in application/example code.
 - Keep calculations, network transport, and rendering separate. Exchange authentication, account models, and execution semantics belong to applications.
 - Respect `MainActor`, `Sendable`, and structured cancellation; avoid unchecked annotations that hide ownership problems.
 - Preserve semantic identities across updates. Source IDs describe data and calendar meaning; plugin IDs describe stable features.

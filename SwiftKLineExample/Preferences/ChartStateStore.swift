@@ -1,28 +1,29 @@
 //
 //  ChartStateStore.swift
-//  SwiftKLineUI
+//  SwiftKLineExample
 //
 //  Created by zhwayne on 2026/10/23.
 //
 
+#if canImport(UIKit)
 import Foundation
 
 /// A type-safe key for a Codable, Sendable value within a state store.
-public struct ChartStateKey<Value: Codable & Sendable>: Hashable, Sendable {
+struct ChartStateKey<Value: Codable & Sendable>: Hashable, Sendable {
     /// The relative key used for reading, writing, and removal.
-    public let rawValue: String
+    let rawValue: String
 
     /// Creates a nonempty key relative to the store's namespace.
-    public init(_ rawValue: String) {
+    init(_ rawValue: String) {
         precondition(!rawValue.isEmpty)
         self.rawValue = rawValue
     }
 }
 
-/// Synchronous data storage used from the chart's main-actor state pipeline.
+/// Synchronous storage for application-owned chart preferences and other state.
 /// Backends receive relative keys and can apply their own namespace.
 @MainActor
-public protocol ChartStateStore: AnyObject {
+protocol ChartStateStore: AnyObject {
     /// Returns raw data for a key, or nil when no value exists.
     func data(forKey key: String) -> Data?
     /// Replaces raw data for a key.
@@ -31,7 +32,7 @@ public protocol ChartStateStore: AnyObject {
     func removeValue(forKey key: String)
 }
 
-public extension ChartStateStore {
+extension ChartStateStore {
     /// Decodes a typed value, accepting current JSON and legacy property-list data.
     func value<Value: Codable & Sendable>(for key: ChartStateKey<Value>) -> Value? {
         guard let data = data(forKey: key.rawValue) else { return nil }
@@ -51,47 +52,48 @@ public extension ChartStateStore {
     }
 }
 
-/// A UserDefaults-backed state store supplied by SwiftKLine.
+/// Application preference storage backed by UserDefaults.
 @MainActor
-public final class UserDefaultsChartStateStore: ChartStateStore {
+final class UserDefaultsChartStateStore: ChartStateStore {
     private let defaults: UserDefaults
     private let namespace: String
 
     /// Creates a store in the supplied defaults domain and namespace.
     /// The default namespace preserves existing indicator-selection data.
     /// Use an empty namespace to store relative keys without a prefix.
-    public init(defaults: UserDefaults = .standard, namespace: String = "com.swiftkline") {
+    init(defaults: UserDefaults = .standard, namespace: String = "com.swiftkline") {
         self.defaults = defaults
         self.namespace = namespace
     }
 
-    public func data(forKey key: String) -> Data? { defaults.data(forKey: storageKey(for: key)) }
-    public func set(_ data: Data, forKey key: String) { defaults.set(data, forKey: storageKey(for: key)) }
-    public func removeValue(forKey key: String) { defaults.removeObject(forKey: storageKey(for: key)) }
+    func data(forKey key: String) -> Data? { defaults.data(forKey: storageKey(for: key)) }
+    func set(_ data: Data, forKey key: String) { defaults.set(data, forKey: storageKey(for: key)) }
+    func removeValue(forKey key: String) { defaults.removeObject(forKey: storageKey(for: key)) }
 
     private func storageKey(for key: String) -> String {
         namespace.isEmpty ? key : "\(namespace).\(key)"
     }
 }
 
-/// An in-memory state store for previews, tests, and ephemeral sessions.
+/// Application-owned in-memory storage for previews, tests, and ephemeral sessions.
 @MainActor
-public final class MemoryChartStateStore: ChartStateStore {
+final class MemoryChartStateStore: ChartStateStore {
     private var values: [String: Data]
 
     /// Creates a store with optional raw seed data.
-    public init(values: [String: Data] = [:]) {
+    init(values: [String: Data] = [:]) {
         self.values = values
     }
 
-    public func data(forKey key: String) -> Data? { values[key] }
-    public func set(_ data: Data, forKey key: String) { values[key] = data }
-    public func removeValue(forKey key: String) { values.removeValue(forKey: key) }
+    func data(forKey key: String) -> Data? { values[key] }
+    func set(_ data: Data, forKey key: String) { values[key] = data }
+    func removeValue(forKey key: String) { values.removeValue(forKey: key) }
 }
 
-extension ChartStateKey where Value == ChartSelection {
-    /// Internal key for the complete chart selection.
-    static var chartSelection: ChartStateKey<ChartSelection> {
-        ChartStateKey("chart.selection")
+extension ChartStateKey where Value == ChartPreferences {
+    /// Storage key for an application-owned chart preference snapshot.
+    static var chartPreferences: ChartStateKey<ChartPreferences> {
+        ChartStateKey("chart.preferences")
     }
 }
+#endif

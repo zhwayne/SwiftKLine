@@ -9,5 +9,4 @@
 @_exported import SwiftKLineCore
 #if canImport(UIKit)
 @_exported import SwiftKLineUI
-@_exported import SwiftKLineSwiftUI
 #endif

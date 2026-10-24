@@ -24,7 +24,7 @@ struct LegendCoordinator {
         context: ChartContext
     ) -> (viewPortOffsetY: CGFloat, cost: CFTimeInterval) {
         let legendStart = CACurrentMediaTime()
-        let cachedLegend = legendCache[legendKey]
+        let cachedLegend = legendCache.value(for: legendKey, measurementSize: groupFrame.size)
         let legendText = cachedLegend?.text ?? LegendCache<Key>.makeLegendText(
             for: group.renderers,
             context: context
@@ -54,7 +54,8 @@ struct LegendCoordinator {
             let legendFrame = CGRect(origin: legendLabel.frame.origin, size: legendLabel.frame.size)
             context.legendFrame = legendFrame
             if legendCache[legendKey] == nil {
-                legendCache.store(.init(text: legendText, size: legendFrame.size), for: legendKey)
+                legendCache.store(.init(text: legendText, size: legendFrame.size,
+                                        measurementSize: groupFrame.size), for: legendKey)
             }
             return (legendFrame.maxY, legendCost)
         }
@@ -69,7 +70,8 @@ struct LegendCoordinator {
                 context: nil
             )
             measuredSize = boundingRect.size
-            legendCache.store(.init(text: legendText, size: measuredSize), for: legendKey)
+            legendCache.store(.init(text: legendText, size: measuredSize,
+                                    measurementSize: groupFrame.size), for: legendKey)
         }
         context.legendFrame = CGRect(
             x: 12, y: groupFrame.minY + group.padding.top,

@@ -13,25 +13,24 @@ import SwiftKLine
 struct KLineSwiftUIView: View {
     let mode: ChartDisplayMode
     let usesOfflineData: Bool
-    @Binding var selection: ChartSelection
-    let stateStore: any ChartStateStore
+    let period: ChartPeriod
+    @Binding var indicators: IndicatorSelection
+    let availableIndicators: [BuiltInIndicator]
     private let appearance = ChartAppearance.themed(.midnight)
 
     var body: some View {
         VStack(spacing: 0) {
             KLineChart(
-                selection: $selection,
-                availablePeriods: DemoChartPeriod.all.map(\.period),
-                stateStore: stateStore,
-                configuration: configuration
+                configuration: configuration(for: period),
+                indicators: indicators.resolved(availableIndicators: availableIndicators)
             )
                 .fixedSize(horizontal: false, vertical: true)
-            IndicatorSelectorView(indicators: appearance.indicators, selection: $selection.indicators)
+            IndicatorSelectorView(indicators: availableIndicators, selection: $indicators)
         }
     }
 
-    private func configuration(for selection: ChartSelection) -> ChartConfiguration {
-        let period = selection.period, offline = usesOfflineData
+    private func configuration(for period: ChartPeriod) -> ChartConfiguration {
+        let offline = usesOfflineData
         let source = CandleSource(id: "BTCUSDT:\(period.identifier):\(period.seconds):\(offline)", candleInterval: { timestamp in
             let start = Date(timeIntervalSince1970: Double(timestamp))
             if period == .oneMonth {
@@ -77,8 +76,8 @@ final class DemoProvider: ChartItemProvider, Sendable {
     KLineSwiftUIView(
         mode: .candlestick,
         usesOfflineData: true,
-        selection: .constant(.init(period: .oneMinute,
-            indicators: .init(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))),
-        stateStore: MemoryChartStateStore()
+        period: .oneMinute,
+        indicators: .constant(.init(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])),
+        availableIndicators: BuiltInIndicator.allCases
     )
 }

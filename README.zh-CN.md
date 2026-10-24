@@ -2,7 +2,7 @@
 
 [English](README.md) | **简体中文**
 
-面向 iOS 和 iPadOS 的模块化 K 线图表库，使用 Swift、UIKit 和 Core Animation 构建。UIKit 与 SwiftUI 共用同一套配置。
+面向 iOS 和 iPadOS 的模块化 K 线图表库，使用 Swift、UIKit 和 Core Animation 构建。可直接使用 UIKit 图表，或在应用层桥接到 SwiftUI。
 
 [![Swift 6](https://img.shields.io/badge/Swift-6.0%2B-orange)](Package.swift)
 [![支持平台](https://img.shields.io/badge/platforms-iOS%20%7C%20iPadOS-blue)](#环境要求)
@@ -34,7 +34,7 @@
 - 蜡烛图与分时折线图，支持滚动、双指缩放和十字光标。
 - 内置 MA、EMA、WMA、BOLL、SAR、BBI、VWMA、Donchian、SuperTrend（SUPER）、Ichimoku（ICHI）、VOL、RSI、MACD、KDJ、CCI、WR、DMI、ATR、OBV、ROC、MFI、TRIX，提供开放的选择状态与可插拔持久化。
 - 历史数据分页、完整实时 K 线快照与可选的缺口恢复。
-- UIKit 与 SwiftUI 共用 `ChartConfiguration`，提供明暗主题预设。
+- UIKit 宿主消费声明式 `ChartConfiguration` 并提供明暗主题预设；SwiftUI 桥接由应用实现。
 - 通过 `ChartPlugin` 扩展指标、叠加层与副图。
 - 通过 `RangeDataProvider` 和 `RangeLoader` 为业务数据独立进行时间范围分页。
 - 按可见范围绘制、复用图层，在支持的计算路径上增量更新，并合并高频实时更新。
@@ -104,6 +104,8 @@ func sampleConfiguration() throws -> ChartConfiguration {
 
 ### SwiftUI
 
+SwiftUI 桥接属于应用层。先将示例中的 [KLineChart.swift](SwiftKLineExample/KLineChart.swift) 加入你的应用 target；下面的 `KLineChart` 是这段应用代码，不由库导出。
+
 将上面返回的配置传入视图：
 
 ```swift
@@ -113,11 +115,11 @@ import SwiftKLine
 @MainActor
 struct MarketChart: View {
     let configuration: ChartConfiguration
-    @State private var selection = ChartSelection(period: .oneMinute,
-        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
+    @State private var indicators = IndicatorSelection(
+        mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])
 
     var body: some View {
-        KLineChart(selection: $selection) { _ in configuration }
+        KLineChart(configuration: configuration, indicators: indicators)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -133,9 +135,8 @@ import SwiftKLine
 
 @MainActor
 func installChart(in container: UIView, configuration: ChartConfiguration) -> ChartView {
-    let selection = ChartSelection(period: .oneMinute,
-        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
-    let chart = ChartView(configuration: configuration, selection: selection)
+    let indicators = IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])
+    let chart = ChartView(configuration: configuration, indicators: indicators)
     container.addSubview(chart)
     chart.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
@@ -155,7 +156,7 @@ func installChart(in container: UIView, configuration: ChartConfiguration) -> Ch
 
 在 Xcode 中打开 [SwiftKLineExample.xcodeproj](SwiftKLineExample.xcodeproj)，选择 `SwiftKLineExample` scheme，在 iOS 18+ 模拟器或设备上运行。
 
-应用演示周期切换、蜡烛图与分时图切换，以及应用自有的 SwiftUI 指标选择器。两个选择器绑定同一 `ChartSelection`，由库通过 `ChartStateStore` 恢复和保存。正常运行使用示例中的 Binance provider，需要能够访问该服务；独立图表预览使用确定性的离线数据。
+应用演示周期切换、蜡烛图与分时图切换，以及应用自有的 SwiftUI 指标选择器。应用管理周期与指标状态，由应用持有的 `ChartScreenState` 恢复一次偏好并按变化保存；偏好和存储类型均属于示例代码。正常运行使用示例中的 Binance provider，需要能够访问该服务；独立图表预览使用确定性的离线数据。
 
 可选的[成交标记示例](SwiftKLineExample/TradeMarkers/TradeMarkerExample.swift) 演示应用自有的 provider、插件和渲染器，以及独立分页。默认页面未启用该插件。成交模型与账户或查询身份属于示例代码，不是库的公开 API。
 

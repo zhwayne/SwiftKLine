@@ -2,7 +2,7 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-A modular candlestick chart library for iOS and iPadOS, built with Swift, UIKit, and Core Animation. Use the same configuration in UIKit and SwiftUI.
+A modular candlestick chart library for iOS and iPadOS, built with Swift, UIKit, and Core Animation. Use the UIKit chart directly or bridge it into SwiftUI in your application.
 
 [![Swift 6](https://img.shields.io/badge/Swift-6.0%2B-orange)](Package.swift)
 [![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20iPadOS-blue)](#requirements)
@@ -34,7 +34,7 @@ A modular candlestick chart library for iOS and iPadOS, built with Swift, UIKit,
 - Candlestick and time-series charts with scrolling, pinch zoom, and a crosshair.
 - Built-in MA, EMA, WMA, BOLL, SAR, BBI, VWMA, Donchian, SuperTrend (SUPER), Ichimoku (ICHI), VOL, RSI, MACD, KDJ, CCI, WR, DMI, ATR, OBV, ROC, MFI, and TRIX indicators, with open selection state and pluggable persistence.
 - Historical pagination, complete live candle snapshots, and optional gap recovery.
-- Shared `ChartConfiguration` for UIKit and SwiftUI, with light and dark theme presets.
+- Declarative `ChartConfiguration` for the UIKit host, with light and dark theme presets; SwiftUI bridging stays in the application.
 - Custom indicators, overlays, and sub-panels through `ChartPlugin`.
 - Independent time-range pagination for application data through `RangeDataProvider` and `RangeLoader`.
 - Visible-range drawing, reusable layers, incremental calculation where supported, and coalesced live updates.
@@ -104,6 +104,8 @@ This produces the light, offline chart shown above. `features: []` disables live
 
 ### SwiftUI
 
+SwiftUI integration belongs to the application. First add the example [KLineChart.swift](SwiftKLineExample/KLineChart.swift) to your app target; the `KLineChart` below is application code and is not exported by the library.
+
 Pass the configuration returned above into your view:
 
 ```swift
@@ -113,11 +115,11 @@ import SwiftKLine
 @MainActor
 struct MarketChart: View {
     let configuration: ChartConfiguration
-    @State private var selection = ChartSelection(period: .oneMinute,
-        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
+    @State private var indicators = IndicatorSelection(
+        mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])
 
     var body: some View {
-        KLineChart(selection: $selection) { _ in configuration }
+        KLineChart(configuration: configuration, indicators: indicators)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -133,9 +135,8 @@ import SwiftKLine
 
 @MainActor
 func installChart(in container: UIView, configuration: ChartConfiguration) -> ChartView {
-    let selection = ChartSelection(period: .oneMinute,
-        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
-    let chart = ChartView(configuration: configuration, selection: selection)
+    let indicators = IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])
+    let chart = ChartView(configuration: configuration, indicators: indicators)
     container.addSubview(chart)
     chart.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
@@ -155,7 +156,7 @@ A stable `CandleSource.id` retains the provider session while `.liveUpdates` and
 
 Open [SwiftKLineExample.xcodeproj](SwiftKLineExample.xcodeproj) in Xcode, select the `SwiftKLineExample` scheme, and run on an iOS 18+ simulator or device.
 
-The app demonstrates period switching, candlestick and time-series presentation, and an application-owned SwiftUI indicator selector. Both selectors bind to one `ChartSelection`; the library restores and persists it through `ChartStateStore`. Normal runs use the example's Binance provider and require network access to that service. The standalone chart preview uses deterministic offline data.
+The app demonstrates period switching, candlestick and time-series presentation, and an application-owned SwiftUI indicator selector. The application owns period and indicator state, uses an application-owned `ChartScreenState` to restore preferences once and save changes through its own store; these preference types are example code. Normal runs use the example's Binance provider and require network access to that service. The standalone chart preview uses deterministic offline data.
 
 The optional [trade-marker example](SwiftKLineExample/TradeMarkers/TradeMarkerExample.swift) demonstrates an application-owned provider, plugin, and renderer with separate pagination. It is not enabled on the default page. Its trade types and account/query identities belong to the example, not the public library API.
 

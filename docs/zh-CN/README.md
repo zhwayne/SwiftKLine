@@ -29,12 +29,11 @@
 
 | 名称 | 类型 | 职责 |
 |---|---|---|
-| `SwiftKLine` | 库产品与统一入口 target | 在 iOS 上导出 Core、UIKit 与 SwiftUI API |
-| `SwiftKLineCore` | 库产品与 target | Foundation 模型、合并、计算器、类型化输出与范围分页 |
+| `SwiftKLine` | 库产品与统一入口 target | 在 iOS 上导出 Core 与 UIKit API |
+| `SwiftKLineCore` | 库产品与 target | Foundation 模型、合并、计算器、类型化输出、范围分页与主 K 线加载会话 |
 | `SwiftKLineUI` | 包内部 target | 配置、生命周期协调、UIKit 与 Core Animation 渲染 |
-| `SwiftKLineSwiftUI` | 包内部 target | `UIViewRepresentable` 适配器 |
 
-包使用者可用的两个库产品是 `SwiftKLine` 和 `SwiftKLineCore`。UI target 包含由 `SwiftKLine` 再导出的公开 API；它们不是独立的包产品。
+包使用者可用的两个库产品是 `SwiftKLine` 和 `SwiftKLineCore`。UIKit target 包含由 `SwiftKLine` 再导出的公开 API，它不是独立包产品。SwiftUI 桥接属于应用代码，示例提供了轻量的 `UIViewRepresentable` 包装。
 
 ## 双语与示例
 

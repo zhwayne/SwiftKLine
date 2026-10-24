@@ -27,7 +27,7 @@ private func item(_ timestamp: Int, _ close: Double) -> Candle {
     layer.bounds = scroll.bounds
     renderer.install(to: layer)
     func context(_ closes: [Double], revision: UInt64) -> ChartContext {
-        let context = ChartContext(indicatorSeriesStore: IndicatorSeriesStore(),
+        let context = ChartContext(seriesStore: IndicatorSeriesStore(),
             items: closes.enumerated().map { item($0.offset * 60, $0.element) },
             appearance: ChartAppearance(), candleDimensions: dimensions, visibleRange: 0..<3,
             layout: layout, location: nil, selectedIndex: nil, dataRevision: revision)
@@ -55,7 +55,7 @@ private func item(_ timestamp: Int, _ close: Double) -> Candle {
     var store = IndicatorSeriesStore()
     store.setValues(ContiguousArray<Double?>([10, 20]), for: .ma(period: 1))
     func context(_ store: IndicatorSeriesStore) -> ChartContext {
-        let ctx = ChartContext(indicatorSeriesStore: store, items: [item(0, 10), item(60, 20)],
+        let ctx = ChartContext(seriesStore: store, items: [item(0, 10), item(60, 20)],
             appearance: ChartAppearance(), candleDimensions: dims, visibleRange: 0..<2,
             layout: layout, location: nil, selectedIndex: nil)
         ctx.viewPort = scroll.bounds
@@ -87,7 +87,7 @@ private func item(_ timestamp: Int, _ close: Double) -> Candle {
     ]), for: key)
     let items: [any ChartItem] = (0..<3).map { item($0 * 60, 20) }
     func context(_ store: IndicatorSeriesStore) -> ChartContext {
-        let ctx = ChartContext(indicatorSeriesStore: store, items: items,
+        let ctx = ChartContext(seriesStore: store, items: items,
             appearance: ChartAppearance(), candleDimensions: dimensions, visibleRange: 0..<3,
             layout: layout, location: nil, selectedIndex: nil)
         ctx.viewPort = scroll.bounds
@@ -138,7 +138,7 @@ private func item(_ timestamp: Int, _ close: Double) -> Candle {
     ]), for: ichimokuKey)
 
     func context(_ store: IndicatorSeriesStore) -> ChartContext {
-        let ctx = ChartContext(indicatorSeriesStore: store, items: (0..<4).map { item($0 * 60, 20) },
+        let ctx = ChartContext(seriesStore: store, items: (0..<4).map { item($0 * 60, 20) },
             appearance: ChartAppearance(), candleDimensions: dimensions, visibleRange: 0..<4,
             layout: layout, location: nil, selectedIndex: nil)
         ctx.viewPort = scroll.bounds
@@ -190,7 +190,7 @@ private func item(_ timestamp: Int, _ close: Double) -> Candle {
     ]), for: key)
     let items: [any ChartItem] = [22, 23, 15, 14].enumerated().map { item($0.offset * 60, $0.element) }
     let ctx = ChartContext(
-        indicatorSeriesStore: store,
+        seriesStore: store,
         items: items,
         appearance: ChartAppearance(),
         candleDimensions: dimensions,
@@ -246,7 +246,7 @@ func offlineChartLaysOutAndDrawsFinitePaths(width: CGFloat) async throws {
     }
     let chart = ChartView(configuration: try testConfiguration(items: candles,
         appearance: .themed(.solaris)),
-        selection: testSelection(IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd])))
+        indicators: IndicatorSelection(mainIndicatorIDs: [.ma], subIndicatorIDs: [.vol, .macd]))
     chart.overrideUserInterfaceStyle = .light
     chart.backgroundColor = .white
     #expect(await eventually { chart.debugItemTimestamps.count == 100 })

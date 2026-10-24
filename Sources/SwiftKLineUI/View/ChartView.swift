@@ -17,7 +17,6 @@ public final class ChartView: UIView {
     private let chartView = UIView()
     private var chartHeightConstraint: NSLayoutConstraint!
     private var watermarkHeightConstraint: NSLayoutConstraint!
-    private let selectionController: ChartSelectionController
     private var declaredConfiguration: ChartConfiguration
     private let scrollView = ChartScrollView()
     private let legendLabel = UILabel()
@@ -41,17 +40,18 @@ public final class ChartView: UIView {
     private var legendCache = LegendCache<LegendCacheKey>()
     private var configuration: ChartAppearance { coordinator.configuration.appearance }
     private var items: [any ChartItem] { coordinator.snapshot.items }
-    private var indicatorSeriesStore: IndicatorSeriesStore { IndicatorSeriesStore() }
     private var dataRevision: UInt64 { coordinator.snapshot.revision }
     /// Called on the main actor for candle history and recovery errors.
     public var onLoadError: ((Error) -> Void)?
     /// Called on the main actor with the failed plugin ID; other features keep running.
     public var onPluginError: ((String, Error) -> Void)?
 
-    /// Reports selection changes after they are normalized and stored when a state store is configured.
-    public var selectionChanged: ((ChartSelection) -> Void)?
-    /// The resolved period and indicator choices currently applied to the chart.
-    public var selection: ChartSelection { selectionController.selection }
+    /// Requested built-in choices. The application owns edits and persistence.
+    public private(set) var indicators: IndicatorSelection
+    /// Supported, correctly placed, unique built-ins derived from the requested choices.
+    public var resolvedIndicators: IndicatorSelection {
+        indicators.resolved(availableIndicators: BuiltInIndicator.allCases)
+    }
 
     private struct ColorAppearanceSignature: Hashable {
         let userInterfaceStyle: UIUserInterfaceStyle
@@ -74,30 +74,15 @@ public final class ChartView: UIView {
     private var debugDrawReporter = DebugDrawReporter()
     #endif
 
-    /// Creates a chart with a manually supplied source. Use the factory initializer for automatic period changes.
-    public convenience init(frame: CGRect = .zero, configuration: ChartConfiguration,
-                selection: ChartSelection? = nil,
-                stateStore: (any ChartStateStore)? = nil,
+    /// Creates a chart from application-owned inputs. Indicator choices default to empty;
+    /// period changes are supplied as new configurations.
+    public init(frame: CGRect = .zero, configuration: ChartConfiguration,
+                indicators: IndicatorSelection = IndicatorSelection(),
                 onLoadError: ((Error) -> Void)? = nil, onPluginError: ((String, Error) -> Void)? = nil) {
-        self.init(frame: frame,
-                  selection: selection ?? ChartSelection(period: .oneMinute,
-                    indicators: ChartSelectionController.defaults(for: configuration.appearance)),
-                  stateStore: stateStore, configuration: { _ in configuration },
-                  onLoadError: onLoadError, onPluginError: onPluginError)
-    }
-
-    /// Restores and normalizes selection before constructing configuration and starting provider sessions.
-    /// An empty availablePeriods list accepts valid custom periods. Keep the configuration factory free of side effects.
-    public init(frame: CGRect = .zero, selection: ChartSelection,
-                availablePeriods: [ChartPeriod] = [], stateStore: (any ChartStateStore)? = nil,
-                configuration makeConfiguration: @escaping (ChartSelection) -> ChartConfiguration,
-                onLoadError: ((Error) -> Void)? = nil, onPluginError: ((String, Error) -> Void)? = nil) {
-        let controller = ChartSelectionController(selection: selection, availablePeriods: availablePeriods,
-            stateStore: stateStore, configuration: makeConfiguration)
-        selectionController = controller
-        let configuration = controller.configuration
+        let requested = indicators
+        self.indicators = requested
         declaredConfiguration = configuration
-        let effectiveConfiguration = controller.configuredChart()
+        let effectiveConfiguration = configuration.includingIndicators(requested)
         coordinator = ChartCoordinator(configuration: effectiveConfiguration)
         candleDimensions = CandleDimensions(width: configuration.appearance.candleStyle.width,
                                             gap: configuration.appearance.candleStyle.gap)
@@ -151,7 +136,7 @@ public final class ChartView: UIView {
         coordinator.onPluginError = { [weak self] in self?.onPluginError?($0, $1) }
         coordinator.followsLatest = { [weak self] in self?.scrollView.isNearRightEdge ?? true }
         chartView.addInteraction(PinchInteraction(layout: layout) { [weak self] change in
-            guard let self else { return }
+            guard let self, !self.coordinator.isShutdown else { return }
             self.candleDimensions = CandleDimensions(width: change.width, gap: change.gap)
             self.layout.candleDimensions = self.candleDimensions
         })
@@ -202,43 +187,28 @@ public final class ChartView: UIView {
 
     /// Reconciles source and plugin identities, preserving unchanged coordinators and subscriptions.
     public func apply(_ configuration: ChartConfiguration) {
-        apply(configuration: { _ in configuration })
+        apply(configuration, indicators: indicators)
     }
 
-    /// Updates declarations and optionally issues one complete selection command in the same transaction.
-    /// Omitting selection preserves the current choices, subject to the new availability constraints.
-    public func apply(selection: ChartSelection? = nil, availablePeriods: [ChartPeriod] = [],
-                      configuration: @escaping (ChartSelection) -> ChartConfiguration) {
-        let old = declaredConfiguration
-        let oldSelection = selectionController.selection
-        selectionController.apply(selection, availablePeriods: availablePeriods, configuration: configuration)
-        reconcileConfiguration(previous: old, previousSelection: oldSelection)
-    }
-
-    private func reconcileConfiguration(previous old: ChartConfiguration, previousSelection oldSelection: ChartSelection) {
-        let configuration = selectionController.configuration
+    /// Applies configuration and requested indicators together. Resolution affects rendering only.
+    public func apply(_ configuration: ChartConfiguration, indicators: IndicatorSelection) {
+        guard !coordinator.isShutdown else { return }
+        let invalidation = ChartInvalidation(from: declaredConfiguration, to: configuration)
+        self.indicators = indicators
         declaredConfiguration = configuration
-        let sourceChanged = old.source.id != configuration.source.id
-            || old.features.intersection(.candleLoading) != configuration.features.intersection(.candleLoading)
-        let dimensionsChanged = old.appearance.candleStyle.width != configuration.appearance.candleStyle.width
-            || old.appearance.candleStyle.gap != configuration.appearance.candleStyle.gap
-        let geometryChanged = old.content != configuration.content
-            || old.appearance.layoutMetrics != configuration.appearance.layoutMetrics || dimensionsChanged
-        if sourceChanged { clearRenderers(); lastPublishedCount = 0 }
-        if dimensionsChanged {
+        if invalidation.restartsCandleSession { clearRenderers(); lastPublishedCount = 0 }
+        if invalidation.candleDimensionsChanged {
             candleDimensions = CandleDimensions(width: configuration.appearance.candleStyle.width,
                                                 gap: configuration.appearance.candleStyle.gap)
             layout.candleDimensions = candleDimensions
         }
-        if geometryChanged { clearCrosshair() }
-        coordinator.apply(selectionController.configuredChart())
+        if invalidation.geometryChanged { clearCrosshair() }
+        coordinator.apply(configuration.includingIndicators(indicators))
+        guard !coordinator.isShutdown else { return }
         if watermarkLabel.text != configuration.appearance.watermarkText {
             watermarkLabel.text = configuration.appearance.watermarkText
         }
-        if geometryChanged { rebuildDescriptor() }
-        if oldSelection != selectionController.selection {
-            selectionChanged?(selectionController.selection)
-        }
+        if invalidation.geometryChanged { rebuildDescriptor() }
     }
 
     /// The configured panels determine height; the container determines width.
@@ -268,23 +238,27 @@ public final class ChartView: UIView {
     }
 
     /// Moves to the latest candle using the configured scroll insets.
-    public func scrollToLatest() { scrollView.scroll(to: .right) }
-    package func shutdown() { coordinator.shutdown() }
-
-    /// Normalizes, applies and stores a complete period/indicator selection as one transaction.
-    public func setSelection(_ selection: ChartSelection) {
-        let old = declaredConfiguration
-        let oldSelection = self.selection
-        selectionController.set(selection)
-        reconcileConfiguration(previous: old, previousSelection: oldSelection)
+    public func scrollToLatest() {
+        guard !coordinator.isShutdown else { return }
+        scrollView.scroll(to: .right)
+    }
+    /// Permanently ends sessions, observations and drawing. Repeated calls are harmless;
+    /// create a new chart instance to start another session after shutdown.
+    public func shutdown() {
+        guard !coordinator.isShutdown else { return }
+        redrawScheduler.stop()
+        observations.removeAll()
+        scrollView.onLayoutChanged = nil
+        coordinator.shutdown()
+        for interaction in chartView.interactions { chartView.removeInteraction(interaction) }
+        clearRenderers()
+        onLoadError = nil
+        onPluginError = nil
     }
 
-    /// Restores the initial period and the current appearance's default indicators.
-    public func resetSelectionToDefault() {
-        let old = declaredConfiguration
-        let oldSelection = selection
-        selectionController.reset()
-        reconcileConfiguration(previous: old, previousSelection: oldSelection)
+    /// Updates requested built-in choices while preserving the current source and declarations.
+    public func setIndicators(_ indicators: IndicatorSelection) {
+        apply(declaredConfiguration, indicators: indicators)
     }
 
     private func updateActivity() {
@@ -320,6 +294,7 @@ public final class ChartView: UIView {
         redrawScheduler.schedule(mode) { [weak self] in self?.drawVisibleContent(mode: $0) }
     }
     private func updateCrosshair(location: CGPoint, itemIndex: Int) {
+        guard !coordinator.isShutdown else { return }
         selectedLocation = location; selectedIndex = itemIndex
         if crosshairRenderer == nil {
             crosshairRenderer = CrosshairRenderer(configuration: configuration)
@@ -328,6 +303,7 @@ public final class ChartView: UIView {
         scheduleRedraw(.crosshairOnly)
     }
     private func drawVisibleContent(mode: RedrawMode = .full) {
+        guard !coordinator.isShutdown else { return }
         let drawStartTime = CACurrentMediaTime()
         var legendCost: CFTimeInterval = 0
         var boundsCost: CFTimeInterval = 0
@@ -350,7 +326,7 @@ public final class ChartView: UIView {
         if visibleRange.isEmpty { return }
 
         let context = ChartContext(
-            indicatorSeriesStore: indicatorSeriesStore,
+            seriesStore: nil,
             items: items,
             appearance: configuration,
             candleDimensions: candleDimensions,

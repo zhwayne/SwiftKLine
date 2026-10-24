@@ -10,19 +10,16 @@ SwiftKLine 将 K 线数据、指标计算和可见范围绘制分开。一份配
 
 ```mermaid
 flowchart TD
-    Entry[SwiftKLine] --> Core[SwiftKLineCore]
+    App[Application and SwiftUI bridge] --> Entry[SwiftKLine]
+    Entry --> Core[SwiftKLineCore]
     Entry --> UI[SwiftKLineUI]
-    Entry --> Adapter[SwiftKLineSwiftUI]
-    Adapter --> UI
-    Adapter --> Core
     UI --> Core
 ```
 
 | 模块 | 职责 |
 |---|---|
-| `SwiftKLineCore` | Foundation 模型、合并规则、计算器、类型化输出与范围加载器 |
+| `SwiftKLineCore` | Foundation 模型、合并规则、计算器、类型化输出、范围加载器与主 K 线加载会话 |
 | `SwiftKLineUI` | 配置协调、插件、面板、布局、UIKit 与 Core Animation |
-| `SwiftKLineSwiftUI` | 配置转发、绑定同步、尺寸协商与清理 |
 | `SwiftKLine` | 为包使用方提供统一导入入口 |
 
 只有 `SwiftKLine` 和 `SwiftKLineCore` 是库产品。统一入口的 UI 依赖仅在 iOS 条件下引入。Core 不依赖 UIKit，可在 macOS 上运行宿主机测试和基准测试。
@@ -33,14 +30,34 @@ flowchart TD
 
 | 所有者 | 状态 |
 |---|---|
-| 应用 | 配置值、provider 实现、业务模型与账户身份 |
+| 应用 | 周期、指标选择、偏好存储、配置值、provider 与业务模型 |
 | 图表 | 主会话、计算发布、插件协调器与绘制图层 |
 | 插件协调器 | 功能专属资源、独立会话、订阅与取消状态 |
-| SwiftUI 适配器 | 绑定同步，不创建第二套数据运行时 |
+| 应用层 SwiftUI 桥接 | 向 ChartView 转发值、协商宿主尺寸，并在移除时结束会话 |
 
 每个图表启动新的主会话时都会调用 provider 工厂。共享配置不等于共享协调器。如果工厂返回共享服务，该服务必须自行隔离订阅与取消行为。
 
 插件通过稳定 ID 与具体类型匹配。移除或替换时，宿主先撤销上下文再清理。资源集合、面板组装、类型擦除和内部会话令牌保留在实现内部。
+
+## 偏好与图表输入
+
+`ChartPreferences` 与 `ChartStateStore` 属于示例应用源码，库中不包含这些类型。`ChartScreenState` 是应用持有的可观察实例，只恢复一次并保存实际变化，`ContentView` 只绑定该实例。`ChartAppearance` 保存视觉设置，`IndicatorConfiguration` 单独保存计算 key。可用指标与默认选择由应用管理。应用先恢复、按自身能力校验周期，再构造 `ChartConfiguration`。控件绑定应用状态，将当前配置和 `IndicatorSelection` 传给图表；需要保存时显式写入快照。
+
+应用过滤可用选项而不覆盖原始偏好；图表保留输入并派生已识别、位置正确且不重复的内置指标，因此临时可用性变化可以恢复。自定义插件仍显式声明在配置中。数据源 identity 决定何时重启 provider；仅修改指标保留主会话与未变的插件 coordinator。
+
+这一设计替换了原来的 `ChartSelection`/`ChartSelectionController` 模型。图表不再负责持久化、周期校验、配置工厂、选择回调或异步绑定协调。应用可用 `UIViewRepresentable` 包装 `ChartView`；库中不包含 SwiftUI target、import 或适配 API。示例应用的 `KLineChart` 负责转发值、协商尺寸，并在移除时调用 `shutdown()`。
+
+```mermaid
+flowchart LR
+    Store[Preference store] --> App[Application state and validation]
+    Controls[Application controls] --> App
+    App --> Config[ChartConfiguration]
+    App --> Indicators[IndicatorSelection]
+    Config --> Chart[Chart runtime]
+    Indicators --> Chart
+    App --> Save[Explicit save]
+    Save --> Store
+```
 
 ## 数据发布
 
@@ -75,7 +92,7 @@ flowchart LR
 
 跨边界值遵循 `Sendable`。Provider 应配合取消，并在流终止时关闭资源。会话检查拒绝取消后才完成的迟到结果。
 
-销毁时取消会话、撤销上下文、清理插件资源并释放已安装图层。插件拥有的任务仍须显式清理，详见[插件生命周期](plugins.md#插件生命周期)。
+关闭是幂等的永久终止操作：拒绝后续更新、取消会话与待绘制任务、移除通知观察者、撤销上下文、清理插件资源并释放已安装图层。插件拥有的任务仍须显式清理，详见[插件生命周期](plugins.md#插件生命周期)。
 
 ## 渲染与交互
 

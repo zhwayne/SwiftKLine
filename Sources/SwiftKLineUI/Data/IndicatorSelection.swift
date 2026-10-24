@@ -8,17 +8,18 @@
 import SwiftKLineCore
 import Foundation
 
-/// An ordered, persistable indicator selection using open IDs.
+/// Ordered, persistable built-in indicator choices represented by stable IDs.
 ///
-/// The value itself does not validate placements, availability, or duplicates; ChartView normalizes submitted selections.
+/// Charts derive a supported subset without changing the requested value. Custom plugins are declared
+/// separately in ChartConfiguration.plugins; this value does not enable or disable them.
 /// Compatibility encoding retains the historical "main" and "sub" storage keys.
 public struct IndicatorSelection: Codable, Equatable, Sendable {
-    /// Selected main or overlay plugin IDs in display order.
+    /// Requested built-in main indicator IDs in display order.
     public var mainIndicatorIDs: [IndicatorID]
-    /// Selected lower-panel plugin IDs in display order.
+    /// Requested built-in lower-panel indicator IDs in display order.
     public var subIndicatorIDs: [IndicatorID]
 
-    /// Creates a selection from open IDs; the chart filters unsupported values.
+    /// Creates a selection from stable IDs; unsupported IDs are omitted from rendering.
     public init(mainIndicatorIDs: [IndicatorID] = [], subIndicatorIDs: [IndicatorID] = []) {
         self.mainIndicatorIDs = mainIndicatorIDs
         self.subIndicatorIDs = subIndicatorIDs
@@ -61,6 +62,22 @@ public struct IndicatorSelection: Codable, Equatable, Sendable {
     }
 
     var indicatorIDs: [IndicatorID] { mainIndicatorIDs + subIndicatorIDs }
+
+    /// Returns available built-ins in their requested order, removing duplicates and misplaced IDs.
+    /// The original selection is preserved, so temporarily unavailable indicators can return later.
+    public func resolved(availableIndicators: [BuiltInIndicator]) -> IndicatorSelection {
+        let available = Set(availableIndicators)
+        func filter(_ ids: [IndicatorID], main: Bool) -> [IndicatorID] {
+            var seen = Set<IndicatorID>()
+            return ids.filter { id in
+                guard let indicator = BuiltInIndicator(id: id), available.contains(indicator),
+                      indicator.isMain == main else { return false }
+                return seen.insert(id).inserted
+            }
+        }
+        return IndicatorSelection(mainIndicatorIDs: filter(mainIndicatorIDs, main: true),
+                                  subIndicatorIDs: filter(subIndicatorIDs, main: false))
+    }
 
     /// Encodes open IDs under the historical main/sub keys to preserve stored selection compatibility.
     public func encode(to encoder: any Encoder) throws {

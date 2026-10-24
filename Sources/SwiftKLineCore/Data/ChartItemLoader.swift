@@ -1,33 +1,32 @@
 //
 //  ChartItemLoader.swift
-//  SwiftKLineUI
+//  SwiftKLineCore
 //
 //  Created by zhwayne on 2025/04/13.
 //
 
-import SwiftKLineCore
 import Foundation
-
-/// Sendable events delivered to the main actor, keeping provider work separate from chart-state mutation.
-enum DataLoaderEvent: Sendable {
-    case page(index: Int, items: [any ChartItem])
-    case recovery(items: [any ChartItem])
-    case liveTick(any ChartItem)
-    case failed(DataLoaderError)
-}
-
-/// Distinguishes historical-page failures from missing-interval recovery failures.
-enum DataLoaderError: Error {
-    case page(Error)
-    case recovery(Error)
-}
 
 /// Owns a single provider session. Stopping is terminal; replacement requires a fresh loader.
 ///
 /// Request identities reject late results across actor suspension points. Task closures avoid holding
 /// the loader strongly across provider waits so disposal does not depend on an uncooperative request completing.
-actor ChartItemLoader {
-    typealias EventHandler = @MainActor @Sendable (DataLoaderEvent) -> Void
+package actor ChartItemLoader {
+    /// Sendable events delivered to the main actor, keeping provider work separate from chart-state mutation.
+    package enum Event: Sendable {
+        case page(index: Int, items: [any ChartItem])
+        case recovery(items: [any ChartItem])
+        case liveTick(any ChartItem)
+        case failed(Failure)
+    }
+
+    /// Distinguishes historical-page failures from missing-interval recovery failures.
+    package enum Failure: Error {
+        case page(Error)
+        case recovery(Error)
+    }
+
+    package typealias EventHandler = @MainActor @Sendable (Event) -> Void
     private let provider: any ChartItemProvider
     private let eventHandler: EventHandler
     private let enablesLiveUpdates: Bool
@@ -35,6 +34,7 @@ actor ChartItemLoader {
     private var started = false
     private var stopped = false
     private var suspended = false
+    private var activityRevision: UInt64
     private var page = 0
     private var hasMorePages = true
     /// A non-nil task also marks a page as in flight, before another actor message can enqueue duplicate work.
@@ -47,11 +47,14 @@ actor ChartItemLoader {
     private var recoveryID: UUID?
     private var lastKnownTimestamp: Int?
 
-    init(provider: some ChartItemProvider, enablesLiveUpdates: Bool = true,
-         enablesGapRecovery: Bool = true, eventHandler: @escaping EventHandler) {
+    package init(provider: some ChartItemProvider, enablesLiveUpdates: Bool = true,
+         enablesGapRecovery: Bool = true, initiallyActive: Bool = true,
+         activityRevision: UInt64 = 0, eventHandler: @escaping EventHandler) {
         self.provider = provider
         self.enablesLiveUpdates = enablesLiveUpdates
         self.enablesGapRecovery = enablesGapRecovery
+        suspended = !initiallyActive
+        self.activityRevision = activityRevision
         self.eventHandler = eventHandler
     }
 
@@ -62,7 +65,7 @@ actor ChartItemLoader {
     }
 
     /// Starts the initial page and optional live subscription once, unless the session has already stopped.
-    func start() {
+    package func start() {
         guard !started, !stopped else { return }
         started = true
         startLoadingMore()
@@ -70,7 +73,7 @@ actor ChartItemLoader {
     }
 
     /// Permanently stops this session and invalidates all live/recovery identities before cancellation.
-    func stop() {
+    package func stop() {
         stopped = true
         fetchTask?.cancel(); fetchTask = nil
         cancelLiveStream()
@@ -78,13 +81,13 @@ actor ChartItemLoader {
     }
 
     /// Requests an older page near the leading edge, provided no page is active and pagination is not exhausted.
-    func loadMoreIfNeeded(contentOffsetX: Double, viewportWidth: Double) {
+    package func loadMoreIfNeeded(contentOffsetX: Double, viewportWidth: Double) {
         guard started, !stopped, contentOffsetX < viewportWidth * 2 else { return }
         startLoadingMore()
     }
 
     /// Remembers a recovery boundary and suspends live consumption and any in-flight recovery.
-    func didEnterBackground(latestTimestamp: Int?) {
+    package func didEnterBackground(latestTimestamp: Int?) {
         guard !stopped else { return }
         suspended = true
         lastKnownTimestamp = latestTimestamp ?? lastKnownTimestamp
@@ -92,11 +95,24 @@ actor ChartItemLoader {
         cancelRecovery()
     }
 
+    /// Revisioned activity commands cannot be undone by an older actor hop arriving late.
+    package func setActive(_ value: Bool, latestTimestamp: Int?, revision: UInt64) {
+        guard !stopped, revision > activityRevision else { return }
+        activityRevision = revision
+        if value { willEnterForeground(latestTimestamp: latestTimestamp) }
+        else { didEnterBackground(latestTimestamp: latestTimestamp) }
+    }
+
     /// Recovers the missing interval when possible, then reconnects live data without overlapping the two sources.
-    func willEnterForeground(latestTimestamp: Int?) {
-        guard started, !stopped else { return }
+    package func willEnterForeground(latestTimestamp: Int?) {
+        guard !stopped else { return }
         suspended = false
-        guard recoveryTask == nil else { return }
+        recoverIfActive(latestTimestamp: latestTimestamp)
+    }
+
+    /// Connectivity recovery does not change visibility or reactivate a suspended session.
+    package func recoverIfActive(latestTimestamp: Int?) {
+        guard started, !stopped, !suspended, recoveryTask == nil else { return }
         guard enablesGapRecovery, let timestamp = latestTimestamp ?? lastKnownTimestamp else {
             startLiveStream()
             return
